@@ -47,7 +47,7 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo -e "${YELLOW}Production Commands:${NC}"
-    echo "  deploy               Deploy to production (no pull, webhook handles that)"
+    echo "  deploy [\"message\"]   Commit changes, push to GitHub, wait for webhook deploy"
     echo "  restart              Restart production services"
     echo "  stop                 Stop production services"
     echo "  start                Start production services"
@@ -66,34 +66,86 @@ show_help() {
     echo "  db-query <query>     Execute SQL on production database"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo "  $0 deploy           # Restart services on production"
-    echo "  $0 test             # Run all tests and show summary"
-    echo "  $0 health           # Check API health"
-    echo "  $0 db-query \"SELECT * FROM users LIMIT 5;\" # Query production DB"
+    echo "  $0 deploy                                    # Deploy with default message"
+    echo "  $0 deploy \"fix: resolve login bug\"          # Deploy with custom message"
+    echo "  $0 test                                      # Run all tests and show summary"
+    echo "  $0 health                                    # Check API health"
+    echo "  $0 db-query \"SELECT * FROM users LIMIT 5;\"  # Query production DB"
 }
 
-# Deploy to production (restart services, webhook handles git pull)
+# Deploy to production (commit, push, wait for webhook, verify)
 deploy_to_production() {
+    local commit_message="${1:-Deploy: automated deployment}"
+
     print_header "Deploying to Production"
 
-    print_status "Testing SSH connection..."
+    # Check for uncommitted changes
+    if [ -n "$(git status --porcelain)" ]; then
+        print_status "Uncommitted changes detected, committing..."
+        git add -A
+        git commit -m "$commit_message
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>" || {
+            print_error "Failed to commit changes"
+            return 1
+        }
+    else
+        print_status "No uncommitted changes found"
+    fi
+
+    # Push to remote
+    print_status "Pushing to GitHub..."
+    git push origin main || {
+        print_error "Failed to push to GitHub"
+        return 1
+    }
+
+    print_success "Code pushed to GitHub"
+    print_status "Waiting for webhook to deploy (15 seconds)..."
+    sleep 15
+
+    # Test SSH connection
+    print_status "Testing SSH connection to production..."
     if ! ssh -o ConnectTimeout=10 "$REMOTE_SERVER" "echo 'SSH connection successful'" >/dev/null 2>&1; then
         print_error "Cannot connect to $REMOTE_SERVER"
         return 1
     fi
 
-    print_status "Restarting Docker services on production..."
-    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose restart"
+    # Check if containers are running
+    print_status "Checking service status..."
+    local containers_running=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps --services --filter 'status=running' | wc -l")
 
-    sleep 5
-
-    print_status "Checking service health..."
-    if curl -f -s "https://$REMOTE_DOMAIN/api/health" >/dev/null 2>&1; then
-        print_success "✅ Deployment successful! API is healthy at https://$REMOTE_DOMAIN"
-    else
-        print_error "❌ Deployment verification failed - API not responding"
-        return 1
+    if [ "$containers_running" -lt 2 ]; then
+        print_warning "Some containers may not be running, checking logs..."
+        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps"
     fi
+
+    # Verify health
+    print_status "Verifying deployment..."
+    local max_attempts=10
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if curl -f -s "https://$REMOTE_DOMAIN/api/health" >/dev/null 2>&1; then
+            print_success "✅ Deployment successful! Services are healthy"
+            echo ""
+            echo -e "${CYAN}Production URLs:${NC}"
+            echo "  Web:    https://$REMOTE_DOMAIN"
+            echo "  API:    https://$REMOTE_DOMAIN/api/health"
+            echo "  Docs:   https://$REMOTE_DOMAIN/api/openapi"
+            return 0
+        fi
+
+        print_status "Waiting for services to be ready (attempt $attempt/$max_attempts)..."
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+
+    print_error "❌ Deployment verification failed - API not responding after $max_attempts attempts"
+    print_status "Check logs with: $0 logs api"
+    return 1
 }
 
 # Restart production services
@@ -341,7 +393,8 @@ execute_db_query() {
 # Main command handler
 case ${1:-help} in
     deploy)
-        deploy_to_production
+        shift
+        deploy_to_production "$*"
         ;;
     restart)
         restart_services
