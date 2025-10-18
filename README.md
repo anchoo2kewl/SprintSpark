@@ -182,3 +182,4 @@ See [CLAUDE.md](CLAUDE.md) for detailed development guidelines including:
 
 MIT
 
+# Webhook configured
