@@ -39,6 +39,9 @@ COPY --from=builder --chown=sprintspark:sprintspark /build/sprintspark .
 # Copy OpenAPI spec (needed for /api/openapi endpoint)
 COPY --chown=sprintspark:sprintspark openapi.yaml .
 
+# Copy database migrations
+COPY --chown=sprintspark:sprintspark internal/db/migrations ./internal/db/migrations
+
 # Switch to non-root user
 USER sprintspark
 
