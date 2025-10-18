@@ -236,6 +236,85 @@ export async function verifyTaskInBoard(page: Page, taskTitle: string) {
 }
 
 /**
+ * Drag a task to a new status column (simulates drag and drop)
+ */
+export async function dragTaskToStatus(page: Page, taskTitle: string, targetStatus: 'todo' | 'in_progress' | 'done') {
+  // Find the task card
+  const taskCard = page.locator(`h4:has-text("${taskTitle}")`).locator('..')
+
+  // Get task card position
+  const taskBox = await taskCard.boundingBox()
+  if (!taskBox) throw new Error('Task card not found')
+
+  // Find target column
+  const statusColumnMap = {
+    'todo': 'To Do',
+    'in_progress': 'In Progress',
+    'done': 'Done'
+  }
+  const targetColumn = page.locator(`h3:has-text("${statusColumnMap[targetStatus]}")`).locator('..')
+  const columnBox = await targetColumn.boundingBox()
+  if (!columnBox) throw new Error('Target column not found')
+
+  // Perform drag
+  await taskCard.hover()
+  await page.mouse.down()
+  await page.mouse.move(columnBox.x + columnBox.width / 2, columnBox.y + 100, { steps: 10 })
+  await page.mouse.up()
+
+  // Wait for animation/API call
+  await page.waitForTimeout(500)
+}
+
+/**
+ * Click on a task to open detail modal
+ */
+export async function openTaskDetail(page: Page, taskTitle: string) {
+  await page.locator(`h4:has-text("${taskTitle}")`).click()
+  await page.waitForSelector('text=Edit Task')
+}
+
+/**
+ * Update task via detail modal
+ */
+export async function updateTaskViaModal(
+  page: Page,
+  updates: { title?: string, description?: string, status?: string, dueDate?: string }
+) {
+  if (updates.title !== undefined) {
+    await page.fill('#edit-title', updates.title)
+  }
+  if (updates.description !== undefined) {
+    await page.fill('#edit-description', updates.description)
+  }
+  if (updates.status !== undefined) {
+    await page.selectOption('#edit-status', updates.status)
+  }
+  if (updates.dueDate !== undefined) {
+    await page.fill('#edit-due-date', updates.dueDate)
+  }
+
+  await page.click('button:has-text("Save Changes")')
+  await page.waitForSelector('text=Edit Task', { state: 'hidden', timeout: 5000 })
+}
+
+/**
+ * Verify task status badge
+ */
+export async function verifyTaskStatus(page: Page, taskTitle: string, expectedStatus: 'To Do' | 'In Progress' | 'Done') {
+  const taskCard = page.locator(`h4:has-text("${taskTitle}")`).locator('..')
+  await expect(taskCard.locator(`text="${expectedStatus}"`)).toBeVisible()
+}
+
+/**
+ * Verify task has due date
+ */
+export async function verifyTaskDueDate(page: Page, taskTitle: string) {
+  const taskCard = page.locator(`h4:has-text("${taskTitle}")`).locator('..')
+  await expect(taskCard.locator('text=/📅/')).toBeVisible()
+}
+
+/**
  * Wait for element and take screenshot for debugging
  */
 export async function waitAndScreenshot(

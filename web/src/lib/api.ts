@@ -25,12 +25,14 @@ export interface CreateTaskRequest {
   title: string
   description?: string
   status?: 'todo' | 'in_progress' | 'done'
+  due_date?: string
 }
 
 export interface UpdateTaskRequest {
   title?: string
   description?: string
   status?: 'todo' | 'in_progress' | 'done'
+  due_date?: string | null
 }
 
 // Helper types for API responses (using available operations)

@@ -14,6 +14,11 @@ import {
   createTaskUI,
   verifyTaskInBoard,
   verifyTasksAPI,
+  dragTaskToStatus,
+  openTaskDetail,
+  updateTaskViaModal,
+  verifyTaskStatus,
+  verifyTaskDueDate,
 } from './helpers';
 
 test.describe('SprintSpark - Complete User Journey', () => {
@@ -206,6 +211,116 @@ test.describe('SprintSpark - Complete User Journey', () => {
 
       // Verify task board is visible
       await expect(page.locator('text=To Do (3)')).toBeVisible();
+    });
+
+    // ====================
+    // 5.7 DRAG AND DROP STATUS CHANGES
+    // ====================
+    await test.step('User can drag tasks to change status', async () => {
+      await navigateToProject(page, project1.name);
+
+      // Drag first task from "To Do" to "In Progress"
+      await dragTaskToStatus(page, task1.title, 'in_progress');
+
+      // Verify task moved to "In Progress" column
+      await expect(page.locator('text=To Do (2)')).toBeVisible();
+      await expect(page.locator('text=In Progress (1)')).toBeVisible();
+
+      // Verify task has "In Progress" badge
+      await verifyTaskStatus(page, task1.title, 'In Progress');
+
+      // Drag second task to "Done"
+      await dragTaskToStatus(page, task2.title, 'done');
+
+      // Verify counts updated
+      await expect(page.locator('text=To Do (1)')).toBeVisible();
+      await expect(page.locator('text=Done (1)')).toBeVisible();
+
+      // Verify task has "Done" badge
+      await verifyTaskStatus(page, task2.title, 'Done');
+    });
+
+    await test.step('Drag and drop changes persist in API', async () => {
+      const tasks = await verifyTasksAPI(page, project1Id);
+
+      const task1Data = tasks.find((t: any) => t.title === task1.title);
+      const task2Data = tasks.find((t: any) => t.title === task2.title);
+
+      expect(task1Data?.status).toBe('in_progress');
+      expect(task2Data?.status).toBe('done');
+    });
+
+    // ====================
+    // 5.8 TASK EDITING VIA MODAL
+    // ====================
+    await test.step('User can edit task via detail modal', async () => {
+      await navigateToProject(page, project1.name);
+
+      // Click on task3 to open detail modal
+      await openTaskDetail(page, task3.title);
+
+      // Verify modal shows correct data
+      await expect(page.locator('#edit-title')).toHaveValue(task3.title);
+      await expect(page.locator('#edit-description')).toHaveValue(task3.description || '');
+
+      // Update task with new data
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      await updateTaskViaModal(page, {
+        title: task3.title + ' (Updated)',
+        description: 'Updated description',
+        status: 'in_progress',
+        dueDate: tomorrowStr
+      });
+
+      // Verify updated task appears with new title
+      await verifyTaskInBoard(page, task3.title + ' (Updated)');
+
+      // Verify status changed to "In Progress"
+      await verifyTaskStatus(page, task3.title + ' (Updated)', 'In Progress');
+
+      // Verify due date is displayed
+      await verifyTaskDueDate(page, task3.title + ' (Updated)');
+
+      // Verify counts updated (now 2 in progress, 0 in todo)
+      await expect(page.locator('text=To Do (0)')).toBeVisible();
+      await expect(page.locator('text=In Progress (2)')).toBeVisible();
+    });
+
+    await test.step('Task edits persist in API', async () => {
+      const tasks = await verifyTasksAPI(page, project1Id);
+
+      const task3Data = tasks.find((t: any) => t.title === task3.title + ' (Updated)');
+
+      expect(task3Data).toBeTruthy();
+      expect(task3Data?.description).toBe('Updated description');
+      expect(task3Data?.status).toBe('in_progress');
+      expect(task3Data?.due_date).toBeTruthy();
+
+      // Verify due date is correct (should be tomorrow)
+      const dueDate = new Date(task3Data?.due_date);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      expect(dueDate.getDate()).toBe(tomorrow.getDate());
+    });
+
+    await test.step('Can change task status via dropdown in modal', async () => {
+      await navigateToProject(page, project1.name);
+
+      // Open task1 detail
+      await openTaskDetail(page, task1.title);
+
+      // Change status from "In Progress" to "Done" via dropdown
+      await updateTaskViaModal(page, {
+        status: 'done'
+      });
+
+      // Verify task moved to "Done" column
+      await expect(page.locator('text=In Progress (1)')).toBeVisible();
+      await expect(page.locator('text=Done (2)')).toBeVisible();
+      await verifyTaskStatus(page, task1.title, 'Done');
     });
 
     // ====================
