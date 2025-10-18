@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext'
+import { api } from '../lib/api'
 
 // Types from backend
 interface UserWithStats {
@@ -48,17 +49,7 @@ export default function Admin() {
       setLoading(true)
       setError(null)
 
-      const token = localStorage.getItem('token')
-      const response = await fetch('https://sprintspark.biswas.me/api/admin/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to load users')
-      }
-
+      const response = await api.fetch('/api/admin/users')
       const data = await response.json()
       setUsers(data)
     } catch (err) {
@@ -72,17 +63,7 @@ export default function Admin() {
     try {
       setActivityLoading(true)
 
-      const token = localStorage.getItem('token')
-      const response = await fetch(`https://sprintspark.biswas.me/api/admin/users/${userId}/activity`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to load activity')
-      }
-
+      const response = await api.fetch(`/api/admin/users/${userId}/activity`)
       const data = await response.json()
       setActivities(data)
     } catch (err) {
@@ -95,11 +76,9 @@ export default function Admin() {
 
   const toggleAdminStatus = async (userId: number, currentStatus: boolean) => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`https://sprintspark.biswas.me/api/admin/users/${userId}/admin`, {
+      const response = await api.fetch(`/api/admin/users/${userId}/admin`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ is_admin: !currentStatus }),
