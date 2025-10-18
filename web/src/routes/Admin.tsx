@@ -49,8 +49,7 @@ export default function Admin() {
       setLoading(true)
       setError(null)
 
-      const response = await api.fetch('/api/admin/users')
-      const data = await response.json()
+      const data = await api.getUsers()
       setUsers(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load users')
@@ -63,8 +62,7 @@ export default function Admin() {
     try {
       setActivityLoading(true)
 
-      const response = await api.fetch(`/api/admin/users/${userId}/activity`)
-      const data = await response.json()
+      const data = await api.getUserActivity(userId)
       setActivities(data)
     } catch (err) {
       console.error('Failed to load activity:', err)
@@ -76,17 +74,7 @@ export default function Admin() {
 
   const toggleAdminStatus = async (userId: number, currentStatus: boolean) => {
     try {
-      const response = await api.fetch(`/api/admin/users/${userId}/admin`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ is_admin: !currentStatus }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to update admin status')
-      }
+      await api.updateUserAdmin(userId, !currentStatus)
 
       // Reload users to get updated data
       await loadUsers()

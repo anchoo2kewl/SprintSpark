@@ -209,6 +209,22 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // Admin endpoints
+  async getUsers(): Promise<any[]> {
+    return this.request<any[]>('/api/admin/users')
+  }
+
+  async getUserActivity(userId: number): Promise<any[]> {
+    return this.request<any[]>(`/api/admin/users/${userId}/activity`)
+  }
+
+  async updateUserAdmin(userId: number, isAdmin: boolean): Promise<any> {
+    return this.request<any>(`/api/admin/users/${userId}/admin`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_admin: isAdmin }),
+    })
+  }
 }
 
 // Export a singleton instance
