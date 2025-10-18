@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { api, Project } from '../lib/api'
+import { useAuth } from '../state/AuthContext'
 
 interface SidebarProps {
   onCreateProject: () => void
@@ -11,6 +12,8 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const { user } = useAuth()
   const { id: selectedProjectId } = useParams<{ id: string }>()
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-gray-200 space-y-2">
         <button
           onClick={onCreateProject}
           className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
@@ -84,6 +87,23 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
           </svg>
           New Project
         </button>
+
+        {/* Admin Link */}
+        {user?.is_admin && (
+          <button
+            onClick={() => navigate('/app/admin')}
+            className={`w-full font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+              location.pathname === '/app/admin'
+                ? 'bg-purple-600 text-white'
+                : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            Admin
+          </button>
+        )}
       </div>
 
       {/* Projects List */}

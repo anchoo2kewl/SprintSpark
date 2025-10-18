@@ -34,6 +34,7 @@ type AuthResponse struct {
 type User struct {
 	ID        int64     `json:"id"`
 	Email     string    `json:"email"`
+	IsAdmin   bool      `json:"is_admin"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -66,12 +67,12 @@ func (s *Server) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	query := `
 		INSERT INTO users (email, password_hash)
 		VALUES (?, ?)
-		RETURNING id, email, created_at
+		RETURNING id, email, is_admin, created_at
 	`
 
 	var user User
 	err = s.db.QueryRowContext(ctx, query, req.Email, hashedPassword).
-		Scan(&user.ID, &user.Email, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &user.IsAdmin, &user.CreatedAt)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -115,15 +116,16 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	query := `SELECT id, email, password_hash, created_at FROM users WHERE email = ?`
+	query := `SELECT id, email, password_hash, is_admin, created_at FROM users WHERE email = ?`
 
 	var user User
 	var passwordHash string
 	err := s.db.QueryRowContext(ctx, query, req.Email).
-		Scan(&user.ID, &user.Email, &passwordHash, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &passwordHash, &user.IsAdmin, &user.CreatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			// Log failed login attempt
 			respondError(w, http.StatusUnauthorized, "invalid email or password", "invalid_credentials")
 			return
 		}
@@ -134,9 +136,14 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Verify password
 	if err := auth.VerifyPassword(passwordHash, req.Password); err != nil {
+		// Log failed login attempt
+		go s.logUserActivity(context.Background(), user.ID, "failed_login", getClientIP(r), r.UserAgent())
 		respondError(w, http.StatusUnauthorized, "invalid email or password", "invalid_credentials")
 		return
 	}
+
+	// Log successful login
+	go s.logUserActivity(context.Background(), user.ID, "login", getClientIP(r), r.UserAgent())
 
 	// Generate JWT token
 	token, err := auth.GenerateToken(user.ID, user.Email, s.config.JWTSecret, s.config.JWTExpiry())
@@ -164,11 +171,11 @@ func (s *Server) HandleMe(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	query := `SELECT id, email, created_at FROM users WHERE id = ?`
+	query := `SELECT id, email, is_admin, created_at FROM users WHERE id = ?`
 
 	var user User
 	err := s.db.QueryRowContext(ctx, query, userID).
-		Scan(&user.ID, &user.Email, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &user.IsAdmin, &user.CreatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

@@ -132,6 +132,11 @@ func main() {
 			r.Post("/projects/{projectId}/tasks", server.HandleCreateTask)
 			r.Patch("/tasks/{id}", server.HandleUpdateTask)
 			r.Delete("/tasks/{id}", server.HandleDeleteTask)
+
+			// Admin routes (requires admin role)
+			r.Get("/admin/users", server.HandleGetUsers)
+			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
+			r.Patch("/admin/users/{id}/admin", server.HandleUpdateUserAdmin)
 		})
 	})
 

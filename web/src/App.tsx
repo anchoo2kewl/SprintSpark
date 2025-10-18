@@ -6,6 +6,7 @@ import Signup from './routes/Signup'
 import Dashboard from './routes/Dashboard'
 import Projects from './routes/Projects'
 import ProjectDetail from './routes/ProjectDetail'
+import Admin from './routes/Admin'
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           >
             <Route index element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetail />} />
+            <Route path="admin" element={<Admin />} />
           </Route>
 
           {/* Redirect root to login */}
