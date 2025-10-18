@@ -59,6 +59,11 @@ export default function Signup() {
       <Card className="max-w-md w-full">
         <CardHeader>
           <div className="text-center">
+            <img
+              src="/logo.svg"
+              alt="SprintSpark"
+              className="mx-auto h-20 w-20 mb-4"
+            />
             <h2 className="text-3xl font-bold text-gray-900">
               SprintSpark
             </h2>

@@ -8,6 +8,10 @@ export default function ProjectDetail() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false)
+  const [newTaskTitle, setNewTaskTitle] = useState('')
+  const [newTaskDescription, setNewTaskDescription] = useState('')
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -58,6 +62,27 @@ export default function ProjectDetail() {
     }
   }
 
+  const handleCreateTask = async () => {
+    if (!newTaskTitle.trim() || !id) return
+
+    try {
+      setCreating(true)
+      const task = await api.createTask(Number(id), {
+        title: newTaskTitle.trim(),
+        description: newTaskDescription.trim() || undefined,
+        status: 'todo',
+      })
+      setTasks([...tasks, task])
+      setShowNewTaskModal(false)
+      setNewTaskTitle('')
+      setNewTaskDescription('')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create task')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-8">
@@ -103,7 +128,10 @@ export default function ProjectDetail() {
               <p className="mt-1 text-sm text-gray-600">{project.description}</p>
             )}
           </div>
-          <button className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors duration-200">
+          <button
+            onClick={() => setShowNewTaskModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors duration-200"
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -234,6 +262,72 @@ export default function ProjectDetail() {
           </div>
         )}
       </div>
+
+      {/* New Task Modal */}
+      {showNewTaskModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Task</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="task-title" className="block text-sm font-medium text-gray-700 mb-1">
+                  Title *
+                </label>
+                <input
+                  id="task-title"
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="Enter task title"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newTaskTitle.trim()) {
+                      handleCreateTask()
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="task-description" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  id="task-description"
+                  value={newTaskDescription}
+                  onChange={(e) => setNewTaskDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                  placeholder="Enter task description (optional)"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowNewTaskModal(false)
+                  setNewTaskTitle('')
+                  setNewTaskDescription('')
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                disabled={creating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateTask}
+                disabled={!newTaskTitle.trim() || creating}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                {creating ? 'Creating...' : 'Create Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

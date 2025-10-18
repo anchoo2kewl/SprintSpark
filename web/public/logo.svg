@@ -1,0 +1,125 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Coffee cup -->
+  <g id="cup">
+    <!-- Cup body -->
+    <path d="M60 80 L50 160 Q50 170 60 170 L140 170 Q150 170 150 160 L140 80 Z"
+          fill="#8B4513"
+          stroke="#5D2E0F"
+          stroke-width="3"/>
+
+    <!-- Cup highlight -->
+    <path d="M65 85 L60 145 Q60 150 65 150 L80 150"
+          fill="none"
+          stroke="#A0653A"
+          stroke-width="2"
+          opacity="0.6"/>
+
+    <!-- Coffee liquid -->
+    <ellipse cx="100" cy="80" rx="40" ry="8"
+             fill="#3E2723"
+             stroke="#5D2E0F"
+             stroke-width="2"/>
+
+    <!-- Cup handle -->
+    <path d="M150 95 Q165 95 165 110 Q165 125 150 125"
+          fill="none"
+          stroke="#8B4513"
+          stroke-width="8"
+          stroke-linecap="round"/>
+    <path d="M150 95 Q165 95 165 110 Q165 125 150 125"
+          fill="none"
+          stroke="#5D2E0F"
+          stroke-width="3"
+          stroke-linecap="round"/>
+  </g>
+
+  <!-- Steam/speed lines (representing "sprint") -->
+  <g id="steam">
+    <!-- Speed line 1 -->
+    <path d="M70 50 Q65 35 75 20"
+          fill="none"
+          stroke="#6366F1"
+          stroke-width="4"
+          stroke-linecap="round"
+          opacity="0.8">
+      <animate attributeName="opacity"
+               values="0.3;0.8;0.3"
+               dur="2s"
+               repeatCount="indefinite"/>
+      <animate attributeName="d"
+               values="M70 50 Q65 35 75 20;M70 50 Q65 30 75 15;M70 50 Q65 35 75 20"
+               dur="2s"
+               repeatCount="indefinite"/>
+    </path>
+
+    <!-- Speed line 2 -->
+    <path d="M100 45 Q100 25 100 10"
+          fill="none"
+          stroke="#8B5CF6"
+          stroke-width="5"
+          stroke-linecap="round"
+          opacity="0.9">
+      <animate attributeName="opacity"
+               values="0.4;0.9;0.4"
+               dur="1.5s"
+               repeatCount="indefinite"/>
+      <animate attributeName="d"
+               values="M100 45 Q100 25 100 10;M100 45 Q100 20 100 5;M100 45 Q100 25 100 10"
+               dur="1.5s"
+               repeatCount="indefinite"/>
+    </path>
+
+    <!-- Speed line 3 -->
+    <path d="M130 50 Q135 35 125 20"
+          fill="none"
+          stroke="#6366F1"
+          stroke-width="4"
+          stroke-linecap="round"
+          opacity="0.7">
+      <animate attributeName="opacity"
+               values="0.2;0.7;0.2"
+               dur="2.2s"
+               repeatCount="indefinite"/>
+      <animate attributeName="d"
+               values="M130 50 Q135 35 125 20;M130 50 Q135 30 125 15;M130 50 Q135 35 125 20"
+               dur="2.2s"
+               repeatCount="indefinite"/>
+    </path>
+
+    <!-- Lightning bolt (speed indicator) -->
+    <path d="M95 60 L90 70 L95 70 L92 78"
+          fill="#FCD34D"
+          stroke="#F59E0B"
+          stroke-width="1">
+      <animate attributeName="opacity"
+               values="0;1;0"
+               dur="3s"
+               repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Sparkles for extra flair -->
+  <g id="sparkles">
+    <circle cx="45" cy="90" r="2" fill="#FCD34D">
+      <animate attributeName="opacity"
+               values="0;1;0"
+               dur="2s"
+               begin="0s"
+               repeatCount="indefinite"/>
+    </circle>
+    <circle cx="155" cy="100" r="2" fill="#FCD34D">
+      <animate attributeName="opacity"
+               values="0;1;0"
+               dur="2s"
+               begin="0.5s"
+               repeatCount="indefinite"/>
+    </circle>
+    <circle cx="50" cy="60" r="1.5" fill="#8B5CF6">
+      <animate attributeName="opacity"
+               values="0;1;0"
+               dur="2.5s"
+               begin="1s"
+               repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>

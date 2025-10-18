@@ -1,0 +1,25 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Coffee cup (simplified for favicon) -->
+  <path d="M10 12 L8 25 Q8 27 10 27 L22 27 Q24 27 24 25 L22 12 Z"
+        fill="#8B4513"
+        stroke="#5D2E0F"
+        stroke-width="1"/>
+
+  <!-- Coffee liquid -->
+  <ellipse cx="16" cy="12" rx="6" ry="1.5"
+           fill="#3E2723"/>
+
+  <!-- Speed/steam indicator -->
+  <path d="M11 8 L12 4"
+        stroke="#6366F1"
+        stroke-width="2"
+        stroke-linecap="round"/>
+  <path d="M16 7 L16 2"
+        stroke="#8B5CF6"
+        stroke-width="2.5"
+        stroke-linecap="round"/>
+  <path d="M21 8 L20 4"
+        stroke="#6366F1"
+        stroke-width="2"
+        stroke-linecap="round"/>
+</svg>

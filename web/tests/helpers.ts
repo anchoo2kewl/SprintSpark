@@ -204,6 +204,38 @@ export async function verifyTasksAPI(page: Page, projectId: number): Promise<any
 }
 
 /**
+ * Create a task via UI
+ */
+export async function createTaskUI(page: Page, title: string, description?: string) {
+  // Click "New Task" button
+  await page.click('button:has-text("New Task")');
+
+  // Wait for modal to appear
+  await page.waitForSelector('text=Create New Task');
+
+  // Fill in task title
+  await page.fill('#task-title', title);
+
+  // Fill in description if provided
+  if (description) {
+    await page.fill('#task-description', description);
+  }
+
+  // Click create button
+  await page.click('button:has-text("Create Task")');
+
+  // Wait for modal to close
+  await page.waitForSelector('text=Create New Task', { state: 'hidden', timeout: 5000 });
+}
+
+/**
+ * Verify task appears in the board
+ */
+export async function verifyTaskInBoard(page: Page, taskTitle: string) {
+  await expect(page.locator(`h4:has-text("${taskTitle}")`)).toBeVisible();
+}
+
+/**
  * Wait for element and take screenshot for debugging
  */
 export async function waitAndScreenshot(

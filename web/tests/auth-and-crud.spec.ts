@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   generateTestUser,
   generateProject,
+  generateTask,
   signupUser,
   loginUser,
   logoutUser,
@@ -10,6 +11,9 @@ import {
   navigateToProject,
   verifyProjectsAPI,
   getAuthToken,
+  createTaskUI,
+  verifyTaskInBoard,
+  verifyTasksAPI,
 } from './helpers';
 
 test.describe('SprintSpark - Complete User Journey', () => {
@@ -123,6 +127,85 @@ test.describe('SprintSpark - Complete User Journey', () => {
       // Verify "No tasks" empty state
       await expect(page.locator('text=No tasks')).toBeVisible();
       await expect(page.locator('text=Get started by creating a new task')).toBeVisible();
+    });
+
+    // ====================
+    // 5.5 TASK CREATION
+    // ====================
+    const task1 = generateTask();
+    const task2 = generateTask();
+    const task3 = generateTask();
+    let project1Id: number;
+
+    await test.step('User can create tasks in project', async () => {
+      await navigateToProject(page, project1.name);
+
+      // Get project ID from URL
+      const url = page.url();
+      const match = url.match(/\/projects\/(\d+)/);
+      project1Id = match ? parseInt(match[1]) : 0;
+      expect(project1Id).toBeGreaterThan(0);
+
+      // Create first task
+      await createTaskUI(page, task1.title, task1.description);
+
+      // Verify task appears in the board
+      await verifyTaskInBoard(page, task1.title);
+
+      // Verify "To Do" column has 1 task
+      await expect(page.locator('text=To Do (1)')).toBeVisible();
+
+      // Create second and third tasks
+      await createTaskUI(page, task2.title, task2.description);
+      await createTaskUI(page, task3.title);
+
+      // Verify all tasks appear
+      await verifyTaskInBoard(page, task1.title);
+      await verifyTaskInBoard(page, task2.title);
+      await verifyTaskInBoard(page, task3.title);
+
+      // Verify count updated
+      await expect(page.locator('text=To Do (3)')).toBeVisible();
+
+      // Take screenshot of tasks board
+      await page.screenshot({ path: 'test-results/tasks-board.png', fullPage: true });
+    });
+
+    await test.step('Tasks are persisted in API', async () => {
+      const tasks = await verifyTasksAPI(page, project1Id);
+
+      // Verify we have 3 tasks
+      expect(tasks.length).toBe(3);
+
+      // Verify task data
+      const task1Data = tasks.find((t: any) => t.title === task1.title);
+      const task2Data = tasks.find((t: any) => t.title === task2.title);
+      const task3Data = tasks.find((t: any) => t.title === task3.title);
+
+      expect(task1Data).toBeTruthy();
+      expect(task2Data).toBeTruthy();
+      expect(task3Data).toBeTruthy();
+
+      // Verify task structure
+      expect(task1Data).toMatchObject({
+        title: task1.title,
+        description: task1.description,
+        status: 'todo',
+      });
+
+      expect(task1Data).toHaveProperty('id');
+      expect(task1Data).toHaveProperty('project_id', project1Id);
+      expect(task1Data).toHaveProperty('created_at');
+    });
+
+    await test.step('Empty state disappears after tasks created', async () => {
+      await navigateToProject(page, project1.name);
+
+      // Verify "No tasks" message is NOT visible
+      await expect(page.locator('text=No tasks')).not.toBeVisible();
+
+      // Verify task board is visible
+      await expect(page.locator('text=To Do (3)')).toBeVisible();
     });
 
     // ====================
