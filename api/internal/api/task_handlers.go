@@ -17,6 +17,7 @@ type Task struct {
 	Title       string    `json:"title"`
 	Description *string   `json:"description,omitempty"`
 	Status      string    `json:"status"`
+	DueDate     *string   `json:"due_date,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -25,12 +26,14 @@ type CreateTaskRequest struct {
 	Title       string  `json:"title"`
 	Description *string `json:"description,omitempty"`
 	Status      *string `json:"status,omitempty"`
+	DueDate     *string `json:"due_date,omitempty"`
 }
 
 type UpdateTaskRequest struct {
 	Title       *string `json:"title,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Status      *string `json:"status,omitempty"`
+	DueDate     *string `json:"due_date,omitempty"`
 }
 
 // HandleListTasks returns all tasks for a project
@@ -62,7 +65,7 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT id, project_id, title, description, status, created_at, updated_at
+		SELECT id, project_id, title, description, status, due_date, created_at, updated_at
 		FROM tasks
 		WHERE project_id = ?
 		ORDER BY created_at DESC
@@ -78,7 +81,7 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 	tasks := []Task{}
 	for rows.Next() {
 		var t Task
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan task", "internal_error")
 			return
 		}
@@ -150,11 +153,11 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		INSERT INTO tasks (project_id, title, description, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO tasks (project_id, title, description, status, due_date, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 
-	result, err := s.db.ExecContext(ctx, query, projectID, req.Title, req.Description, status)
+	result, err := s.db.ExecContext(ctx, query, projectID, req.Title, req.Description, status, req.DueDate)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create task", "internal_error")
 		return
@@ -169,12 +172,12 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	// Fetch the created task
 	var t Task
 	fetchQuery := `
-		SELECT id, project_id, title, description, status, created_at, updated_at
+		SELECT id, project_id, title, description, status, due_date, created_at, updated_at
 		FROM tasks
 		WHERE id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to fetch created task", "internal_error")
@@ -253,6 +256,11 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		args = append(args, *req.Status)
 	}
 
+	if req.DueDate != nil {
+		query += ", due_date = ?"
+		args = append(args, *req.DueDate)
+	}
+
 	query += " WHERE id = ?"
 	args = append(args, taskID)
 
@@ -265,12 +273,12 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 	// Fetch the updated task
 	var t Task
 	fetchQuery := `
-		SELECT id, project_id, title, description, status, created_at, updated_at
+		SELECT id, project_id, title, description, status, due_date, created_at, updated_at
 		FROM tasks
 		WHERE id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.CreatedAt, &t.UpdatedAt,
+		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to fetch updated task", "internal_error")

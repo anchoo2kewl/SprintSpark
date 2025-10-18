@@ -361,6 +361,11 @@ components:
           type: string
           enum: [todo, in_progress, done]
           example: "todo"
+        due_date:
+          type: [string, "null"]
+          format: date-time
+          example: "2025-10-25T00:00:00Z"
+          description: "Optional due date for the task"
         created_at:
           type: string
           format: date-time

@@ -234,6 +234,12 @@ export interface components {
             status?: "todo" | "in_progress" | "done";
             /**
              * Format: date-time
+             * @description Optional due date for the task
+             * @example 2025-10-25T00:00:00Z
+             */
+            due_date?: string | null;
+            /**
+             * Format: date-time
              * @example 2025-10-17T22:59:13Z
              */
             created_at?: string;
