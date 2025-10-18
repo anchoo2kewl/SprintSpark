@@ -29,7 +29,11 @@ type Config struct {
 	RateLimitWindowMinutes  int
 
 	// Logging
-	LogLevel string
+	LogLevel       string
+	EnableSQLLog   bool
+
+	// Database
+	DBQueryTimeout time.Duration
 }
 
 // Load reads configuration from environment variables
@@ -45,6 +49,8 @@ func Load() *Config {
 		RateLimitRequests:       getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitWindowMinutes:  getEnvAsInt("RATE_LIMIT_WINDOW_MINUTES", 15),
 		LogLevel:                getEnv("LOG_LEVEL", "info"),
+		EnableSQLLog:            getEnv("ENV", "development") == "development" || getEnv("ENABLE_SQL_LOG", "false") == "true",
+		DBQueryTimeout:          time.Duration(getEnvAsInt("DB_QUERY_TIMEOUT_SECONDS", 5)) * time.Second,
 	}
 
 	// Validate critical configuration

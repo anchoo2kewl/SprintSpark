@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -46,6 +49,15 @@ func main() {
 	r.Use(api.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
+
+	// Request size limit (1MB)
+	r.Use(middleware.SetHeader("Content-Type", "application/json"))
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
@@ -92,8 +104,10 @@ func main() {
 		// OpenAPI specification
 		r.Get("/openapi", server.HandleOpenAPI)
 
-		// Auth routes (public)
+		// Auth routes (public) with rate limiting
 		r.Route("/auth", func(r chi.Router) {
+			// Apply stricter rate limiting to auth endpoints (20 req/min)
+			r.Use(api.RateLimitMiddleware(20))
 			r.Post("/signup", server.HandleSignup)
 			r.Post("/login", server.HandleLogin)
 		})
@@ -101,6 +115,8 @@ func main() {
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(server.JWTAuth)
+			// Apply general rate limiting (100 req/min)
+			r.Use(api.RateLimitMiddleware(cfg.RateLimitRequests))
 
 			r.Get("/me", server.HandleMe)
 
@@ -119,10 +135,48 @@ func main() {
 		})
 	})
 
+	// Create HTTP server
 	addr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("Server listening on %s", addr)
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatal(err)
+	// Channel to listen for server errors
+	serverErrors := make(chan error, 1)
+
+	// Start server in goroutine
+	go func() {
+		log.Printf("Server listening on %s", addr)
+		serverErrors <- srv.ListenAndServe()
+	}()
+
+	// Channel to listen for interrupt signals
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// Block until we receive shutdown signal or server error
+	select {
+	case err := <-serverErrors:
+		log.Fatalf("Server error: %v", err)
+	case sig := <-shutdown:
+		log.Printf("Received %v signal, starting graceful shutdown", sig)
+
+		// Give outstanding requests 30 seconds to complete
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// Gracefully shutdown server
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Printf("Graceful shutdown failed: %v", err)
+			if err := srv.Close(); err != nil {
+				log.Fatalf("Failed to close server: %v", err)
+			}
+		}
+
+		log.Println("Server stopped gracefully")
 	}
 }

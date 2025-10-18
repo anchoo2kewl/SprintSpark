@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"sprintspark/internal/auth"
@@ -97,4 +98,109 @@ func GetUserID(r *http.Request) (int64, bool) {
 func GetUserEmail(r *http.Request) (string, bool) {
 	email, ok := r.Context().Value(UserEmailKey).(string)
 	return email, ok
+}
+
+// tokenBucket implements a simple token bucket rate limiter
+type tokenBucket struct {
+	tokens      float64
+	capacity    float64
+	refillRate  float64
+	lastRefill  time.Time
+	mu          sync.Mutex
+}
+
+func newTokenBucket(capacity, refillRate float64) *tokenBucket {
+	return &tokenBucket{
+		tokens:     capacity,
+		capacity:   capacity,
+		refillRate: refillRate,
+		lastRefill: time.Now(),
+	}
+}
+
+func (tb *tokenBucket) allow() bool {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	now := time.Now()
+	elapsed := now.Sub(tb.lastRefill).Seconds()
+
+	// Refill tokens based on elapsed time
+	tb.tokens += elapsed * tb.refillRate
+	if tb.tokens > tb.capacity {
+		tb.tokens = tb.capacity
+	}
+	tb.lastRefill = now
+
+	// Check if we have tokens available
+	if tb.tokens >= 1.0 {
+		tb.tokens -= 1.0
+		return true
+	}
+
+	return false
+}
+
+// rateLimiter manages rate limits for different endpoints
+type rateLimiter struct {
+	buckets map[string]*tokenBucket
+	mu      sync.RWMutex
+}
+
+func newRateLimiter() *rateLimiter {
+	return &rateLimiter{
+		buckets: make(map[string]*tokenBucket),
+	}
+}
+
+func (rl *rateLimiter) getBucket(key string, capacity, refillRate float64) *tokenBucket {
+	rl.mu.RLock()
+	bucket, exists := rl.buckets[key]
+	rl.mu.RUnlock()
+
+	if exists {
+		return bucket
+	}
+
+	// Create new bucket
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	// Double-check after acquiring write lock
+	bucket, exists = rl.buckets[key]
+	if exists {
+		return bucket
+	}
+
+	bucket = newTokenBucket(capacity, refillRate)
+	rl.buckets[key] = bucket
+	return bucket
+}
+
+// RateLimitMiddleware creates a rate limiting middleware
+func RateLimitMiddleware(requestsPerMinute int) func(http.Handler) http.Handler {
+	limiter := newRateLimiter()
+	capacity := float64(requestsPerMinute)
+	refillRate := capacity / 60.0 // tokens per second
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Use IP address as key
+			ip := r.RemoteAddr
+			if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+				ip = strings.Split(forwarded, ",")[0]
+			}
+			if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+				ip = realIP
+			}
+
+			bucket := limiter.getBucket(ip, capacity, refillRate)
+			if !bucket.allow() {
+				respondError(w, http.StatusTooManyRequests, "rate limit exceeded", "rate_limit_exceeded")
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }

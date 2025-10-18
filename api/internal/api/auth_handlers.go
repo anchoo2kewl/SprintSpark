@@ -193,12 +193,46 @@ func validateSignupRequest(req SignupRequest) error {
 		return fmt.Errorf("invalid email format")
 	}
 
-	// Validate password
-	if req.Password == "" {
+	// Validate password strength
+	if err := validatePasswordStrength(req.Password); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validatePasswordStrength ensures password meets security requirements
+func validatePasswordStrength(password string) error {
+	if password == "" {
 		return fmt.Errorf("password is required")
 	}
-	if len(req.Password) < 8 {
+
+	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")
+	}
+
+	// Check for at least one digit
+	hasDigit := false
+	for _, ch := range password {
+		if ch >= '0' && ch <= '9' {
+			hasDigit = true
+			break
+		}
+	}
+	if !hasDigit {
+		return fmt.Errorf("password must contain at least one digit")
+	}
+
+	// Check for at least one letter (uppercase or lowercase)
+	hasLetter := false
+	for _, ch := range password {
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
+			hasLetter = true
+			break
+		}
+	}
+	if !hasLetter {
+		return fmt.Errorf("password must contain at least one letter")
 	}
 
 	return nil
