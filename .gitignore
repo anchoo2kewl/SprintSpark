@@ -1,0 +1,57 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+/vendor/
+/api/tmp/
+/api/data/*.db
+/api/data/*.db-shm
+/api/data/*.db-wal
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm
+.cache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage/
+*.cover
+*.coverprofile
+.nyc_output/
+playwright-report/
+test-results/
+
+# Build
+*.out
+build/
+tmp/

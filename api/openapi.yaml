@@ -1,0 +1,395 @@
+openapi: 3.1.0
+info:
+  title: SprintSpark API
+  description: |
+    SprintSpark is a lightweight project management system with task tracking capabilities.
+
+    ## Authentication
+    Most endpoints require JWT authentication via Bearer token in the Authorization header.
+
+    ## Rate Limiting
+    - 100 requests per 15-minute window (configurable)
+
+    ## Error Handling
+    All errors return a consistent JSON format with `error` message and optional `code` field.
+  version: 0.1.0
+  contact:
+    name: SprintSpark Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://localhost:8080/api
+    description: Local development API
+
+tags:
+  - name: Health
+    description: Health check and monitoring endpoints
+  - name: Authentication
+    description: User registration and authentication
+  - name: Users
+    description: User profile management
+  - name: Projects
+    description: Project management (coming soon)
+  - name: Tasks
+    description: Task management (coming soon)
+
+paths:
+  /:
+    get:
+      summary: API Root
+      description: Returns basic API information
+      tags: [Health]
+      operationId: getRoot
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "SprintSpark API"
+                  version:
+                    type: string
+                    example: "0.1.0"
+
+  /healthz:
+    get:
+      summary: Health Check
+      description: Check API and database health
+      tags: [Health]
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  database:
+                    type: string
+                    example: "connected"
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "database unavailable"
+                code: "internal_error"
+
+  /api/openapi:
+    get:
+      summary: Get OpenAPI Specification
+      description: Returns the OpenAPI specification in YAML format
+      tags: [Health]
+      operationId: getOpenAPISpec
+      responses:
+        '200':
+          description: OpenAPI specification
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /api/auth/signup:
+    post:
+      summary: Sign Up
+      description: Create a new user account
+      tags: [Authentication]
+      operationId: signup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidRequest:
+                  value:
+                    error: "invalid request body"
+                    code: "invalid_request"
+                validationError:
+                  value:
+                    error: "password must be at least 8 characters"
+                    code: "validation_error"
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "email already exists"
+                code: "email_exists"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/login:
+    post:
+      summary: Log In
+      description: Authenticate with email and password
+      tags: [Authentication]
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "invalid email or password"
+                code: "invalid_credentials"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/me:
+    get:
+      summary: Get Current User
+      description: Get the profile of the currently authenticated user
+      tags: [Users]
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingToken:
+                  value:
+                    error: "missing authorization header"
+                    code: "unauthorized"
+                invalidToken:
+                  value:
+                    error: "invalid or expired token"
+                    code: "unauthorized"
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from `/api/auth/signup` or `/api/auth/login`.
+
+        Include in requests as: `Authorization: Bearer <token>`
+
+  schemas:
+    SignupRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address (must be unique)
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: User's password (minimum 8 characters)
+          example: "securepassword123"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          description: User's password
+          example: "securepassword123"
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT authentication token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique user identifier
+          example: 1
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2025-10-17T22:59:13Z"
+
+    Project:
+      type: object
+      description: Project entity (coming soon)
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        owner_id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "My Project"
+        description:
+          type: [string, "null"]
+          example: "Project description"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-10-17T22:59:13Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-10-17T22:59:13Z"
+
+    Task:
+      type: object
+      description: Task entity (coming soon)
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        project_id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: "Implement feature"
+        description:
+          type: [string, "null"]
+          example: "Task description"
+        status:
+          type: string
+          enum: [todo, in_progress, done]
+          example: "todo"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-10-17T22:59:13Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-10-17T22:59:13Z"
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "invalid request"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "invalid_request"
+          enum:
+            - invalid_request
+            - validation_error
+            - unauthorized
+            - not_found
+            - email_exists
+            - invalid_credentials
+            - internal_error
+
+security: []
