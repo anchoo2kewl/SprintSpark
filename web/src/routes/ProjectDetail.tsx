@@ -84,14 +84,14 @@ export default function ProjectDetail() {
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task)
-    setEditTitle(task.title)
+    setEditTitle(task.title || '')
     setEditDescription(task.description || '')
     setEditStatus(task.status as 'todo' | 'in_progress' | 'done')
     setEditDueDate(task.due_date ? task.due_date.split('T')[0] : '')
   }
 
   const handleUpdateTask = async () => {
-    if (!selectedTask || !editTitle.trim()) return
+    if (!selectedTask || !editTitle.trim() || selectedTask.id === undefined) return
 
     try {
       setUpdating(true)
@@ -155,7 +155,7 @@ export default function ProjectDetail() {
     }
   }
 
-  const getStatusLabel = (status: Task['status']) => {
+  const getStatusLabel = (status: Task['status']): string => {
     switch (status) {
       case 'todo':
         return 'To Do'
@@ -164,7 +164,7 @@ export default function ProjectDetail() {
       case 'done':
         return 'Done'
       default:
-        return status
+        return 'Unknown'
     }
   }
 
@@ -573,7 +573,7 @@ function DraggableTask({ task, onTaskClick, getStatusColor, getStatusLabel, getD
   formatDueDate: (dueDate?: string | null) => string | null
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: task.id,
+    id: task.id as number,
   })
 
   const style = transform ? {
