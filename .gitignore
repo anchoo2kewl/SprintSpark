@@ -55,3 +55,6 @@ test-results/
 *.out
 build/
 tmp/
+
+# Webhook
+webhook/config.yaml

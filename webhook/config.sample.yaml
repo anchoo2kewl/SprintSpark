@@ -1,0 +1,49 @@
+# Multi-Project Webhook Configuration
+# Copy this file to config.yaml and update with your actual values
+
+server:
+  port: 9876
+  host: "0.0.0.0"
+  log_level: "INFO"
+  log_file: "/path/to/webhooks/logs/webhook.log"
+
+# Default settings for all projects
+defaults:
+  secret: "your-default-webhook-secret"
+  branch: "main"
+  timeout: 30
+
+# Project configurations
+projects:
+  # Example project configuration
+  example-project:
+    name: "Example Project"
+    repository: "username/repository"
+    secret: "your-webhook-secret-here"
+    branch: "main"
+    local_path: "/path/to/projects/example-project"
+    actions:
+      - type: "git_pull"
+      - type: "custom_command"
+        command: "echo 'Project updated successfully!'"
+    enabled: false
+
+  # SprintSpark example configuration
+  sprintspark:
+    name: "SprintSpark Project Management System"
+    repository: "username/SprintSpark"
+    secret: "your-sprintspark-webhook-secret"
+    branch: "main"
+    local_path: "/path/to/projects/sprintspark"
+    actions:
+      - type: "git_pull"
+      - type: "custom_command"
+        command: "cd /path/to/projects/sprintspark && docker-compose down && docker-compose up --build -d"
+      - type: "custom_command"
+        command: "echo 'SprintSpark deployed successfully!'"
+    enabled: true
+
+# Available action types:
+# - git_pull: Automatically pulls from the repository
+# - custom_command: Runs any shell command you specify
+# - fix_permissions: Changes file permissions (requires command)
