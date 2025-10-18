@@ -39,7 +39,11 @@ type LoginResponse = operations['login']['responses']['200']['content']['applica
 type GetCurrentUserResponse = operations['getCurrentUser']['responses']['200']['content']['application/json']
 
 // API Client Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+// Use relative URL in production (served behind nginx proxy)
+// or VITE_API_URL for development override
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  import.meta.env.PROD ? '' : 'http://localhost:8080'
+)
 
 class ApiClient {
   private baseURL: string
