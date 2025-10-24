@@ -129,8 +129,6 @@ Co-Authored-By: Claude <noreply@anthropic.com>" || {
     }
 
     print_success "Code pushed to GitHub"
-    print_status "Waiting for webhook to deploy (15 seconds)..."
-    sleep 15
 
     # Test SSH connection
     print_status "Testing SSH connection to production..."
@@ -139,38 +137,58 @@ Co-Authored-By: Claude <noreply@anthropic.com>" || {
         return 1
     fi
 
-    # Check if containers are running
-    print_status "Checking service status..."
-    local containers_running=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps --services --filter 'status=running' | wc -l")
+    # Wait for webhook to trigger (if configured)
+    print_status "Waiting for webhook to trigger (30 seconds)..."
+    sleep 30
+
+    # Check if containers are still running (webhook may have restarted them)
+    print_status "Checking if webhook rebuild is in progress..."
+    local containers_running=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps --services --filter 'status=running' 2>/dev/null | wc -l" 2>/dev/null || echo "0")
 
     if [ "$containers_running" -lt 2 ]; then
-        print_warning "Some containers may not be running, checking logs..."
-        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps"
+        print_warning "Containers not running. Webhook may be rebuilding or failed."
+        print_status "Manually triggering rebuild on production..."
+        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose down && docker-compose build --no-cache && docker-compose up -d" || {
+            print_error "Failed to rebuild containers on production"
+            return 1
+        }
+        print_success "Manual rebuild triggered successfully"
+        sleep 10
+    else
+        print_status "Containers are running, webhook may have completed"
     fi
 
     # Verify health
     print_status "Verifying deployment..."
-    local max_attempts=10
+    local max_attempts=20
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
         if curl -f -s "https://$REMOTE_DOMAIN/api/health" >/dev/null 2>&1; then
-            print_success "✅ Deployment successful! Services are healthy"
-            echo ""
-            echo -e "${CYAN}Production URLs:${NC}"
-            echo "  Web:    https://$REMOTE_DOMAIN"
-            echo "  API:    https://$REMOTE_DOMAIN/api/health"
-            echo "  Docs:   https://$REMOTE_DOMAIN/api/openapi"
-            return 0
+            # Double-check containers are actually healthy
+            local healthy_count=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps --format '{{.Status}}' 2>/dev/null | grep -c '(healthy)'" 2>/dev/null || echo "0")
+
+            if [ "$healthy_count" -ge 2 ]; then
+                print_success "✅ Deployment successful! All services are healthy"
+                echo ""
+                echo -e "${CYAN}Production URLs:${NC}"
+                echo "  Web:    https://$REMOTE_DOMAIN"
+                echo "  API:    https://$REMOTE_DOMAIN/api/health"
+                echo "  Docs:   https://$REMOTE_DOMAIN/api/openapi"
+                echo ""
+                print_status "Deployment completed at $(date)"
+                return 0
+            fi
         fi
 
         print_status "Waiting for services to be ready (attempt $attempt/$max_attempts)..."
-        sleep 3
+        sleep 5
         attempt=$((attempt + 1))
     done
 
     print_error "❌ Deployment verification failed - API not responding after $max_attempts attempts"
     print_status "Check logs with: $0 logs api"
+    print_status "Check container status: $0 status"
     return 1
 }
 
