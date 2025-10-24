@@ -18,7 +18,9 @@ func respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.WriteHeader(statusCode)
 
 	if data != nil {
-		if err := json.NewEncoder(w).Encode(data); err != nil {
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false) // Don't escape HTML characters like < and >
+		if err := encoder.Encode(data); err != nil {
 			log.Printf("Error encoding JSON response: %v", err)
 		}
 	}

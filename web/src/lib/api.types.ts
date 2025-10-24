@@ -178,6 +178,11 @@ export interface components {
              */
             email?: string;
             /**
+             * @description Whether the user has admin privileges
+             * @example false
+             */
+            is_admin?: boolean;
+            /**
              * Format: date-time
              * @description Account creation timestamp
              * @example 2025-10-17T22:59:13Z
@@ -211,7 +216,7 @@ export interface components {
              */
             updated_at?: string;
         };
-        /** @description Task entity (coming soon) */
+        /** @description Task entity with enhanced fields */
         Task: {
             /**
              * Format: int64
@@ -225,7 +230,7 @@ export interface components {
             project_id?: number;
             /** @example Implement feature */
             title?: string;
-            /** @example Task description */
+            /** @example Task description in markdown */
             description?: string | null;
             /**
              * @example todo
@@ -239,6 +244,38 @@ export interface components {
              */
             due_date?: string | null;
             /**
+             * Format: int64
+             * @description Optional sprint assignment
+             * @example 1
+             */
+            sprint_id?: number | null;
+            /**
+             * @description Task priority level
+             * @example medium
+             * @enum {string}
+             */
+            priority?: "low" | "medium" | "high" | "urgent";
+            /**
+             * Format: int64
+             * @description Optional user assigned to task
+             * @example 1
+             */
+            assignee_id?: number | null;
+            /**
+             * Format: float
+             * @description Estimated hours to complete
+             * @example 8.5
+             */
+            estimated_hours?: number | null;
+            /**
+             * Format: float
+             * @description Actual hours spent
+             * @example 10
+             */
+            actual_hours?: number | null;
+            /** @description Tags associated with this task */
+            tags?: components["schemas"]["Tag"][];
+            /**
              * Format: date-time
              * @example 2025-10-17T22:59:13Z
              */
@@ -248,6 +285,31 @@ export interface components {
              * @example 2025-10-17T22:59:13Z
              */
             updated_at?: string;
+        };
+        /** @description Tag entity for categorizing tasks */
+        Tag: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            user_id?: number;
+            /** @example bug */
+            name?: string;
+            /**
+             * @description Hex color code
+             * @example #FF0000
+             */
+            color?: string;
+            /**
+             * Format: date-time
+             * @example 2025-10-17T22:59:13Z
+             */
+            created_at?: string;
         };
         Error: {
             /**

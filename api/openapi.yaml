@@ -345,7 +345,7 @@ components:
 
     Task:
       type: object
-      description: Task entity (coming soon)
+      description: Task entity with enhanced fields
       properties:
         id:
           type: integer
@@ -360,7 +360,7 @@ components:
           example: "Implement feature"
         description:
           type: [string, "null"]
-          example: "Task description"
+          example: "Task description in markdown"
         status:
           type: string
           enum: [todo, in_progress, done]
@@ -370,11 +370,65 @@ components:
           format: date-time
           example: "2025-10-25T00:00:00Z"
           description: "Optional due date for the task"
+        sprint_id:
+          type: [integer, "null"]
+          format: int64
+          example: 1
+          description: "Optional sprint assignment"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          example: "medium"
+          description: "Task priority level"
+        assignee_id:
+          type: [integer, "null"]
+          format: int64
+          example: 1
+          description: "Optional user assigned to task"
+        estimated_hours:
+          type: [number, "null"]
+          format: float
+          example: 8.5
+          description: "Estimated hours to complete"
+        actual_hours:
+          type: [number, "null"]
+          format: float
+          example: 10.0
+          description: "Actual hours spent"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+          description: "Tags associated with this task"
         created_at:
           type: string
           format: date-time
           example: "2025-10-17T22:59:13Z"
         updated_at:
+          type: string
+          format: date-time
+          example: "2025-10-17T22:59:13Z"
+
+    Tag:
+      type: object
+      description: Tag entity for categorizing tasks
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        user_id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "bug"
+        color:
+          type: string
+          example: "#FF0000"
+          description: "Hex color code"
+        created_at:
           type: string
           format: date-time
           example: "2025-10-17T22:59:13Z"

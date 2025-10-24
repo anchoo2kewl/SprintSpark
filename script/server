@@ -19,6 +19,10 @@ REMOTE_SERVER="ubuntu@biswas.me"
 REMOTE_DEPLOY_PATH="/home/ubuntu/projects/sprintspark"
 REMOTE_DOMAIN="sprintspark.biswas.me"
 
+# Local development settings
+LOCAL_WEB_PORT=8084
+LOCAL_API_PORT=8083
+
 # Function to print colored output
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -45,6 +49,14 @@ show_help() {
     echo -e "${CYAN}SprintSpark Server Management Script${NC}"
     echo ""
     echo "Usage: $0 <command> [options]"
+    echo ""
+    echo -e "${YELLOW}Local Development Commands:${NC}"
+    echo "  local:start          Start local Docker services (http://localhost:$LOCAL_WEB_PORT)"
+    echo "  local:stop           Stop local Docker services"
+    echo "  local:restart        Restart local Docker services"
+    echo "  local:status         Show local service status"
+    echo "  local:logs [service] Show local logs"
+    echo "  local:clean          Stop and remove all local containers/volumes"
     echo ""
     echo -e "${YELLOW}Production Commands:${NC}"
     echo "  deploy [\"message\"]   Commit changes, push to GitHub, wait for webhook deploy"
@@ -73,6 +85,13 @@ show_help() {
     echo "  db-query <query>     Execute SQL on production database"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
+    echo "  $0 local:start                               # Start local development server"
+    echo "  $0 local admin list                          # List all local admin users"
+    echo "  $0 local admin create user@example.com       # Promote local user to admin"
+    echo "  $0 local admin revoke user@example.com       # Remove admin privileges locally"
+    echo ""
+    echo "  $0 admin list                                # List all remote admin users"
+    echo "  $0 admin create user@example.com             # Promote remote user to admin"
     echo "  $0 deploy                                    # Deploy with default message"
     echo "  $0 deploy \"fix: resolve login bug\"          # Deploy with custom message"
     echo "  $0 test                                      # Run all tests and show summary"
@@ -418,22 +437,46 @@ admin_create() {
     echo ""
 
     if [ "$env" = "remote" ]; then
-        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
+        local result=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
             if ! command -v sqlite3 >/dev/null 2>&1; then
                 apk add --no-cache sqlite >/dev/null 2>&1
             fi
             sqlite3 -header -column /data/sprintspark.db \"UPDATE users SET is_admin = 1 WHERE email = '\''$email'\''; SELECT id, email, is_admin FROM users WHERE email = '\''$email'\''\"
-        '"
-    else
-        # Local database
-        if [ ! -f "api/data/sprintspark.db" ]; then
-            print_error "Local database not found at api/data/sprintspark.db"
+        '")
+        echo "$result"
+
+        if echo "$result" | grep -q "$email"; then
+            echo ""
+            print_success "Admin privileges granted to $email"
+        else
+            echo ""
+            print_error "User $email not found in database. Create the user account first."
             return 1
         fi
-        sqlite3 -header -column api/data/sprintspark.db "UPDATE users SET is_admin = 1 WHERE email = '$email'; SELECT id, email, is_admin FROM users WHERE email = '$email';"
-    fi
+    else
+        # Local Docker database
+        if ! docker-compose ps | grep -q "api.*Up"; then
+            print_error "Local API container is not running. Start with: $0 local:start"
+            return 1
+        fi
 
-    print_success "Admin privileges granted to $email"
+        local result=$(docker-compose exec -T -u root api sh -c "
+            if ! command -v sqlite3 >/dev/null 2>&1; then
+                apk add --no-cache sqlite >/dev/null 2>&1
+            fi
+            sqlite3 -header -column /data/sprintspark.db \"UPDATE users SET is_admin = 1 WHERE email = '$email'; SELECT id, email, is_admin FROM users WHERE email = '$email';\"
+        ")
+        echo "$result"
+
+        if echo "$result" | grep -q "$email"; then
+            echo ""
+            print_success "Admin privileges granted to $email"
+        else
+            echo ""
+            print_error "User $email not found in database. Create the user account first."
+            return 1
+        fi
+    fi
 }
 
 # Admin management - list admins
@@ -454,11 +497,17 @@ admin_list() {
             sqlite3 -header -column /data/sprintspark.db \"$query\"
         '"
     else
-        if [ ! -f "api/data/sprintspark.db" ]; then
-            print_error "Local database not found at api/data/sprintspark.db"
+        if ! docker-compose ps | grep -q "api.*Up"; then
+            print_error "Local API container is not running. Start with: $0 local:start"
             return 1
         fi
-        sqlite3 -header -column api/data/sprintspark.db "$query"
+
+        docker-compose exec -T -u root api sh -c "
+            if ! command -v sqlite3 >/dev/null 2>&1; then
+                apk add --no-cache sqlite >/dev/null 2>&1
+            fi
+            sqlite3 -header -column /data/sprintspark.db \"$query\"
+        "
     fi
 }
 
@@ -478,25 +527,176 @@ admin_revoke() {
     echo ""
 
     if [ "$env" = "remote" ]; then
-        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
+        local result=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
             if ! command -v sqlite3 >/dev/null 2>&1; then
                 apk add --no-cache sqlite >/dev/null 2>&1
             fi
             sqlite3 -header -column /data/sprintspark.db \"UPDATE users SET is_admin = 0 WHERE email = '\''$email'\''; SELECT id, email, is_admin FROM users WHERE email = '\''$email'\''\"
-        '"
-    else
-        if [ ! -f "api/data/sprintspark.db" ]; then
-            print_error "Local database not found at api/data/sprintspark.db"
+        '")
+        echo "$result"
+
+        if echo "$result" | grep -q "$email"; then
+            echo ""
+            print_success "Admin privileges revoked from $email"
+        else
+            echo ""
+            print_error "User $email not found in database"
             return 1
         fi
-        sqlite3 -header -column api/data/sprintspark.db "UPDATE users SET is_admin = 0 WHERE email = '$email'; SELECT id, email, is_admin FROM users WHERE email = '$email';"
+    else
+        if ! docker-compose ps | grep -q "api.*Up"; then
+            print_error "Local API container is not running. Start with: $0 local:start"
+            return 1
+        fi
+
+        local result=$(docker-compose exec -T -u root api sh -c "
+            if ! command -v sqlite3 >/dev/null 2>&1; then
+                apk add --no-cache sqlite >/dev/null 2>&1
+            fi
+            sqlite3 -header -column /data/sprintspark.db \"UPDATE users SET is_admin = 0 WHERE email = '$email'; SELECT id, email, is_admin FROM users WHERE email = '$email';\"
+        ")
+        echo "$result"
+
+        if echo "$result" | grep -q "$email"; then
+            echo ""
+            print_success "Admin privileges revoked from $email"
+        else
+            echo ""
+            print_error "User $email not found in database"
+            return 1
+        fi
+    fi
+}
+
+# Local development server commands
+local_start() {
+    print_header "Starting Local Development Server"
+
+    # Check if Docker is running
+    if ! docker info >/dev/null 2>&1; then
+        print_error "Docker is not running. Please start Docker Desktop first."
+        return 1
     fi
 
-    print_success "Admin privileges revoked from $email"
+    # Check if services are already running
+    if docker-compose ps | grep -q "Up"; then
+        print_warning "Services are already running"
+        docker-compose ps
+        return 0
+    fi
+
+    print_status "Building and starting services..."
+    docker-compose up -d --build
+
+    print_status "Waiting for services to be ready..."
+    sleep 5
+
+    # Check health
+    local attempts=0
+    local max_attempts=10
+
+    while [ $attempts -lt $max_attempts ]; do
+        if curl -f -s http://localhost:$LOCAL_API_PORT/api/health >/dev/null 2>&1; then
+            print_success "✅ Local server started successfully!"
+            echo ""
+            echo -e "${CYAN}Local URLs:${NC}"
+            echo "  Web:    http://localhost:$LOCAL_WEB_PORT"
+            echo "  API:    http://localhost:$LOCAL_API_PORT/api/health"
+            echo "  Docs:   http://localhost:$LOCAL_API_PORT/api/openapi"
+            echo ""
+            print_status "View logs: $0 local:logs"
+            return 0
+        fi
+
+        attempts=$((attempts + 1))
+        sleep 2
+    done
+
+    print_error "Services started but not responding. Check logs with: $0 local:logs"
+    docker-compose ps
+    return 1
+}
+
+local_stop() {
+    print_header "Stopping Local Development Server"
+
+    if ! docker-compose ps | grep -q "Up"; then
+        print_warning "No services are running"
+        return 0
+    fi
+
+    docker-compose stop
+    print_success "Local services stopped"
+}
+
+local_restart() {
+    print_header "Restarting Local Development Server"
+
+    docker-compose restart
+
+    print_success "Services restarted"
+    sleep 3
+    local_status
+}
+
+local_status() {
+    print_header "Local Service Status"
+
+    if ! docker info >/dev/null 2>&1; then
+        print_error "Docker is not running"
+        return 1
+    fi
+
+    docker-compose ps
+}
+
+local_logs() {
+    local service="${1:-}"
+
+    print_header "Local Logs${service:+: $service}"
+
+    if [ -z "$service" ]; then
+        docker-compose logs --tail=50 -f
+    else
+        docker-compose logs --tail=50 -f "$service"
+    fi
+}
+
+local_clean() {
+    print_header "Cleaning Local Environment"
+
+    print_warning "This will remove all containers, volumes, and data"
+    read -p "Are you sure? (y/N) " -n 1 -r
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        docker-compose down -v
+        print_success "Local environment cleaned"
+    else
+        print_status "Operation cancelled"
+    fi
 }
 
 # Main command handler
 case ${1:-help} in
+    local:start)
+        local_start
+        ;;
+    local:stop)
+        local_stop
+        ;;
+    local:restart)
+        local_restart
+        ;;
+    local:status)
+        local_status
+        ;;
+    local:logs)
+        local_logs "$2"
+        ;;
+    local:clean)
+        local_clean
+        ;;
     deploy)
         shift
         deploy_to_production "$*"

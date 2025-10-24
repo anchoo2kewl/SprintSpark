@@ -8,10 +8,16 @@ COPY api/openapi.yaml /api/openapi.yaml
 
 # Copy package files
 COPY web/package*.json ./
-RUN npm ci --production=false
+
+# Install dependencies with workaround for rollup native binaries
+RUN npm ci --production=false && \
+    npm install @rollup/rollup-linux-arm64-musl --save-optional
 
 # Copy web source code
 COPY web/ .
+
+# Remove .env to use production config (empty API URL for nginx proxy)
+RUN rm -f .env
 
 # Generate types and build production bundle
 RUN npm run build
@@ -89,6 +95,19 @@ http {
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
+        }
+
+        # Proxy API requests to backend
+        location /api/ {
+            proxy_pass http://api:8080/api/;
+            proxy_http_version 1.1;
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
         }
 
         # SPA routing - serve index.html for all routes

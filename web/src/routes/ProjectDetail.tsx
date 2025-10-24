@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { api, Project, Task } from '../lib/api'
 
 export default function ProjectDetail() {
-  const { id } = useParams<{ id: string }>()
+  const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
   const [project, setProject] = useState<Project | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,18 +38,18 @@ export default function ProjectDetail() {
   )
 
   useEffect(() => {
-    if (id) {
+    if (projectId) {
       loadProjectAndTasks()
     }
-  }, [id])
+  }, [projectId])
 
   const loadProjectAndTasks = async () => {
     try {
       setLoading(true)
       setError(null)
       const [projectData, tasksData] = await Promise.all([
-        api.getProject(Number(id)),
-        api.getTasks(Number(id)),
+        api.getProject(Number(projectId)),
+        api.getTasks(Number(projectId)),
       ])
       setProject(projectData)
       setTasks(tasksData)
@@ -60,11 +61,11 @@ export default function ProjectDetail() {
   }
 
   const handleCreateTask = async () => {
-    if (!newTaskTitle.trim() || !id) return
+    if (!newTaskTitle.trim() || !projectId) return
 
     try {
       setCreating(true)
-      const task = await api.createTask(Number(id), {
+      const task = await api.createTask(Number(projectId), {
         title: newTaskTitle.trim(),
         description: newTaskDescription.trim() || undefined,
         status: 'todo',
@@ -142,49 +143,6 @@ export default function ProjectDetail() {
     }
   }
 
-  const getStatusColor = (status: Task['status']) => {
-    switch (status) {
-      case 'todo':
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'done':
-        return 'bg-green-100 text-green-800 border-green-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
-  }
-
-  const getStatusLabel = (status: Task['status']): string => {
-    switch (status) {
-      case 'todo':
-        return 'To Do'
-      case 'in_progress':
-        return 'In Progress'
-      case 'done':
-        return 'Done'
-      default:
-        return 'Unknown'
-    }
-  }
-
-  const getDueDateColor = (dueDate?: string | null) => {
-    if (!dueDate) return ''
-    const due = new Date(dueDate)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    if (due < today) return 'text-red-600'
-    if (due.getTime() === today.getTime()) return 'text-orange-600'
-    return 'text-gray-600'
-  }
-
-  const formatDueDate = (dueDate?: string | null) => {
-    if (!dueDate) return null
-    const date = new Date(dueDate)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
-
   if (loading) {
     return (
       <div className="p-8">
@@ -231,15 +189,28 @@ export default function ProjectDetail() {
                 <p className="mt-1 text-sm text-gray-600">{project.description}</p>
               )}
             </div>
-            <button
-              onClick={() => setShowNewTaskModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors duration-200"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Task
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate(`/app/projects/${projectId}/settings`)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors duration-200"
+                title="Project Settings"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Settings
+              </button>
+              <button
+                onClick={() => setShowNewTaskModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors duration-200"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Task
+              </button>
+            </div>
           </div>
 
           {/* Task Stats */}
@@ -298,11 +269,8 @@ export default function ProjectDetail() {
                 count={tasksByStatus.todo.length}
                 tasks={tasksByStatus.todo}
                 color="gray"
+                projectId={projectId || ''}
                 onTaskClick={handleTaskClick}
-                getStatusColor={getStatusColor}
-                getStatusLabel={getStatusLabel}
-                getDueDateColor={getDueDateColor}
-                formatDueDate={formatDueDate}
               />
 
               {/* In Progress Column */}
@@ -312,11 +280,8 @@ export default function ProjectDetail() {
                 count={tasksByStatus.in_progress.length}
                 tasks={tasksByStatus.in_progress}
                 color="blue"
+                projectId={projectId || ''}
                 onTaskClick={handleTaskClick}
-                getStatusColor={getStatusColor}
-                getStatusLabel={getStatusLabel}
-                getDueDateColor={getDueDateColor}
-                formatDueDate={formatDueDate}
               />
 
               {/* Done Column */}
@@ -326,11 +291,8 @@ export default function ProjectDetail() {
                 count={tasksByStatus.done.length}
                 tasks={tasksByStatus.done}
                 color="green"
+                projectId={projectId || ''}
                 onTaskClick={handleTaskClick}
-                getStatusColor={getStatusColor}
-                getStatusLabel={getStatusLabel}
-                getDueDateColor={getDueDateColor}
-                formatDueDate={formatDueDate}
               />
             </div>
           )}
@@ -341,10 +303,7 @@ export default function ProjectDetail() {
           {activeTask ? (
             <TaskCard
               task={activeTask}
-              getStatusColor={getStatusColor}
-              getStatusLabel={getStatusLabel}
-              getDueDateColor={getDueDateColor}
-              formatDueDate={formatDueDate}
+              projectId={projectId || ''}
               isDragging
             />
           ) : null}
@@ -521,17 +480,14 @@ export default function ProjectDetail() {
 import { useDroppable } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
 
-function TaskColumn({ id, title, count, tasks, color, onTaskClick, getStatusColor, getStatusLabel, getDueDateColor, formatDueDate }: {
+function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: {
   id: string
   title: string
   count: number
   tasks: Task[]
   color: string
+  projectId: string
   onTaskClick: (task: Task) => void
-  getStatusColor: (status: Task['status']) => string
-  getStatusLabel: (status: Task['status']) => string
-  getDueDateColor: (dueDate?: string | null) => string
-  formatDueDate: (dueDate?: string | null) => string | null
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
@@ -552,11 +508,8 @@ function TaskColumn({ id, title, count, tasks, color, onTaskClick, getStatusColo
           <DraggableTask
             key={task.id}
             task={task}
+            projectId={projectId || ''}
             onTaskClick={onTaskClick}
-            getStatusColor={getStatusColor}
-            getStatusLabel={getStatusLabel}
-            getDueDateColor={getDueDateColor}
-            formatDueDate={formatDueDate}
           />
         ))}
       </div>
@@ -564,13 +517,10 @@ function TaskColumn({ id, title, count, tasks, color, onTaskClick, getStatusColo
   )
 }
 
-function DraggableTask({ task, onTaskClick, getStatusColor, getStatusLabel, getDueDateColor, formatDueDate }: {
+function DraggableTask({ task, projectId, onTaskClick }: {
   task: Task
+  projectId: string
   onTaskClick: (task: Task) => void
-  getStatusColor: (status: Task['status']) => string
-  getStatusLabel: (status: Task['status']) => string
-  getDueDateColor: (dueDate?: string | null) => string
-  formatDueDate: (dueDate?: string | null) => string | null
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id as number,
@@ -591,43 +541,38 @@ function DraggableTask({ task, onTaskClick, getStatusColor, getStatusLabel, getD
     >
       <TaskCard
         task={task}
-        getStatusColor={getStatusColor}
-        getStatusLabel={getStatusLabel}
-        getDueDateColor={getDueDateColor}
-        formatDueDate={formatDueDate}
+        projectId={projectId || ''}
+        isDragging={isDragging}
       />
     </div>
   )
 }
 
-function TaskCard({ task, getStatusColor, getStatusLabel, getDueDateColor, formatDueDate, isDragging }: {
+function TaskCard({ task, projectId, isDragging }: {
   task: Task
-  getStatusColor: (status: Task['status']) => string
-  getStatusLabel: (status: Task['status']) => string
-  getDueDateColor: (dueDate?: string | null) => string
-  formatDueDate: (dueDate?: string | null) => string | null
+  projectId: string
   isDragging?: boolean
 }) {
+  const navigate = useNavigate()
+
   return (
     <div
+      onClick={() => navigate(`/app/projects/${projectId}/tasks/${task.id}`)}
       className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer ${
         isDragging ? 'shadow-xl rotate-2' : ''
       } ${task.status === 'done' ? 'opacity-75' : ''}`}
     >
-      <h4 className="font-medium text-gray-900">{task.title}</h4>
-      {task.description && (
-        <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+      <h4 className="font-medium text-gray-900 hover:text-primary-600 mb-2">{task.title}</h4>
+      {task.assignee_id && (
+        <div className="flex items-center gap-2 text-xs text-gray-600">
+          <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center">
+            <svg className="w-3 h-3 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <span>Assigned to user {task.assignee_id}</span>
+        </div>
       )}
-      <div className="flex items-center justify-between mt-2">
-        <span className={`inline-block px-2 py-1 text-xs font-medium rounded border ${getStatusColor(task.status)}`}>
-          {getStatusLabel(task.status)}
-        </span>
-        {task.due_date && (
-          <span className={`text-xs font-medium ${getDueDateColor(task.due_date)}`}>
-            📅 {formatDueDate(task.due_date)}
-          </span>
-        )}
-      </div>
     </div>
   )
 }

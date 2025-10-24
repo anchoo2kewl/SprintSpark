@@ -133,6 +133,33 @@ func main() {
 			r.Patch("/tasks/{id}", server.HandleUpdateTask)
 			r.Delete("/tasks/{id}", server.HandleDeleteTask)
 
+			// Sprint routes
+			r.Get("/sprints", server.HandleListSprints)
+			r.Post("/sprints", server.HandleCreateSprint)
+			r.Patch("/sprints/{id}", server.HandleUpdateSprint)
+			r.Delete("/sprints/{id}", server.HandleDeleteSprint)
+
+			// Tag routes
+			r.Get("/tags", server.HandleListTags)
+			r.Post("/tags", server.HandleCreateTag)
+			r.Patch("/tags/{id}", server.HandleUpdateTag)
+			r.Delete("/tags/{id}", server.HandleDeleteTag)
+
+			// Project settings routes
+			r.Get("/projects/{id}/members", server.HandleGetProjectMembers)
+			r.Post("/projects/{id}/members", server.HandleAddProjectMember)
+			r.Patch("/projects/{id}/members/{memberId}", server.HandleUpdateProjectMember)
+			r.Delete("/projects/{id}/members/{memberId}", server.HandleRemoveProjectMember)
+			r.Get("/projects/{id}/github", server.HandleGetProjectGitHubSettings)
+			r.Patch("/projects/{id}/github", server.HandleUpdateProjectGitHubSettings)
+
+			// Security/Settings routes
+			r.Post("/settings/password", server.HandleChangePassword)
+			r.Get("/settings/2fa/status", server.Handle2FAStatus)
+			r.Post("/settings/2fa/setup", server.Handle2FASetup)
+			r.Post("/settings/2fa/enable", server.Handle2FAEnable)
+			r.Post("/settings/2fa/disable", server.Handle2FADisable)
+
 			// Admin routes (requires admin role)
 			r.Get("/admin/users", server.HandleGetUsers)
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
