@@ -4,7 +4,9 @@
  */
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { initDatabase, destroyDatabase, type SprintSparkDatabase } from '../lib/db'
+// Temporarily disabled due to RxDB schema validation errors
+// import { initDatabase, destroyDatabase, type SprintSparkDatabase } from '../lib/db'
+import { destroyDatabase, type SprintSparkDatabase } from '../lib/db'
 import { SyncService, type SyncState } from '../lib/sync/syncService'
 import { useAuth } from './AuthContext'
 
