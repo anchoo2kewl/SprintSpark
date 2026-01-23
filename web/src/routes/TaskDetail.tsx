@@ -134,18 +134,18 @@ export default function TaskDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading task...</div>
+      <div className="min-h-screen bg-dark-bg-primary flex items-center justify-center">
+        <div className="text-dark-text-secondary">Loading task...</div>
       </div>
     )
   }
 
   if (error && !task) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-dark-bg-primary py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-            <p className="text-red-600 mb-4">{error}</p>
+          <div className="bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg p-8 text-center">
+            <p className="text-danger-400 mb-4">{error}</p>
             <Button onClick={() => navigate(`/app/projects/${projectId}`)}>
               Back to Project
             </Button>
@@ -158,14 +158,14 @@ export default function TaskDetail() {
   if (!task) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dark-bg-primary">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-white">
+      <div className="border-b border-dark-bg-tertiary/20 bg-dark-bg-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={() => navigate(`/app/projects/${projectId}`)}
-              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+              className="inline-flex items-center text-sm text-dark-text-secondary hover:text-dark-text-primary"
             >
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -180,7 +180,7 @@ export default function TaskDetail() {
                   </Button>
                   <button
                     onClick={handleDelete}
-                    className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-sm text-danger-400 hover:bg-danger-500/10 rounded-lg transition-colors"
                   >
                     Delete
                   </button>
@@ -220,11 +220,11 @@ export default function TaskDetail() {
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full text-3xl font-bold mb-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                className="w-full text-3xl font-bold mb-2 px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                 placeholder="Task title"
               />
             ) : (
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{task.title}</h1>
+              <h1 className="text-3xl font-bold text-dark-text-primary mb-2">{task.title}</h1>
             )}
 
             {/* Status badges */}
@@ -242,7 +242,7 @@ export default function TaskDetail() {
               {task.tags && task.tags.length > 0 && task.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-full border border-gray-200"
+                  className="px-2.5 py-1 text-xs font-semibold rounded-full border border-dark-bg-tertiary/30"
                   style={{ backgroundColor: tag.color + '20', color: tag.color }}
                 >
                   {tag.name}
@@ -259,15 +259,15 @@ export default function TaskDetail() {
           {/* Left Column - Main Content */}
           <div className="flex-1">
             {/* Description */}
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">Description</h2>
+            <div className="bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg p-6">
+              <h2 className="text-sm font-semibold text-dark-text-primary mb-3">Description</h2>
               {isEditing ? (
                 <div>
                   <textarea
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     rows={15}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm"
+                    className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm placeholder-dark-text-tertiary"
                     placeholder="Add a description in markdown format...
 
 ## Example
@@ -276,20 +276,20 @@ export default function TaskDetail() {
 - Add [links](https://example.com)
 - ```code blocks```"
                   />
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-dark-text-tertiary mt-2">
                     <strong>Supports GitHub Flavored Markdown:</strong> headings, lists, links, code blocks, tables, and more
                   </p>
                 </div>
               ) : (
                 <>
                   {task.description ? (
-                    <div className="prose prose-sm max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-primary-600 prose-code:text-primary-600 prose-code:bg-primary-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-gray-50 prose-pre:border prose-pre:border-gray-200">
+                    <div className="prose prose-sm max-w-none prose-headings:text-dark-text-primary prose-p:text-dark-text-secondary prose-a:text-primary-400 prose-code:text-primary-400 prose-code:bg-primary-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-dark-bg-primary prose-pre:border prose-pre:border-dark-bg-tertiary/30">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {task.description}
                       </ReactMarkdown>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-500 italic">No description provided</p>
+                    <p className="text-sm text-dark-text-tertiary italic">No description provided</p>
                   )}
                 </>
               )}
@@ -301,12 +301,12 @@ export default function TaskDetail() {
             <div className="space-y-6">
               {/* Status */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Status</label>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Status</label>
                 {isEditing ? (
                   <select
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   >
                     <option value="todo">To Do</option>
                     <option value="in_progress">In Progress</option>
@@ -321,12 +321,12 @@ export default function TaskDetail() {
 
               {/* Priority */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Priority</label>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Priority</label>
                 {isEditing ? (
                   <select
                     value={editPriority}
                     onChange={(e) => setEditPriority(e.target.value as 'low' | 'medium' | 'high' | 'urgent')}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -342,23 +342,23 @@ export default function TaskDetail() {
 
               {/* Assignee */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Assignee</label>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Assignee</label>
                 {isEditing ? (
                   <input
                     type="number"
                     value={editAssigneeId}
                     onChange={(e) => setEditAssigneeId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
                     placeholder="User ID (leave empty to unassign)"
                   />
                 ) : (
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3.5 h-3.5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-6 h-6 rounded-full bg-primary-500/10 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-3.5 h-3.5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
-                    <p className="text-sm text-gray-900">
+                    <p className="text-sm text-dark-text-primary">
                       {task.assignee_id ? `User ${task.assignee_id}` : 'Unassigned'}
                     </p>
                   </div>
@@ -367,16 +367,16 @@ export default function TaskDetail() {
 
               {/* Due Date */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Due Date</label>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Due Date</label>
                 {isEditing ? (
                   <input
                     type="date"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   />
                 ) : (
-                  <p className="text-sm text-gray-900">
+                  <p className="text-sm text-dark-text-primary">
                     {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
                   </p>
                 )}
@@ -384,18 +384,18 @@ export default function TaskDetail() {
 
               {/* Estimated Hours */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Estimated Hours</label>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Estimated Hours</label>
                 {isEditing ? (
                   <input
                     type="number"
                     step="0.5"
                     value={editEstimatedHours}
                     onChange={(e) => setEditEstimatedHours(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
                     placeholder="0"
                   />
                 ) : (
-                  <p className="text-sm text-gray-900">
+                  <p className="text-sm text-dark-text-primary">
                     {task.estimated_hours !== null ? `${task.estimated_hours}h` : 'Not estimated'}
                   </p>
                 )}
@@ -403,18 +403,18 @@ export default function TaskDetail() {
 
               {/* Actual Hours */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Actual Hours</label>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Actual Hours</label>
                 {isEditing ? (
                   <input
                     type="number"
                     step="0.5"
                     value={editActualHours}
                     onChange={(e) => setEditActualHours(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
                     placeholder="0"
                   />
                 ) : (
-                  <p className="text-sm text-gray-900">
+                  <p className="text-sm text-dark-text-primary">
                     {task.actual_hours !== null ? `${task.actual_hours}h` : 'Not tracked'}
                   </p>
                 )}
@@ -423,12 +423,12 @@ export default function TaskDetail() {
               {/* Tags */}
               {task.tags && task.tags.length > 0 && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">Tags</label>
+                  <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Tags</label>
                   <div className="flex flex-wrap gap-1.5">
                     {task.tags.map((tag) => (
                       <span
                         key={tag.id}
-                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md border border-gray-200"
+                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md border border-dark-bg-tertiary/30"
                         style={{ backgroundColor: tag.color + '20', color: tag.color }}
                       >
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color }} />
@@ -440,20 +440,20 @@ export default function TaskDetail() {
               )}
 
               {/* Timestamps */}
-              <div className="pt-6 border-t border-gray-200">
+              <div className="pt-6 border-t border-dark-bg-tertiary/20">
                 <div className="space-y-3 text-xs">
                   {task.created_at && (
                     <div>
-                      <span className="text-gray-600">Created </span>
-                      <span className="text-gray-900 font-medium">
+                      <span className="text-dark-text-secondary">Created </span>
+                      <span className="text-dark-text-primary font-medium">
                         {new Date(task.created_at).toLocaleDateString()}
                       </span>
                     </div>
                   )}
                   {task.updated_at && (
                     <div>
-                      <span className="text-gray-600">Updated </span>
-                      <span className="text-gray-900 font-medium">
+                      <span className="text-dark-text-secondary">Updated </span>
+                      <span className="text-dark-text-primary font-medium">
                         {new Date(task.updated_at).toLocaleDateString()}
                       </span>
                     </div>
@@ -467,7 +467,7 @@ export default function TaskDetail() {
 
       {/* Error notification */}
       {error && task && (
-        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg shadow-lg">
+        <div className="fixed bottom-4 right-4 bg-danger-500/10 border border-danger-500/30 text-danger-400 px-4 py-3 rounded-lg shadow-lg">
           {error}
         </div>
       )}

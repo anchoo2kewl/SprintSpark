@@ -55,19 +55,19 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary-50 via-secondary-100 to-purple-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-dark-bg-primary px-4">
       <Card className="max-w-md w-full">
         <CardHeader>
           <div className="text-center">
             <img
               src="/logo.svg"
               alt="SprintSpark"
-              className="mx-auto h-20 w-20 mb-4"
+              className="mx-auto h-16 w-16 mb-3"
             />
-            <h2 className="text-3xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-dark-text-primary">
               SprintSpark
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-xs text-dark-text-secondary">
               Create your account
             </p>
           </div>

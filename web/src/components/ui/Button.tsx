@@ -18,13 +18,13 @@ export default function Button({
   className = '',
   ...props
 }: ButtonProps) {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors'
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md focus:outline-none focus:ring-1 transition-colors'
 
   const variantClasses = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 disabled:bg-primary-300',
-    secondary: 'bg-secondary-600 text-white hover:bg-secondary-700 focus:ring-secondary-500 disabled:bg-secondary-300',
-    danger: 'bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500 disabled:bg-danger-300',
-    outline: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-primary-500 disabled:bg-gray-100',
+    primary: 'bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500 disabled:bg-primary-500/50',
+    secondary: 'bg-dark-bg-tertiary/50 text-dark-text-primary hover:bg-dark-bg-tertiary/70 focus:ring-dark-bg-tertiary disabled:bg-dark-bg-tertiary/30',
+    danger: 'bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500 disabled:bg-danger-500/50',
+    outline: 'bg-transparent text-dark-text-secondary border border-dark-bg-tertiary/30 hover:bg-dark-bg-tertiary/20 hover:text-dark-text-primary focus:ring-primary-500 disabled:bg-dark-bg-tertiary/10',
   }
 
   const sizeClasses = {

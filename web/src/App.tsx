@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './state/AuthContext'
+import { SyncProvider } from './state/SyncContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './routes/Login'
 import Signup from './routes/Signup'
@@ -16,7 +17,8 @@ import Settings from './routes/Settings'
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <SyncProvider>
+        <BrowserRouter>
         <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
@@ -48,6 +50,7 @@ function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
+      </SyncProvider>
     </AuthProvider>
   )
 }

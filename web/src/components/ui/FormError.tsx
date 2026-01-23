@@ -8,13 +8,13 @@ export default function FormError({ message, className = '' }: FormErrorProps) {
 
   return (
     <div
-      className={`rounded-md bg-danger-50 border border-danger-200 p-4 ${className}`}
+      className={`rounded-md bg-danger-500/10 border border-danger-500/30 p-3 ${className}`}
       role="alert"
     >
       <div className="flex">
         <div className="flex-shrink-0">
           <svg
-            className="h-5 w-5 text-danger-400"
+            className="h-4 w-4 text-danger-400"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
@@ -27,8 +27,8 @@ export default function FormError({ message, className = '' }: FormErrorProps) {
             />
           </svg>
         </div>
-        <div className="ml-3">
-          <p className="text-sm font-medium text-danger-800">{message}</p>
+        <div className="ml-2">
+          <p className="text-xs font-medium text-danger-300">{message}</p>
         </div>
       </div>
     </div>

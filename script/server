@@ -51,6 +51,7 @@ show_help() {
     echo "Usage: $0 <command> [options]"
     echo ""
     echo -e "${YELLOW}Local Development Commands:${NC}"
+    echo "  local dev            Start local dev mode with hot-reload (API + Web)"
     echo "  local:start          Start local Docker services (http://localhost:$LOCAL_WEB_PORT)"
     echo "  local:stop           Stop local Docker services"
     echo "  local:restart        Restart local Docker services"
@@ -529,6 +530,127 @@ admin_list() {
     fi
 }
 
+# List all users (local only, for debugging)
+users_list_all() {
+    print_header "All Users (LOCAL ONLY - DEBUG)"
+    print_warning "⚠️  This command only works in LOCAL environment for debugging"
+    print_warning "⚠️  Passwords are HASHED with bcrypt (cannot be retrieved)"
+    echo ""
+
+    if ! docker-compose ps | grep -q "api.*Up"; then
+        print_error "Local API container is not running. Start with: $0 local:start"
+        return 1
+    fi
+
+    local query="SELECT id, email, is_admin, created_at, substr(password_hash, 1, 20) || '...' as password_hash_preview FROM users ORDER BY created_at DESC;"
+
+    docker-compose exec -T -u root api sh -c "
+        if ! command -v sqlite3 >/dev/null 2>&1; then
+            apk add --no-cache sqlite >/dev/null 2>&1
+        fi
+        sqlite3 -header -column /data/sprintspark.db \"$query\"
+    "
+
+    echo ""
+    print_warning "Password hashes are bcrypt-encrypted and CANNOT be decrypted."
+    print_warning "Use './script/server local users:password <email>' to reset a password"
+    echo ""
+    echo -e "${CYAN}Test user from populate_demo_data.sh:${NC}"
+    echo "  Email: testuser2@example.com"
+    echo "  Password: TestPass123!"
+    echo ""
+    echo -e "${CYAN}Demo users:${NC}"
+    echo "  demo.user1@sprintspark.app / DemoPass123!"
+    echo "  demo.user2@sprintspark.app / DemoPass223!"
+    echo "  demo.user3@sprintspark.app / DemoPass323!"
+    echo "  demo.user4@sprintspark.app / DemoPass423!"
+    echo "  demo.user5@sprintspark.app / DemoPass523!"
+}
+
+# Reset user password (local only, for debugging)
+users_reset_password() {
+    local email="$1"
+    local new_password="${2:-password123}"
+
+    print_header "Reset User Password (LOCAL ONLY - DEBUG)"
+    print_warning "⚠️  This command only works in LOCAL environment for debugging"
+    echo ""
+
+    if [ -z "$email" ]; then
+        print_error "Usage: $0 local users:password <email> [password]"
+        echo "Example: $0 local users:password a@b.me MyNewPass123"
+        echo ""
+        echo "If password is not provided, defaults to: password123"
+        return 1
+    fi
+
+    if ! docker-compose ps | grep -q "api.*Up"; then
+        print_error "Local API container is not running. Start with: $0 local:start"
+        return 1
+    fi
+
+    print_status "Resetting password for: $email"
+    print_status "New password: $new_password"
+    echo ""
+
+    # Use the API to reset password by signing up again (will fail) or direct DB update
+    # Since we can't easily generate bcrypt hash in bash, let's use the API signup endpoint
+    # But that would create a new user. Instead, let's delete and recreate.
+
+    # First, check if user exists
+    local user_exists=$(docker-compose exec -T -u root api sh -c "
+        sqlite3 /data/sprintspark.db \"SELECT id FROM users WHERE email = '$email';\"
+    " | tr -d '\r')
+
+    if [ -z "$user_exists" ]; then
+        print_error "User $email not found in database"
+        return 1
+    fi
+
+    # Get user admin status
+    local is_admin=$(docker-compose exec -T -u root api sh -c "
+        sqlite3 /data/sprintspark.db \"SELECT is_admin FROM users WHERE email = '$email';\"
+    " | tr -d '\r')
+
+    print_warning "This will DELETE the user and recreate with new password"
+    echo "User ID: $user_exists"
+    echo "Admin status: $is_admin"
+    echo ""
+
+    # Delete user
+    docker-compose exec -T -u root api sh -c "
+        sqlite3 /data/sprintspark.db \"DELETE FROM users WHERE email = '$email';\"
+    "
+
+    # Recreate via API (which will hash the password)
+    local signup_response=$(curl -s -X POST "http://localhost:$LOCAL_API_PORT/api/auth/signup" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"$email\",\"password\":\"$new_password\"}")
+
+    local new_token=$(echo "$signup_response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('token', ''))" 2>/dev/null || echo "")
+
+    if [ -n "$new_token" ]; then
+        # Restore admin status if needed
+        if [ "$is_admin" = "1" ]; then
+            docker-compose exec -T -u root api sh -c "
+                sqlite3 /data/sprintspark.db \"UPDATE users SET is_admin = 1 WHERE email = '$email';\"
+            "
+            print_status "Restored admin privileges"
+        fi
+
+        echo ""
+        print_success "Password reset successfully!"
+        echo ""
+        echo -e "${CYAN}Login credentials:${NC}"
+        echo "  Email: $email"
+        echo "  Password: $new_password"
+    else
+        print_error "Failed to reset password"
+        echo "Response: $signup_response"
+        return 1
+    fi
+}
+
 # Admin management - revoke admin
 admin_revoke() {
     local email="$1"
@@ -695,6 +817,121 @@ local_clean() {
     fi
 }
 
+local_dev() {
+    print_header "Starting Local Development Mode"
+    print_status "API will run on http://localhost:8083"
+    print_status "Web will run on http://localhost:5173 (Vite dev server)"
+    print_status "Changes will auto-reload. Press Ctrl+C to stop."
+    echo ""
+
+    # Kill existing processes on these ports
+    print_status "Cleaning up existing processes..."
+    lsof -ti:8083 | xargs kill -9 2>/dev/null || true
+    lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+
+    # Create logs directory
+    mkdir -p logs
+
+    # Create trap to cleanup on exit
+    trap 'print_warning "Stopping dev servers..."; kill $(jobs -p) 2>/dev/null; exit' INT TERM
+
+    # Start API in background with Air for hot-reload
+    print_status "Starting Go API with hot-reload (Air)..."
+    cd api
+    if ! command -v air &> /dev/null; then
+        print_warning "Air not found. Installing..."
+        go install github.com/air-verse/air@latest
+    fi
+
+    # Create Air config if it doesn't exist
+    if [ ! -f .air.toml ]; then
+        print_status "Creating Air config..."
+        cat > .air.toml << 'EOF'
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+args_bin = []
+bin = "./tmp/main"
+cmd = "go build -o ./tmp/main ./cmd/api"
+delay = 1000
+exclude_dir = ["assets", "tmp", "vendor", "testdata"]
+exclude_file = []
+exclude_regex = ["_test.go"]
+exclude_unchanged = false
+follow_symlink = false
+full_bin = ""
+include_dir = []
+include_ext = ["go", "tpl", "tmpl", "html"]
+include_file = []
+kill_delay = "0s"
+log = "build-errors.log"
+poll = false
+poll_interval = 0
+post_cmd = []
+pre_cmd = []
+rerun = false
+rerun_delay = 500
+send_interrupt = false
+stop_on_error = false
+
+[color]
+app = ""
+build = "yellow"
+main = "magenta"
+runner = "green"
+watcher = "cyan"
+
+[log]
+main_only = false
+time = false
+
+[misc]
+clean_on_exit = false
+
+[screen]
+clear_on_rebuild = false
+keep_scroll = true
+EOF
+    fi
+
+    export DB_PATH="../data/sprintspark.db"
+    export PORT=8083
+    air > ../logs/api.log 2>&1 &
+    API_PID=$!
+    cd ..
+
+    # Wait a bit for API to start
+    sleep 2
+
+    # Start Web dev server in background
+    print_status "Starting Vite dev server with hot-reload..."
+    cd web
+    export VITE_API_URL=http://localhost:8083
+    npm run dev > ../logs/web.log 2>&1 &
+    WEB_PID=$!
+    cd ..
+
+    # Wait for servers to be ready
+    sleep 3
+
+    print_success "Development servers started!"
+    echo ""
+    print_success "✓ API: http://localhost:8083 (Go with Air hot-reload)"
+    print_success "✓ Web: http://localhost:5173 (Vite hot-reload)"
+    echo ""
+    print_status "Logs:"
+    print_status "  API: tail -f logs/api.log"
+    print_status "  Web: tail -f logs/web.log"
+    echo ""
+    print_warning "Press Ctrl+C to stop both servers"
+    echo ""
+
+    # Tail both logs
+    tail -f logs/api.log logs/web.log
+}
+
 # Main command handler
 case ${1:-help} in
     local:start)
@@ -775,6 +1012,9 @@ case ${1:-help} in
         ;;
     local)
         case "$2" in
+            dev)
+                local_dev
+                ;;
             admin)
                 case "$3" in
                     create)
@@ -793,8 +1033,15 @@ case ${1:-help} in
                         ;;
                 esac
                 ;;
+            users:list)
+                users_list_all
+                ;;
+            users:password)
+                users_reset_password "$3" "$4"
+                ;;
             *)
                 print_error "Unknown local command: $2"
+                echo "Available: admin, users:list, users:password"
                 exit 1
                 ;;
         esac

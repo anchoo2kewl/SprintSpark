@@ -53,27 +53,27 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
 
   if (loading) {
     return (
-      <div className="w-64 bg-white border-r border-gray-200 p-4">
-        <div className="animate-pulse space-y-3">
-          <div className="h-10 bg-gray-200 rounded"></div>
-          <div className="h-16 bg-gray-100 rounded"></div>
-          <div className="h-16 bg-gray-100 rounded"></div>
-          <div className="h-16 bg-gray-100 rounded"></div>
+      <div className="w-60 bg-dark-bg-secondary border-r border-dark-bg-tertiary/20 p-3">
+        <div className="animate-pulse space-y-2">
+          <div className="h-8 bg-dark-bg-tertiary/40 rounded"></div>
+          <div className="h-12 bg-dark-bg-tertiary/30 rounded"></div>
+          <div className="h-12 bg-dark-bg-tertiary/30 rounded"></div>
+          <div className="h-12 bg-dark-bg-tertiary/30 rounded"></div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="w-60 bg-dark-bg-secondary border-r border-dark-bg-tertiary/20 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 space-y-2">
+      <div className="p-3 border-b border-dark-bg-tertiary/20 space-y-1.5">
         <button
           onClick={onCreateProject}
-          className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+          className="w-full bg-primary-500 hover:bg-primary-600 text-white font-medium py-1.5 px-3 rounded-md transition-colors duration-150 flex items-center justify-center gap-2 text-sm"
         >
           <svg
-            className="w-5 h-5"
+            className="w-4 h-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -91,13 +91,13 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
         {/* Sprints Link */}
         <button
           onClick={() => navigate('/app/sprints')}
-          className={`w-full font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+          className={`w-full font-medium py-1.5 px-3 rounded-md transition-colors duration-150 flex items-center gap-2 text-sm ${
             location.pathname === '/app/sprints'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+              ? 'bg-dark-bg-tertiary/50 text-dark-text-primary'
+              : 'text-dark-text-secondary hover:bg-dark-bg-tertiary/30 hover:text-dark-text-primary'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           Sprints
@@ -106,13 +106,13 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
         {/* Tags Link */}
         <button
           onClick={() => navigate('/app/tags')}
-          className={`w-full font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+          className={`w-full font-medium py-1.5 px-3 rounded-md transition-colors duration-150 flex items-center gap-2 text-sm ${
             location.pathname === '/app/tags'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+              ? 'bg-dark-bg-tertiary/50 text-dark-text-primary'
+              : 'text-dark-text-secondary hover:bg-dark-bg-tertiary/30 hover:text-dark-text-primary'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
           </svg>
           Tags
@@ -121,13 +121,13 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
         {/* Settings Link */}
         <button
           onClick={() => navigate('/app/settings')}
-          className={`w-full font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+          className={`w-full font-medium py-1.5 px-3 rounded-md transition-colors duration-150 flex items-center gap-2 text-sm ${
             location.pathname === '/app/settings'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+              ? 'bg-dark-bg-tertiary/50 text-dark-text-primary'
+              : 'text-dark-text-secondary hover:bg-dark-bg-tertiary/30 hover:text-dark-text-primary'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -138,13 +138,13 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
         {user?.is_admin && (
           <button
             onClick={() => navigate('/app/admin')}
-            className={`w-full font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+            className={`w-full font-medium py-1.5 px-3 rounded-md transition-colors duration-150 flex items-center gap-2 text-sm ${
               location.pathname === '/app/admin'
-                ? 'bg-purple-600 text-white'
-                : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                ? 'bg-primary-500/20 text-primary-400'
+                : 'text-dark-text-secondary hover:bg-dark-bg-tertiary/30 hover:text-dark-text-primary'
             }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
             Admin
@@ -153,9 +153,9 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
       </div>
 
       {/* Projects List */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3">
         {error && (
-          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-3 py-2 rounded mb-4 text-sm">
+          <div className="bg-danger-500/10 border border-danger-500/20 text-danger-400 px-3 py-2 rounded text-xs">
             {error}
           </div>
         )}
@@ -163,7 +163,7 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
         {projects.length === 0 && !error && (
           <div className="text-center py-8">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-10 w-10 text-dark-text-tertiary"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -175,35 +175,35 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
                 d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            <p className="mt-2 text-sm text-gray-600">No projects yet</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="mt-2 text-xs text-dark-text-secondary">No projects yet</p>
+            <p className="text-xs text-dark-text-tertiary mt-1">
               Create your first project to get started
             </p>
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           {projects.map((project) => {
             const isSelected = selectedProjectId === String(project.id)
             return (
               <button
                 key={project.id}
                 onClick={() => handleProjectClick(project.id)}
-                className={`w-full text-left p-3 rounded-lg transition-all duration-200 ${
+                className={`w-full text-left py-2 px-3 rounded-md transition-all duration-150 ${
                   isSelected
-                    ? 'bg-primary-50 border-2 border-primary-500 shadow-sm'
-                    : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                    ? 'bg-primary-500/10 text-dark-text-primary border border-primary-500/30'
+                    : 'text-dark-text-secondary hover:bg-dark-bg-tertiary/30 hover:text-dark-text-primary border border-transparent'
                 }`}
               >
                 <h3
-                  className={`font-medium text-sm truncate ${
-                    isSelected ? 'text-primary-900' : 'text-gray-900'
+                  className={`font-medium text-xs truncate ${
+                    isSelected ? 'text-dark-text-primary' : 'text-dark-text-secondary'
                   }`}
                 >
                   {project.name}
                 </h3>
                 {project.description && (
-                  <p className="text-xs text-gray-500 truncate mt-1">
+                  <p className="text-xs text-dark-text-tertiary truncate mt-0.5">
                     {project.description}
                   </p>
                 )}

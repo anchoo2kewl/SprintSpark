@@ -3,6 +3,8 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext'
 import Sidebar from '../components/Sidebar'
 import ProjectModal from '../components/ProjectModal'
+import SyncStatus from '../components/SyncStatus'
+import CommandPalette from '../components/CommandPalette'
 import { Project } from '../lib/api'
 
 export default function Dashboard() {
@@ -25,34 +27,35 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="flex items-center justify-between h-16 px-6">
+    <div className="min-h-screen bg-dark-bg-primary flex flex-col">
+      {/* Header - Linear style */}
+      <header className="bg-dark-bg-secondary border-b border-dark-bg-tertiary/20">
+        <div className="flex items-center justify-between h-12 px-4">
           <div className="flex items-center gap-3">
             <img
               src="/logo.svg"
               alt="SprintSpark"
-              className="w-10 h-10"
+              className="w-6 h-6"
             />
-            <h1 className="text-xl font-bold text-gray-900">SprintSpark</h1>
+            <h1 className="text-sm font-semibold text-dark-text-primary">SprintSpark</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <SyncStatus />
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-primary-700">
+              <div className="w-6 h-6 bg-primary-500/10 rounded-full flex items-center justify-center">
+                <span className="text-xs font-medium text-primary-400">
                   {user?.email?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className="text-sm text-gray-700">{user?.email}</span>
+              <span className="text-xs text-dark-text-secondary">{user?.email}</span>
             </div>
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-tertiary/30 rounded-md transition-colors duration-150"
             >
               <svg
-                className="w-4 h-4"
+                className="w-3.5 h-3.5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -76,7 +79,7 @@ export default function Dashboard() {
         <Sidebar onCreateProject={() => setIsProjectModalOpen(true)} />
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-dark-bg-primary">
           <Outlet />
         </main>
       </div>
@@ -87,6 +90,9 @@ export default function Dashboard() {
         onClose={() => setIsProjectModalOpen(false)}
         onProjectCreated={handleProjectCreated}
       />
+
+      {/* Command Palette (Cmd+K) */}
+      <CommandPalette />
     </div>
   )
 }

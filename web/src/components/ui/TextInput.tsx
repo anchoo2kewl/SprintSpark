@@ -10,20 +10,21 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
   ({ label, error, helpText, className = '', ...props }, ref) => {
     return (
       <div className="w-full">
-        <label htmlFor={props.id} className="block text-sm font-medium text-gray-700">
+        <label htmlFor={props.id} className="block text-xs font-medium text-dark-text-primary mb-1">
           {label}
-          {props.required && <span className="text-danger-500 ml-1">*</span>}
+          {props.required && <span className="text-danger-400 ml-1">*</span>}
         </label>
         <input
           ref={ref}
           className={`
-            mt-1 appearance-none block w-full px-3 py-2 border rounded-md shadow-sm
-            placeholder-gray-400 focus:outline-none sm:text-sm
+            appearance-none block w-full px-3 py-2 border rounded-md shadow-sm
+            placeholder-dark-text-tertiary focus:outline-none text-sm
+            bg-dark-bg-primary text-dark-text-primary
             ${error
-              ? 'border-danger-300 focus:ring-danger-500 focus:border-danger-500'
-              : 'border-gray-300 focus:ring-primary-500 focus:border-primary-500'
+              ? 'border-danger-500/50 focus:ring-1 focus:ring-danger-500 focus:border-danger-500'
+              : 'border-dark-bg-tertiary/30 focus:ring-1 focus:ring-primary-500 focus:border-primary-500'
             }
-            ${props.disabled ? 'bg-gray-100 cursor-not-allowed' : ''}
+            ${props.disabled ? 'bg-dark-bg-tertiary/20 cursor-not-allowed opacity-50' : ''}
             ${className}
           `}
           aria-invalid={error ? 'true' : 'false'}
@@ -31,12 +32,12 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
           {...props}
         />
         {helpText && !error && (
-          <p id={`${props.id}-help`} className="mt-1 text-xs text-gray-500">
+          <p id={`${props.id}-help`} className="mt-1 text-xs text-dark-text-secondary">
             {helpText}
           </p>
         )}
         {error && (
-          <p id={`${props.id}-error`} className="mt-1 text-xs text-danger-600" role="alert">
+          <p id={`${props.id}-error`} className="mt-1 text-xs text-danger-400" role="alert">
             {error}
           </p>
         )}

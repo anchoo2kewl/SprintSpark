@@ -118,13 +118,13 @@ export default function Sprints() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-dark-bg-primary py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Sprints</h1>
-              <p className="text-gray-600 mt-1">Organize tasks into time-boxed iterations</p>
+              <h1 className="text-3xl font-bold text-dark-text-primary">Sprints</h1>
+              <p className="text-dark-text-secondary mt-1">Organize tasks into time-boxed iterations</p>
             </div>
             <Button onClick={() => navigate('/app')} variant="secondary">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,12 +139,12 @@ export default function Sprints() {
           <div className="p-6 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900">Manage Sprints</h2>
+                <h2 className="text-xl font-semibold text-dark-text-primary">Manage Sprints</h2>
               </div>
               <Button
                 onClick={() => {
@@ -162,7 +162,7 @@ export default function Sprints() {
             </div>
 
             {success && (
-              <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-400 rounded-r text-green-800 text-sm">
+              <div className="mb-4 p-3 bg-success-500/10 border-l-4 border-success-400 rounded-r text-success-400 text-sm">
                 {success}
               </div>
             )}
@@ -170,8 +170,8 @@ export default function Sprints() {
             {error && <FormError message={error} className="mb-4" />}
 
             {showForm && (
-              <form onSubmit={handleSave} className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                <h3 className="font-semibold text-gray-900 mb-4">
+              <form onSubmit={handleSave} className="mb-6 p-4 bg-purple-500/5 border border-purple-500/30 rounded-lg">
+                <h3 className="font-semibold text-dark-text-primary mb-4">
                   {editingId ? 'Edit Sprint' : 'New Sprint'}
                 </h3>
 
@@ -185,13 +185,13 @@ export default function Sprints() {
                   />
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Goal (Optional)</label>
+                    <label className="block text-sm font-medium text-dark-text-primary mb-1">Goal (Optional)</label>
                     <textarea
                       value={formData.goal}
                       onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
                       placeholder="What do you want to achieve?"
                       rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                     />
                   </div>
 
@@ -212,11 +212,11 @@ export default function Sprints() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <label className="block text-sm font-medium text-dark-text-primary mb-1">Status</label>
                     <select
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                     >
                       <option value="planned">Planned</option>
                       <option value="active">Active</option>
@@ -246,8 +246,8 @@ export default function Sprints() {
 
             <div className="space-y-3">
               {sprints.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-8 text-dark-text-tertiary">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-dark-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   <p>No sprints yet</p>
@@ -257,19 +257,19 @@ export default function Sprints() {
                 sprints.map((sprint) => (
                   <div
                     key={sprint.id}
-                    className="p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                    className="p-4 bg-dark-bg-primary border border-dark-bg-tertiary/30 rounded-lg hover:border-dark-bg-tertiary/50 transition-colors"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">{sprint.name}</h3>
+                          <h3 className="font-semibold text-dark-text-primary">{sprint.name}</h3>
                           <span className={`px-2 py-0.5 text-xs font-medium rounded-full border ${getStatusColor(sprint.status)}`}>
                             {sprint.status}
                           </span>
                         </div>
-                        {sprint.goal && <p className="text-sm text-gray-600 mb-2">{sprint.goal}</p>}
+                        {sprint.goal && <p className="text-sm text-dark-text-secondary mb-2">{sprint.goal}</p>}
                         {(sprint.start_date || sprint.end_date) && (
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-dark-text-tertiary">
                             {sprint.start_date && new Date(sprint.start_date).toLocaleDateString()}
                             {sprint.start_date && sprint.end_date && ' - '}
                             {sprint.end_date && new Date(sprint.end_date).toLocaleDateString()}
@@ -279,7 +279,7 @@ export default function Sprints() {
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleEdit(sprint)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1.5 text-primary-400 hover:bg-primary-500/10 rounded transition-colors"
                           title="Edit"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,7 +288,7 @@ export default function Sprints() {
                         </button>
                         <button
                           onClick={() => handleDelete(sprint.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="p-1.5 text-danger-400 hover:bg-danger-500/10 rounded transition-colors"
                           title="Delete"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

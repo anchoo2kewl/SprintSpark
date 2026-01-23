@@ -1,15 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { api, Project, Task } from '../lib/api'
+import { api, Project } from '../lib/api'
+import { useLocalTasks } from '../hooks/useLocalTasks'
+import type { TaskDocument } from '../lib/db/schema'
 
 export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const [project, setProject] = useState<Project | null>(null)
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loadingProject, setLoadingProject] = useState(true)
+  const [projectError, setProjectError] = useState<string | null>(null)
+
+  // Use local-first tasks hook
+  const {
+    tasks,
+    loading: loadingTasks,
+    error: tasksError,
+    createTask,
+    updateTask,
+    updateTaskStatus,
+  } = useLocalTasks(Number(projectId))
 
   // New task modal state
   const [showNewTaskModal, setShowNewTaskModal] = useState(false)
@@ -19,7 +30,7 @@ export default function ProjectDetail() {
   const [creating, setCreating] = useState(false)
 
   // Task detail modal state
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [selectedTask, setSelectedTask] = useState<TaskDocument | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editStatus, setEditStatus] = useState<'todo' | 'in_progress' | 'done'>('todo')
@@ -27,7 +38,7 @@ export default function ProjectDetail() {
   const [updating, setUpdating] = useState(false)
 
   // Drag and drop state
-  const [activeTask, setActiveTask] = useState<Task | null>(null)
+  const [activeTask, setActiveTask] = useState<TaskDocument | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -37,26 +48,23 @@ export default function ProjectDetail() {
     })
   )
 
+  // Load project metadata (tasks are handled by useLocalTasks hook)
   useEffect(() => {
     if (projectId) {
-      loadProjectAndTasks()
+      loadProject()
     }
   }, [projectId])
 
-  const loadProjectAndTasks = async () => {
+  const loadProject = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      const [projectData, tasksData] = await Promise.all([
-        api.getProject(Number(projectId)),
-        api.getTasks(Number(projectId)),
-      ])
+      setLoadingProject(true)
+      setProjectError(null)
+      const projectData = await api.getProject(Number(projectId))
       setProject(projectData)
-      setTasks(tasksData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load project')
+      setProjectError(err instanceof Error ? err.message : 'Failed to load project')
     } finally {
-      setLoading(false)
+      setLoadingProject(false)
     }
   }
 
@@ -65,13 +73,13 @@ export default function ProjectDetail() {
 
     try {
       setCreating(true)
-      const task = await api.createTask(Number(projectId), {
+      // Optimistic create - updates UI instantly and syncs in background
+      await createTask({
         title: newTaskTitle.trim(),
         description: newTaskDescription.trim() || undefined,
         status: 'todo',
         due_date: newTaskDueDate || undefined,
       })
-      setTasks([...tasks, task])
       setShowNewTaskModal(false)
       setNewTaskTitle('')
       setNewTaskDescription('')
@@ -83,7 +91,7 @@ export default function ProjectDetail() {
     }
   }
 
-  const handleTaskClick = (task: Task) => {
+  const handleTaskClick = (task: TaskDocument) => {
     setSelectedTask(task)
     setEditTitle(task.title || '')
     setEditDescription(task.description || '')
@@ -96,13 +104,13 @@ export default function ProjectDetail() {
 
     try {
       setUpdating(true)
-      const updated = await api.updateTask(selectedTask.id, {
+      // Optimistic update - updates UI instantly
+      await updateTask(selectedTask.id, {
         title: editTitle.trim(),
         description: editDescription.trim() || undefined,
         status: editStatus,
         due_date: editDueDate || null,
       })
-      setTasks(tasks.map(t => t.id === updated.id ? updated : t))
       setSelectedTask(null)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update task')
@@ -128,42 +136,35 @@ export default function ProjectDetail() {
     const task = tasks.find(t => t.id === taskId)
     if (!task || task.status === newStatus) return
 
-    // Optimistically update UI
-    setTasks(tasks.map(t =>
-      t.id === taskId ? { ...t, status: newStatus } : t
-    ))
-
     try {
-      const updated = await api.updateTask(taskId, { status: newStatus })
-      setTasks(tasks.map(t => t.id === updated.id ? updated : t))
+      // Optimistic update - UI updates instantly, syncs in background
+      await updateTaskStatus(taskId, newStatus)
     } catch (err) {
-      // Revert on error
-      await loadProjectAndTasks()
       alert(err instanceof Error ? err.message : 'Failed to update task status')
     }
   }
 
-  if (loading) {
+  if (loadingProject || loadingTasks) {
     return (
-      <div className="p-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="h-4 bg-gray-100 rounded w-1/2"></div>
-          <div className="space-y-3 mt-8">
-            <div className="h-20 bg-gray-100 rounded"></div>
-            <div className="h-20 bg-gray-100 rounded"></div>
-            <div className="h-20 bg-gray-100 rounded"></div>
+      <div className="p-6 bg-dark-bg-primary">
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 bg-dark-bg-tertiary/40 rounded w-1/3"></div>
+          <div className="h-3 bg-dark-bg-tertiary/30 rounded w-1/2"></div>
+          <div className="space-y-2 mt-6">
+            <div className="h-16 bg-dark-bg-tertiary/30 rounded"></div>
+            <div className="h-16 bg-dark-bg-tertiary/30 rounded"></div>
+            <div className="h-16 bg-dark-bg-tertiary/30 rounded"></div>
           </div>
         </div>
       </div>
     )
   }
 
-  if (error) {
+  if (projectError || tasksError) {
     return (
-      <div className="p-8">
-        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded">
-          {error}
+      <div className="p-6 bg-dark-bg-primary">
+        <div className="bg-danger-500/10 border border-danger-500/20 text-danger-400 px-4 py-3 rounded text-sm">
+          {projectError || tasksError}
         </div>
       </div>
     )
@@ -177,25 +178,25 @@ export default function ProjectDetail() {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col bg-dark-bg-primary">
         {/* Project Header */}
-        <div className="bg-white border-b border-gray-200 px-8 py-6">
+        <div className="bg-dark-bg-secondary border-b border-dark-bg-tertiary/20 px-6 py-4">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-lg font-semibold text-dark-text-primary">
                 {project?.name}
               </h1>
               {project?.description && (
-                <p className="mt-1 text-sm text-gray-600">{project.description}</p>
+                <p className="mt-1 text-xs text-dark-text-secondary">{project.description}</p>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate(`/app/projects/${projectId}/settings`)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors duration-200"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-bg-tertiary/30 hover:bg-dark-bg-tertiary/50 text-dark-text-secondary hover:text-dark-text-primary text-xs font-medium rounded-md transition-colors duration-150"
                 title="Project Settings"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
@@ -203,9 +204,9 @@ export default function ProjectDetail() {
               </button>
               <button
                 onClick={() => setShowNewTaskModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-colors duration-200"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white text-xs font-medium rounded-md transition-colors duration-150"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 New Task
@@ -214,22 +215,22 @@ export default function ProjectDetail() {
           </div>
 
           {/* Task Stats */}
-          <div className="flex gap-6 mt-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-              <span className="text-sm text-gray-600">
+          <div className="flex gap-4 mt-3">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-dark-text-tertiary"></div>
+              <span className="text-xs text-dark-text-secondary">
                 {tasksByStatus.todo.length} To Do
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-              <span className="text-sm text-gray-600">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-primary-400"></div>
+              <span className="text-xs text-dark-text-secondary">
                 {tasksByStatus.in_progress.length} In Progress
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span className="text-sm text-gray-600">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-success-400"></div>
+              <span className="text-xs text-dark-text-secondary">
                 {tasksByStatus.done.length} Done
               </span>
             </div>
@@ -237,12 +238,12 @@ export default function ProjectDetail() {
         </div>
 
         {/* Tasks Board */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-6 bg-dark-bg-primary">
           {tasks.length === 0 ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
+                  className="mx-auto h-10 w-10 text-dark-text-tertiary"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -254,8 +255,8 @@ export default function ProjectDetail() {
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                   />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No tasks</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <h3 className="mt-2 text-sm font-medium text-dark-text-primary">No tasks</h3>
+                <p className="mt-1 text-xs text-dark-text-secondary">
                   Get started by creating a new task.
                 </p>
               </div>
@@ -311,13 +312,13 @@ export default function ProjectDetail() {
 
         {/* New Task Modal */}
         {showNewTaskModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Create New Task</h2>
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-dark-bg-secondary rounded-lg shadow-linear-lg max-w-md w-full p-5 border border-dark-bg-tertiary/30">
+              <h2 className="text-base font-semibold text-dark-text-primary mb-4">Create New Task</h2>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <label htmlFor="task-title" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="task-title" className="block text-xs font-medium text-dark-text-secondary mb-1">
                     Title *
                   </label>
                   <input
@@ -325,7 +326,7 @@ export default function ProjectDetail() {
                     type="text"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Enter task title"
                     autoFocus
                     onKeyDown={(e) => {
@@ -337,7 +338,7 @@ export default function ProjectDetail() {
                 </div>
 
                 <div>
-                  <label htmlFor="task-description" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="task-description" className="block text-xs font-medium text-dark-text-secondary mb-1">
                     Description
                   </label>
                   <textarea
@@ -345,13 +346,13 @@ export default function ProjectDetail() {
                     value={newTaskDescription}
                     onChange={(e) => setNewTaskDescription(e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 text-sm bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 resize-none"
                     placeholder="Enter task description (optional)"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="task-due-date" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="task-due-date" className="block text-xs font-medium text-dark-text-secondary mb-1">
                     Due Date
                   </label>
                   <input
@@ -359,12 +360,12 @@ export default function ProjectDetail() {
                     type="date"
                     value={newTaskDueDate}
                     onChange={(e) => setNewTaskDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-3 mt-6">
+              <div className="flex gap-2 mt-5">
                 <button
                   onClick={() => {
                     setShowNewTaskModal(false)
@@ -372,7 +373,7 @@ export default function ProjectDetail() {
                     setNewTaskDescription('')
                     setNewTaskDueDate('')
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  className="flex-1 px-3 py-1.5 text-sm border border-dark-bg-tertiary/30 text-dark-text-secondary rounded-md hover:bg-dark-bg-tertiary/30 transition-colors duration-150"
                   disabled={creating}
                 >
                   Cancel
@@ -380,7 +381,7 @@ export default function ProjectDetail() {
                 <button
                   onClick={handleCreateTask}
                   disabled={!newTaskTitle.trim() || creating}
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  className="flex-1 px-3 py-1.5 text-sm bg-primary-500 text-white rounded-md hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
                 >
                   {creating ? 'Creating...' : 'Create Task'}
                 </button>
@@ -391,9 +392,9 @@ export default function ProjectDetail() {
 
         {/* Task Detail Modal */}
         {selectedTask && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Task</h2>
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-dark-bg-secondary rounded-lg shadow-linear-lg max-w-md w-full p-5 border border-dark-bg-tertiary/30">
+              <h2 className="text-base font-semibold text-dark-text-primary mb-4">Edit Task</h2>
 
               <div className="space-y-4">
                 <div>
@@ -484,26 +485,26 @@ function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: 
   id: string
   title: string
   count: number
-  tasks: Task[]
+  tasks: TaskDocument[]
   color: string
   projectId: string
-  onTaskClick: (task: Task) => void
+  onTaskClick: (task: TaskDocument) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
   const colorClasses = {
-    gray: 'bg-gray-400',
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
+    gray: 'bg-dark-text-tertiary',
+    blue: 'bg-primary-400',
+    green: 'bg-success-400',
   }
 
   return (
-    <div ref={setNodeRef} className={`min-h-[200px] ${isOver ? 'bg-gray-50 ring-2 ring-primary-300 rounded-lg' : ''}`}>
-      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-        <div className={`w-2 h-2 rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}></div>
+    <div ref={setNodeRef} className={`min-h-[200px] ${isOver ? 'bg-dark-bg-tertiary/20 ring-1 ring-primary-500/30 rounded-md' : ''}`}>
+      <h3 className="text-xs font-semibold text-dark-text-secondary mb-2 flex items-center gap-1.5">
+        <div className={`w-1.5 h-1.5 rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}></div>
         {title} ({count})
       </h3>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {tasks.map((task) => (
           <DraggableTask
             key={task.id}
@@ -518,9 +519,9 @@ function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: 
 }
 
 function DraggableTask({ task, projectId, onTaskClick }: {
-  task: Task
+  task: TaskDocument
   projectId: string
-  onTaskClick: (task: Task) => void
+  onTaskClick: (task: TaskDocument) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id as number,
@@ -549,7 +550,7 @@ function DraggableTask({ task, projectId, onTaskClick }: {
 }
 
 function TaskCard({ task, projectId, isDragging }: {
-  task: Task
+  task: TaskDocument
   projectId: string
   isDragging?: boolean
 }) {
@@ -558,19 +559,19 @@ function TaskCard({ task, projectId, isDragging }: {
   return (
     <div
       onClick={() => navigate(`/app/projects/${projectId}/tasks/${task.id}`)}
-      className={`bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer ${
-        isDragging ? 'shadow-xl rotate-2' : ''
-      } ${task.status === 'done' ? 'opacity-75' : ''}`}
+      className={`bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-md p-3 hover:border-dark-bg-tertiary/50 transition-all duration-150 cursor-pointer ${
+        isDragging ? 'shadow-linear-lg rotate-1' : ''
+      } ${task.status === 'done' ? 'opacity-60' : ''}`}
     >
-      <h4 className="font-medium text-gray-900 hover:text-primary-600 mb-2">{task.title}</h4>
+      <h4 className="text-sm font-medium text-dark-text-primary hover:text-primary-400 transition-colors">{task.title}</h4>
       {task.assignee_id && (
-        <div className="flex items-center gap-2 text-xs text-gray-600">
-          <div className="w-5 h-5 rounded-full bg-primary-100 flex items-center justify-center">
-            <svg className="w-3 h-3 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="flex items-center gap-1.5 text-xs text-dark-text-tertiary mt-2">
+          <div className="w-4 h-4 rounded-full bg-primary-500/10 flex items-center justify-center">
+            <svg className="w-2.5 h-2.5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <span>Assigned to user {task.assignee_id}</span>
+          <span>User {task.assignee_id}</span>
         </div>
       )}
     </div>

@@ -61,22 +61,22 @@ export default function ProjectModal({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="fixed inset-0 bg-black bg-opacity-75 transition-opacity"
         onClick={handleClose}
       ></div>
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+        <div className="relative bg-dark-bg-secondary rounded-lg shadow-xl max-w-md w-full border border-dark-bg-tertiary/30">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h3 className="text-xl font-semibold text-gray-900">
+          <div className="flex items-center justify-between p-6 border-b border-dark-bg-tertiary/30">
+            <h3 className="text-xl font-semibold text-dark-text-primary">
               Create New Project
             </h3>
             <button
               onClick={handleClose}
               disabled={loading}
-              className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+              className="text-dark-text-tertiary hover:text-dark-text-primary transition-colors disabled:opacity-50"
               aria-label="Close modal"
             >
               <svg
@@ -100,7 +100,7 @@ export default function ProjectModal({
             <div className="p-6 space-y-4">
               {error && (
                 <div
-                  className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded"
+                  className="bg-danger-500/10 border border-danger-500/30 text-danger-400 px-4 py-3 rounded"
                   role="alert"
                 >
                   <p className="text-sm">{error}</p>
@@ -123,10 +123,10 @@ export default function ProjectModal({
               <div className="w-full">
                 <label
                   htmlFor="project-description"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-dark-text-primary mb-1"
                 >
                   Description{' '}
-                  <span className="text-gray-400 font-normal">(optional)</span>
+                  <span className="text-dark-text-tertiary font-normal">(optional)</span>
                 </label>
                 <textarea
                   id="project-description"
@@ -136,13 +136,13 @@ export default function ProjectModal({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What is this project about?"
                   disabled={loading}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                  className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
                 />
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-dark-bg-tertiary/30 bg-dark-bg-primary rounded-b-lg">
               <Button
                 type="button"
                 variant="outline"

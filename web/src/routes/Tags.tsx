@@ -90,13 +90,13 @@ export default function Tags() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-dark-bg-primary py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Tags</h1>
-              <p className="text-gray-600 mt-1">Label and categorize your tasks</p>
+              <h1 className="text-3xl font-bold text-dark-text-primary">Tags</h1>
+              <p className="text-dark-text-secondary mt-1">Label and categorize your tasks</p>
             </div>
             <Button onClick={() => navigate('/app')} variant="secondary">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,12 +111,12 @@ export default function Tags() {
           <div className="p-6 sm:p-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                   </svg>
                 </div>
-                <h2 className="text-xl font-semibold text-gray-900">Manage Tags</h2>
+                <h2 className="text-xl font-semibold text-dark-text-primary">Manage Tags</h2>
               </div>
               <Button
                 onClick={() => {
@@ -134,7 +134,7 @@ export default function Tags() {
             </div>
 
             {success && (
-              <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-400 rounded-r text-green-800 text-sm">
+              <div className="mb-4 p-3 bg-success-500/10 border-l-4 border-success-400 rounded-r text-success-400 text-sm">
                 {success}
               </div>
             )}
@@ -142,8 +142,8 @@ export default function Tags() {
             {error && <FormError message={error} className="mb-4" />}
 
             {showForm && (
-              <form onSubmit={handleSave} className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-                <h3 className="font-semibold text-gray-900 mb-4">
+              <form onSubmit={handleSave} className="mb-6 p-4 bg-indigo-500/5 border border-indigo-500/30 rounded-lg">
+                <h3 className="font-semibold text-dark-text-primary mb-4">
                   {editingId ? 'Edit Tag' : 'New Tag'}
                 </h3>
 
@@ -157,19 +157,19 @@ export default function Tags() {
                   />
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                    <label className="block text-sm font-medium text-dark-text-primary mb-1">Color</label>
                     <div className="flex gap-2">
                       <input
                         type="color"
                         value={formData.color}
                         onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                        className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                        className="h-10 w-20 rounded border border-dark-bg-tertiary/30 bg-dark-bg-primary cursor-pointer"
                       />
                       <input
                         type="text"
                         value={formData.color}
                         onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm"
+                        className="flex-1 px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm"
                         placeholder="#3B82F6"
                       />
                     </div>
@@ -197,8 +197,8 @@ export default function Tags() {
 
             <div className="space-y-2">
               {tags.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-8 text-dark-text-tertiary">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-dark-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                   </svg>
                   <p>No tags yet</p>
@@ -209,18 +209,18 @@ export default function Tags() {
                   {tags.map((tag) => (
                     <div
                       key={tag.id}
-                      className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 hover:border-gray-300 transition-colors"
+                      className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-dark-bg-tertiary/30 hover:border-dark-bg-tertiary/50 transition-colors"
                       style={{ backgroundColor: tag.color + '20' }}
                     >
                       <div
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: tag.color }}
                       />
-                      <span className="text-sm font-medium text-gray-900">{tag.name}</span>
+                      <span className="text-sm font-medium text-dark-text-primary">{tag.name}</span>
                       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleEdit(tag)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1 text-primary-400 hover:bg-primary-500/10 rounded transition-colors"
                           title="Edit"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -229,7 +229,7 @@ export default function Tags() {
                         </button>
                         <button
                           onClick={() => handleDelete(tag.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="p-1 text-danger-400 hover:bg-danger-500/10 rounded transition-colors"
                           title="Delete"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
