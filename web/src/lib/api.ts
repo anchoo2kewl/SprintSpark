@@ -356,6 +356,24 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // API key endpoints
+  async getAPIKeys(): Promise<any[]> {
+    return this.request<any[]>('/api/api-keys')
+  }
+
+  async createAPIKey(data: { name: string; expires_in?: number }): Promise<any> {
+    return this.request<any>('/api/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteAPIKey(id: number): Promise<void> {
+    return this.request<void>(`/api/api-keys/${id}`, {
+      method: 'DELETE',
+    })
+  }
 }
 
 // Export a singleton instance

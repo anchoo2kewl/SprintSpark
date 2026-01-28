@@ -21,7 +21,7 @@ const (
 	UserEmailKey contextKey = "user_email"
 )
 
-// JWTAuth middleware validates JWT tokens from Authorization header
+// JWTAuth middleware validates JWT tokens or API keys from Authorization header
 func (s *Server) JWTAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Extract token from Authorization header
@@ -33,24 +33,47 @@ func (s *Server) JWTAuth(next http.Handler) http.Handler {
 
 		// Check for Bearer token format
 		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
+		if len(parts) != 2 {
 			respondError(w, http.StatusUnauthorized, "invalid authorization header format", "unauthorized")
 			return
 		}
 
-		tokenString := parts[1]
+		authType := parts[0]
+		credential := parts[1]
 
-		// Validate token
-		claims, err := auth.ValidateToken(tokenString, s.config.JWTSecret)
-		if err != nil {
-			log.Printf("Token validation failed: %v", err)
-			respondError(w, http.StatusUnauthorized, "invalid or expired token", "unauthorized")
+		var userID int64
+		var email string
+		var err error
+
+		switch authType {
+		case "Bearer":
+			// JWT token authentication
+			claims, jwtErr := auth.ValidateToken(credential, s.config.JWTSecret)
+			if jwtErr != nil {
+				log.Printf("Token validation failed: %v", jwtErr)
+				respondError(w, http.StatusUnauthorized, "invalid or expired token", "unauthorized")
+				return
+			}
+			userID = claims.UserID
+			email = claims.Email
+
+		case "ApiKey":
+			// API key authentication
+			userID, email, err = s.db.GetUserByAPIKey(r.Context(), credential)
+			if err != nil {
+				log.Printf("API key validation failed: %v", err)
+				respondError(w, http.StatusUnauthorized, "invalid or expired API key", "unauthorized")
+				return
+			}
+
+		default:
+			respondError(w, http.StatusUnauthorized, "unsupported authorization type", "unauthorized")
 			return
 		}
 
-		// Add claims to request context
-		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-		ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
+		// Add user info to request context
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		ctx = context.WithValue(ctx, UserEmailKey, email)
 
 		// Continue to next handler
 		next.ServeHTTP(w, r.WithContext(ctx))

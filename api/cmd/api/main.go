@@ -160,6 +160,11 @@ func main() {
 			r.Post("/settings/2fa/enable", server.Handle2FAEnable)
 			r.Post("/settings/2fa/disable", server.Handle2FADisable)
 
+			// API key routes
+			r.Get("/api-keys", server.HandleListAPIKeys)
+			r.Post("/api-keys", server.HandleCreateAPIKey)
+			r.Delete("/api-keys/{id}", server.HandleDeleteAPIKey)
+
 			// Admin routes (requires admin role)
 			r.Get("/admin/users", server.HandleGetUsers)
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
