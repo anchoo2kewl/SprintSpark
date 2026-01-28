@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"sprintspark/internal/auth"
 )
 
@@ -61,11 +63,20 @@ func (s *Server) HandleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create user
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	// Create user and team in a transaction
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	query := `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		s.logger.Error("Failed to begin transaction", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to create user", "internal_error")
+		return
+	}
+	defer tx.Rollback()
+
+	// Create user
+	userQuery := `
 		INSERT INTO users (email, password_hash)
 		VALUES (?, ?)
 		RETURNING id, email, name, is_admin, created_at
@@ -73,7 +84,7 @@ func (s *Server) HandleSignup(w http.ResponseWriter, r *http.Request) {
 
 	var user User
 	var name sql.NullString
-	err = s.db.QueryRowContext(ctx, query, req.Email, hashedPassword).
+	err = tx.QueryRowContext(ctx, userQuery, req.Email, hashedPassword).
 		Scan(&user.ID, &user.Email, &name, &user.IsAdmin, &user.CreatedAt)
 
 	if name.Valid {
@@ -85,15 +96,64 @@ func (s *Server) HandleSignup(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusConflict, "email already exists", "email_exists")
 			return
 		}
-		log.Printf("Failed to create user: %v", err)
+		s.logger.Error("Failed to create user", zap.Error(err), zap.String("email", req.Email))
 		respondError(w, http.StatusInternalServerError, "failed to create user", "internal_error")
 		return
 	}
 
+	// Create team for the user
+	teamName := user.Email + "'s Team"
+	if user.Name != "" {
+		teamName = user.Name + "'s Team"
+	}
+
+	teamQuery := `
+		INSERT INTO teams (name, owner_id, created_at, updated_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`
+	teamResult, err := tx.ExecContext(ctx, teamQuery, teamName, user.ID)
+	if err != nil {
+		s.logger.Error("Failed to create team", zap.Error(err), zap.Int64("user_id", user.ID))
+		respondError(w, http.StatusInternalServerError, "failed to create team", "internal_error")
+		return
+	}
+
+	teamID, err := teamResult.LastInsertId()
+	if err != nil {
+		s.logger.Error("Failed to get team ID", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to create team", "internal_error")
+		return
+	}
+
+	// Add user to team as owner
+	memberQuery := `
+		INSERT INTO team_members (team_id, user_id, role, status, joined_at)
+		VALUES (?, ?, 'owner', 'active', CURRENT_TIMESTAMP)
+	`
+	_, err = tx.ExecContext(ctx, memberQuery, teamID, user.ID)
+	if err != nil {
+		s.logger.Error("Failed to add user to team", zap.Error(err), zap.Int64("user_id", user.ID))
+		respondError(w, http.StatusInternalServerError, "failed to add user to team", "internal_error")
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		s.logger.Error("Failed to commit transaction", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to create user", "internal_error")
+		return
+	}
+
+	s.logger.Info("User and team created",
+		zap.Int64("user_id", user.ID),
+		zap.Int64("team_id", teamID),
+		zap.String("email", user.Email),
+	)
+
 	// Generate JWT token
 	token, err := auth.GenerateToken(user.ID, user.Email, s.config.JWTSecret, s.config.JWTExpiry())
 	if err != nil {
-		log.Printf("Failed to generate token: %v", err)
+		s.logger.Error("Failed to generate token", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to generate token", "internal_error")
 		return
 	}

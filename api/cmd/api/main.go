@@ -183,6 +183,17 @@ func main() {
 			// OpenAPI download with authentication
 			r.Get("/openapi.yaml", server.HandleOpenAPIYAML)
 
+			// Team routes
+			r.Get("/team", server.HandleGetMyTeam)
+			r.Get("/team/members", server.HandleGetTeamMembers)
+			r.Post("/team/invite", server.HandleInviteTeamMember)
+			r.Delete("/team/members/{memberId}", server.HandleRemoveTeamMember)
+
+			// Team invitations
+			r.Get("/team/invitations", server.HandleGetMyInvitations)
+			r.Post("/team/invitations/{id}/accept", server.HandleAcceptInvitation)
+			r.Post("/team/invitations/{id}/reject", server.HandleRejectInvitation)
+
 			// Admin routes (requires admin role)
 			r.Get("/admin/users", server.HandleGetUsers)
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
