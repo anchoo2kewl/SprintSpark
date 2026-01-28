@@ -19,8 +19,10 @@ type Task struct {
 	Status         string    `json:"status"`
 	DueDate        *string   `json:"due_date,omitempty"`
 	SprintID       *int64    `json:"sprint_id,omitempty"`
+	SprintName     *string   `json:"sprint_name,omitempty"`
 	Priority       string    `json:"priority"`
 	AssigneeID     *int64    `json:"assignee_id,omitempty"`
+	AssigneeName   *string   `json:"assignee_name,omitempty"`
 	EstimatedHours *float64  `json:"estimated_hours,omitempty"`
 	ActualHours    *float64  `json:"actual_hours,omitempty"`
 	Tags           []Tag     `json:"tags,omitempty"`
@@ -82,12 +84,17 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First, fetch all tasks
+	// First, fetch all tasks with assignee and sprint names
 	query := `
-		SELECT id, project_id, title, description, status, due_date, sprint_id, priority, assignee_id, estimated_hours, actual_hours, created_at, updated_at
-		FROM tasks
-		WHERE project_id = ?
-		ORDER BY created_at DESC
+		SELECT t.id, t.project_id, t.title, t.description, t.status, t.due_date,
+		       t.sprint_id, s.name as sprint_name,
+		       t.priority, t.assignee_id, u.name as assignee_name,
+		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
+		FROM tasks t
+		LEFT JOIN users u ON t.assignee_id = u.id
+		LEFT JOIN sprints s ON t.sprint_id = s.id
+		WHERE t.project_id = ?
+		ORDER BY t.created_at DESC
 	`
 
 	rows, err := s.db.QueryContext(ctx, query, projectID)
@@ -104,7 +111,9 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t Task
 		var priority sql.NullString
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate, &t.SprintID, &priority, &t.AssigneeID, &t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate,
+			&t.SprintID, &t.SprintName, &priority, &t.AssigneeID, &t.AssigneeName,
+			&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan task", "internal_error")
 			return
 		}
@@ -259,16 +268,23 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch the created task
+	// Fetch the created task with assignee and sprint names
 	var t Task
 	var priorityVal sql.NullString
 	fetchQuery := `
-		SELECT id, project_id, title, description, status, due_date, sprint_id, priority, assignee_id, estimated_hours, actual_hours, created_at, updated_at
-		FROM tasks
-		WHERE id = ?
+		SELECT t.id, t.project_id, t.title, t.description, t.status, t.due_date,
+		       t.sprint_id, s.name as sprint_name,
+		       t.priority, t.assignee_id, u.name as assignee_name,
+		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
+		FROM tasks t
+		LEFT JOIN users u ON t.assignee_id = u.id
+		LEFT JOIN sprints s ON t.sprint_id = s.id
+		WHERE t.id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate, &t.SprintID, &priorityVal, &t.AssigneeID, &t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
+		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate,
+		&t.SprintID, &t.SprintName, &priorityVal, &t.AssigneeID, &t.AssigneeName,
+		&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to fetch created task", "internal_error")
@@ -414,16 +430,23 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch the updated task
+	// Fetch the updated task with assignee and sprint names
 	var t Task
 	var priorityVal sql.NullString
 	fetchQuery := `
-		SELECT id, project_id, title, description, status, due_date, sprint_id, priority, assignee_id, estimated_hours, actual_hours, created_at, updated_at
-		FROM tasks
-		WHERE id = ?
+		SELECT t.id, t.project_id, t.title, t.description, t.status, t.due_date,
+		       t.sprint_id, s.name as sprint_name,
+		       t.priority, t.assignee_id, u.name as assignee_name,
+		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
+		FROM tasks t
+		LEFT JOIN users u ON t.assignee_id = u.id
+		LEFT JOIN sprints s ON t.sprint_id = s.id
+		WHERE t.id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate, &t.SprintID, &priorityVal, &t.AssigneeID, &t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
+		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate,
+		&t.SprintID, &t.SprintName, &priorityVal, &t.AssigneeID, &t.AssigneeName,
+		&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to fetch updated task", "internal_error")

@@ -134,6 +134,10 @@ func main() {
 			r.Patch("/tasks/{id}", server.HandleUpdateTask)
 			r.Delete("/tasks/{id}", server.HandleDeleteTask)
 
+			// Task comment routes
+			r.Get("/tasks/{taskId}/comments", server.HandleListTaskComments)
+			r.Post("/tasks/{taskId}/comments", server.HandleCreateTaskComment)
+
 			// Sprint routes
 			r.Get("/sprints", server.HandleListSprints)
 			r.Post("/sprints", server.HandleCreateSprint)

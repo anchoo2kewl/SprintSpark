@@ -20,12 +20,23 @@ export default function TaskDetail() {
   const [editStatus, setEditStatus] = useState<'todo' | 'in_progress' | 'done'>('todo')
   const [editPriority, setEditPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium')
   const [editDueDate, setEditDueDate] = useState('')
+  const [editSprintId, setEditSprintId] = useState('')
   const [editAssigneeId, setEditAssigneeId] = useState('')
   const [editEstimatedHours, setEditEstimatedHours] = useState('')
   const [editActualHours, setEditActualHours] = useState('')
 
+  // Sprints for selector
+  const [sprints, setSprints] = useState<any[]>([])
+
+  // Comments state
+  const [comments, setComments] = useState<any[]>([])
+  const [newComment, setNewComment] = useState('')
+  const [postingComment, setPostingComment] = useState(false)
+
   useEffect(() => {
     loadTask()
+    loadSprints()
+    loadComments()
   }, [projectId, taskId])
 
   const loadTask = async () => {
@@ -42,9 +53,10 @@ export default function TaskDetail() {
         setEditStatus(foundTask.status || 'todo')
         setEditPriority(foundTask.priority || 'medium')
         setEditDueDate(foundTask.due_date || '')
+        setEditSprintId(foundTask.sprint_id?.toString() || '')
         setEditAssigneeId(foundTask.assignee_id?.toString() || '')
-        setEditEstimatedHours(foundTask.estimated_hours?.toString() || '')
-        setEditActualHours(foundTask.actual_hours?.toString() || '')
+        setEditEstimatedHours(foundTask.estimated_hours?.toString() || '0')
+        setEditActualHours(foundTask.actual_hours?.toString() || '0')
       } else {
         setError('Task not found')
       }
@@ -52,6 +64,24 @@ export default function TaskDetail() {
       setError(error.message || 'Failed to load task')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadSprints = async () => {
+    try {
+      const sprintsData = await apiClient.getSprints()
+      setSprints(sprintsData)
+    } catch (error: any) {
+      console.error('Failed to load sprints:', error)
+    }
+  }
+
+  const loadComments = async () => {
+    try {
+      const commentsData = await apiClient.getTaskComments(Number(taskId))
+      setComments(commentsData)
+    } catch (error: any) {
+      console.error('Failed to load comments:', error)
     }
   }
 
@@ -66,9 +96,10 @@ export default function TaskDetail() {
         status: editStatus,
         priority: editPriority,
         due_date: editDueDate || undefined,
+        sprint_id: editSprintId ? parseInt(editSprintId) : null,
         assignee_id: editAssigneeId ? parseInt(editAssigneeId) : undefined,
-        estimated_hours: editEstimatedHours ? parseFloat(editEstimatedHours) : undefined,
-        actual_hours: editActualHours ? parseFloat(editActualHours) : undefined,
+        estimated_hours: editEstimatedHours ? parseFloat(editEstimatedHours) : 0,
+        actual_hours: editActualHours ? parseFloat(editActualHours) : 0,
       })
 
       await loadTask()
@@ -88,6 +119,21 @@ export default function TaskDetail() {
       navigate(`/app/projects/${projectId}`)
     } catch (error: any) {
       setError(error.message || 'Failed to delete task')
+    }
+  }
+
+  const handlePostComment = async () => {
+    if (!newComment.trim()) return
+
+    try {
+      setPostingComment(true)
+      await apiClient.createTaskComment(Number(taskId), newComment.trim())
+      setNewComment('')
+      await loadComments()
+    } catch (error: any) {
+      setError(error.message || 'Failed to post comment')
+    } finally {
+      setPostingComment(false)
     }
   }
 
@@ -199,9 +245,10 @@ export default function TaskDetail() {
                       setEditStatus(task.status || 'todo')
                       setEditPriority(task.priority || 'medium')
                       setEditDueDate(task.due_date || '')
+                      setEditSprintId(task.sprint_id?.toString() || '')
                       setEditAssigneeId(task.assignee_id?.toString() || '')
-                      setEditEstimatedHours(task.estimated_hours?.toString() || '')
-                      setEditActualHours(task.actual_hours?.toString() || '')
+                      setEditEstimatedHours(task.estimated_hours?.toString() || '0')
+                      setEditActualHours(task.actual_hours?.toString() || '0')
                     }}
                     variant="secondary"
                     size="sm"
@@ -257,7 +304,7 @@ export default function TaskDetail() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex gap-6">
           {/* Left Column - Main Content */}
-          <div className="flex-1">
+          <div className="flex-1 space-y-6">
             {/* Description */}
             <div className="bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg p-6">
               <h2 className="text-sm font-semibold text-dark-text-primary mb-3">Description</h2>
@@ -293,6 +340,61 @@ export default function TaskDetail() {
                   )}
                 </>
               )}
+            </div>
+
+            {/* Comments Section */}
+            <div className="bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg p-6">
+              <h2 className="text-sm font-semibold text-dark-text-primary mb-4">Comments</h2>
+
+              {/* Comment input */}
+              <div className="mb-4">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm placeholder-dark-text-tertiary"
+                  placeholder="Add a comment..."
+                />
+                <div className="flex justify-end mt-2">
+                  <Button
+                    onClick={handlePostComment}
+                    size="sm"
+                    disabled={!newComment.trim() || postingComment}
+                  >
+                    {postingComment ? 'Posting...' : 'Post Comment'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Comments list */}
+              <div className="space-y-4">
+                {comments.length === 0 ? (
+                  <p className="text-sm text-dark-text-tertiary italic">No comments yet</p>
+                ) : (
+                  comments.map((comment) => (
+                    <div key={comment.id} className="border-t border-dark-bg-tertiary/20 pt-4 first:border-t-0 first:pt-0">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary-500/10 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-dark-text-primary">
+                              {comment.user_name || `User ${comment.user_id}`}
+                            </span>
+                            <span className="text-xs text-dark-text-tertiary">
+                              {new Date(comment.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-dark-text-secondary whitespace-pre-wrap">{comment.comment}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
@@ -340,6 +442,29 @@ export default function TaskDetail() {
                 )}
               </div>
 
+              {/* Sprint */}
+              <div>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Sprint</label>
+                {isEditing ? (
+                  <select
+                    value={editSprintId}
+                    onChange={(e) => setEditSprintId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                  >
+                    <option value="">No Sprint</option>
+                    {sprints.map((sprint) => (
+                      <option key={sprint.id} value={sprint.id}>
+                        {sprint.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-sm text-dark-text-primary">
+                    {task.sprint_name || 'No sprint assigned'}
+                  </p>
+                )}
+              </div>
+
               {/* Assignee */}
               <div>
                 <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Assignee</label>
@@ -359,7 +484,7 @@ export default function TaskDetail() {
                       </svg>
                     </div>
                     <p className="text-sm text-dark-text-primary">
-                      {task.assignee_id ? `User ${task.assignee_id}` : 'Unassigned'}
+                      {task.assignee_name || (task.assignee_id ? `User ${task.assignee_id}` : 'Unassigned')}
                     </p>
                   </div>
                 )}
@@ -396,7 +521,7 @@ export default function TaskDetail() {
                   />
                 ) : (
                   <p className="text-sm text-dark-text-primary">
-                    {task.estimated_hours !== null ? `${task.estimated_hours}h` : 'Not estimated'}
+                    {task.estimated_hours ?? 0}h
                   </p>
                 )}
               </div>
@@ -415,7 +540,7 @@ export default function TaskDetail() {
                   />
                 ) : (
                   <p className="text-sm text-dark-text-primary">
-                    {task.actual_hours !== null ? `${task.actual_hours}h` : 'Not tracked'}
+                    {task.actual_hours ?? 0}h
                   </p>
                 )}
               </div>

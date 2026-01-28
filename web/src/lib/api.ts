@@ -222,6 +222,18 @@ class ApiClient {
     })
   }
 
+  // Task comments endpoints
+  async getTaskComments(taskId: number): Promise<any[]> {
+    return this.request<any[]>(`/api/tasks/${taskId}/comments`)
+  }
+
+  async createTaskComment(taskId: number, comment: string): Promise<any> {
+    return this.request<any>(`/api/tasks/${taskId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    })
+  }
+
   // Project settings - Members
   async getProjectMembers(projectId: number): Promise<any[]> {
     return this.request<any[]>(`/api/projects/${projectId}/members`)
