@@ -119,6 +119,7 @@ func main() {
 			r.Use(api.RateLimitMiddleware(cfg.RateLimitRequests))
 
 			r.Get("/me", server.HandleMe)
+			r.Patch("/me", server.HandleUpdateProfile)
 
 			// Project routes
 			r.Get("/projects", server.HandleListProjects)

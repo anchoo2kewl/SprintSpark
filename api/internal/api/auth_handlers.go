@@ -34,6 +34,7 @@ type AuthResponse struct {
 type User struct {
 	ID        int64     `json:"id"`
 	Email     string    `json:"email"`
+	Name      string    `json:"name,omitempty"`
 	IsAdmin   bool      `json:"is_admin"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -67,12 +68,17 @@ func (s *Server) HandleSignup(w http.ResponseWriter, r *http.Request) {
 	query := `
 		INSERT INTO users (email, password_hash)
 		VALUES (?, ?)
-		RETURNING id, email, is_admin, created_at
+		RETURNING id, email, name, is_admin, created_at
 	`
 
 	var user User
+	var name sql.NullString
 	err = s.db.QueryRowContext(ctx, query, req.Email, hashedPassword).
-		Scan(&user.ID, &user.Email, &user.IsAdmin, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &name, &user.IsAdmin, &user.CreatedAt)
+
+	if name.Valid {
+		user.Name = name.String
+	}
 
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -116,12 +122,17 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	query := `SELECT id, email, password_hash, is_admin, created_at FROM users WHERE email = ?`
+	query := `SELECT id, email, name, password_hash, is_admin, created_at FROM users WHERE email = ?`
 
 	var user User
 	var passwordHash string
+	var name sql.NullString
 	err := s.db.QueryRowContext(ctx, query, req.Email).
-		Scan(&user.ID, &user.Email, &passwordHash, &user.IsAdmin, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &name, &passwordHash, &user.IsAdmin, &user.CreatedAt)
+
+	if name.Valid {
+		user.Name = name.String
+	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -171,17 +182,79 @@ func (s *Server) HandleMe(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	query := `SELECT id, email, is_admin, created_at FROM users WHERE id = ?`
+	query := `SELECT id, email, name, is_admin, created_at FROM users WHERE id = ?`
 
 	var user User
+	var name sql.NullString
 	err := s.db.QueryRowContext(ctx, query, userID).
-		Scan(&user.ID, &user.Email, &user.IsAdmin, &user.CreatedAt)
+		Scan(&user.ID, &user.Email, &name, &user.IsAdmin, &user.CreatedAt)
+
+	if name.Valid {
+		user.Name = name.String
+	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			respondError(w, http.StatusNotFound, "user not found", "not_found")
 			return
 		}
+		log.Printf("Failed to query user: %v", err)
+		respondError(w, http.StatusInternalServerError, "failed to get user", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, user)
+}
+
+// UpdateProfileRequest represents the update profile request
+type UpdateProfileRequest struct {
+	Name string `json:"name"`
+}
+
+// HandleUpdateProfile updates the current user's profile
+func (s *Server) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := GetUserID(r)
+	if !ok {
+		respondError(w, http.StatusUnauthorized, "user not authenticated", "unauthorized")
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := decodeJSON(r, &req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body", "invalid_request")
+		return
+	}
+
+	// Validate name
+	if len(req.Name) > 100 {
+		respondError(w, http.StatusBadRequest, "name must be 100 characters or less", "validation_error")
+		return
+	}
+
+	// Update user name
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	query := `UPDATE users SET name = ? WHERE id = ?`
+	_, err := s.db.ExecContext(ctx, query, req.Name, userID)
+	if err != nil {
+		log.Printf("Failed to update user profile: %v", err)
+		respondError(w, http.StatusInternalServerError, "failed to update profile", "internal_error")
+		return
+	}
+
+	// Get updated user
+	userQuery := `SELECT id, email, name, is_admin, created_at FROM users WHERE id = ?`
+	var user User
+	var name sql.NullString
+	err = s.db.QueryRowContext(ctx, userQuery, userID).
+		Scan(&user.ID, &user.Email, &name, &user.IsAdmin, &user.CreatedAt)
+
+	if name.Valid {
+		user.Name = name.String
+	}
+
+	if err != nil {
 		log.Printf("Failed to query user: %v", err)
 		respondError(w, http.StatusInternalServerError, "failed to get user", "internal_error")
 		return
