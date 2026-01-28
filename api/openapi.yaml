@@ -375,6 +375,10 @@ components:
           format: int64
           example: 1
           description: "Optional sprint assignment"
+        sprint_name:
+          type: [string, "null"]
+          example: "Sprint 1"
+          description: "Name of the assigned sprint (populated from join)"
         priority:
           type: string
           enum: [low, medium, high, urgent]
@@ -385,6 +389,10 @@ components:
           format: int64
           example: 1
           description: "Optional user assigned to task"
+        assignee_name:
+          type: [string, "null"]
+          example: "Anshuman Biswas"
+          description: "Name of the assigned user (populated from join)"
         estimated_hours:
           type: [number, "null"]
           format: float
