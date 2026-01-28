@@ -374,6 +374,44 @@ Every change should improve:
 
 ---
 
+## 🚀 Deployment with Claude Code Skills
+
+**ALWAYS use `./script/server deploy "<message>"` for deployments**
+
+Claude Code has learned how to:
+1. Build and test locally
+2. Commit changes with descriptive messages
+3. Push to GitHub
+4. Deploy to production server (biswas.me)
+5. Verify deployment health
+6. Monitor for errors
+
+Example deployment flow:
+```bash
+./script/server deploy "feat: add dark mode to admin page
+
+- Convert all light colors to dark theme
+- Update table styling
+- Fix activity badge colors
+- Add smooth transitions"
+```
+
+**Never manually SSH and run docker commands.** The script handles:
+- Git operations
+- Docker builds (both API and Web)
+- Container orchestration
+- Health checks
+- Error recovery
+
+**Deployment Checklist:**
+- [ ] Local build passes (`npm run build` or `go build`)
+- [ ] Changes committed with descriptive message
+- [ ] Use `./script/server deploy` command
+- [ ] Verify production health after deployment
+- [ ] Check production logs if needed
+
+---
+
 ## 🤝 Working Agreement
 
 I will:
@@ -382,6 +420,7 @@ I will:
 - Handle errors gracefully
 - Document complex logic
 - Never break the build
+- **Always deploy using `./script/server deploy`**
 
 You (human) will:
 - Provide clear requirements
