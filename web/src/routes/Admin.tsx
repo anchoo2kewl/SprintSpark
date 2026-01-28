@@ -102,22 +102,22 @@ export default function Admin() {
   const getActivityTypeColor = (type: string) => {
     switch (type) {
       case 'login':
-        return 'text-green-600 bg-green-50'
+        return 'text-success-300 bg-success-500/10 border-success-500/30'
       case 'failed_login':
-        return 'text-red-600 bg-red-50'
+        return 'text-danger-300 bg-danger-500/10 border-danger-500/30'
       case 'logout':
-        return 'text-gray-600 bg-gray-50'
+        return 'text-dark-text-secondary bg-dark-bg-tertiary/30 border-dark-bg-tertiary/30'
       default:
-        return 'text-blue-600 bg-blue-50'
+        return 'text-primary-300 bg-primary-500/10 border-primary-500/30'
     }
   }
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-8 bg-dark-bg-primary min-h-screen">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-          <div className="h-64 bg-gray-100 rounded"></div>
+          <div className="h-8 bg-dark-bg-secondary rounded w-1/3"></div>
+          <div className="h-64 bg-dark-bg-secondary rounded"></div>
         </div>
       </div>
     )
@@ -125,8 +125,8 @@ export default function Admin() {
 
   if (error) {
     return (
-      <div className="p-8">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+      <div className="p-8 bg-dark-bg-primary min-h-screen">
+        <div className="bg-danger-500/10 border border-danger-500/30 text-danger-300 px-4 py-3 rounded">
           {error}
         </div>
       </div>
@@ -134,62 +134,62 @@ export default function Admin() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-dark-bg-primary">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
-        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">Manage users and monitor activity</p>
+      <div className="bg-dark-bg-secondary border-b border-dark-bg-tertiary/30 px-8 py-6">
+        <h1 className="text-2xl font-bold text-dark-text-primary">Admin Dashboard</h1>
+        <p className="mt-1 text-sm text-dark-text-secondary">Manage users and monitor activity</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Users Table */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Users ({users.length})</h2>
+          <div className="bg-dark-bg-secondary rounded-lg shadow-md border border-dark-bg-tertiary/30">
+            <div className="px-6 py-4 border-b border-dark-bg-tertiary/30">
+              <h2 className="text-lg font-semibold text-dark-text-primary">Users ({users.length})</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-dark-bg-tertiary/30">
+                <thead className="bg-dark-bg-tertiary/20">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Admin</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Logins</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Failed</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last IP</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Admin</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Logins</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Failed</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Last IP</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-dark-bg-secondary divide-y divide-dark-bg-tertiary/30">
                   {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.email}</td>
+                    <tr key={u.id} className="hover:bg-dark-bg-tertiary/20 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-text-primary">{u.email}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          u.is_admin ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                          u.is_admin ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-dark-bg-tertiary/30 text-dark-text-secondary border border-dark-bg-tertiary/30'
                         }`}>
                           {u.is_admin ? 'Admin' : 'User'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{u.login_count}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-text-primary">{u.login_count}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm ${u.failed_attempts > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                        <span className={`text-sm ${u.failed_attempts > 0 ? 'text-danger-400 font-semibold' : 'text-dark-text-primary'}`}>
                           {u.failed_attempts}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-text-secondary">
                         {u.last_login_ip || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
                         <button
                           onClick={() => handleViewActivity(u)}
-                          className="text-primary-600 hover:text-primary-800 font-medium"
+                          className="text-primary-400 hover:text-primary-300 font-medium transition-colors"
                         >
                           Activity
                         </button>
                         <button
                           onClick={() => toggleAdminStatus(u.id, u.is_admin)}
-                          className="text-purple-600 hover:text-purple-800 font-medium"
+                          className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
                         >
                           {u.is_admin ? 'Revoke Admin' : 'Make Admin'}
                         </button>
@@ -202,17 +202,17 @@ export default function Admin() {
           </div>
 
           {/* Activity Log */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
+          <div className="bg-dark-bg-secondary rounded-lg shadow-md border border-dark-bg-tertiary/30">
+            <div className="px-6 py-4 border-b border-dark-bg-tertiary/30">
+              <h2 className="text-lg font-semibold text-dark-text-primary">
                 Activity Log {selectedUser && `- ${selectedUser.email}`}
               </h2>
             </div>
             <div className="p-6">
               {!selectedUser ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-dark-text-tertiary">
                   <svg
-                    className="mx-auto h-12 w-12 text-gray-400"
+                    className="mx-auto h-12 w-12 text-dark-text-tertiary opacity-50"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -228,30 +228,30 @@ export default function Admin() {
                 </div>
               ) : activityLoading ? (
                 <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                  <p className="mt-2 text-gray-600">Loading activity...</p>
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                  <p className="mt-2 text-dark-text-secondary">Loading activity...</p>
                 </div>
               ) : activities.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-dark-text-tertiary">
                   <p>No activity recorded for this user</p>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {activities.map((activity) => (
-                    <div key={activity.id} className="border border-gray-200 rounded-lg p-4">
+                    <div key={activity.id} className="border border-dark-bg-tertiary/30 rounded-lg p-4 bg-dark-bg-primary hover:bg-dark-bg-tertiary/10 transition-colors">
                       <div className="flex items-center justify-between">
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getActivityTypeColor(activity.activity_type)}`}>
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${getActivityTypeColor(activity.activity_type)}`}>
                           {activity.activity_type.replace('_', ' ').toUpperCase()}
                         </span>
-                        <span className="text-xs text-gray-500">{formatDate(activity.created_at)}</span>
+                        <span className="text-xs text-dark-text-tertiary">{formatDate(activity.created_at)}</span>
                       </div>
                       {activity.ip_address && (
-                        <div className="mt-2 text-sm text-gray-600">
-                          <span className="font-medium">IP:</span> {activity.ip_address}
+                        <div className="mt-2 text-sm text-dark-text-secondary">
+                          <span className="font-medium text-dark-text-primary">IP:</span> {activity.ip_address}
                         </div>
                       )}
                       {activity.user_agent && (
-                        <div className="mt-1 text-xs text-gray-500 truncate">
+                        <div className="mt-1 text-xs text-dark-text-tertiary truncate">
                           {activity.user_agent}
                         </div>
                       )}
