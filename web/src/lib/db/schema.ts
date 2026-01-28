@@ -105,7 +105,9 @@ export type TaskDocument = {
   status: 'todo' | 'in_progress' | 'done'
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   assignee_id?: number
+  assignee_name?: string
   sprint_id?: number
+  sprint_name?: string
   due_date?: string
   estimated_hours?: number
   actual_hours?: number
@@ -146,8 +148,14 @@ export const taskSchema: RxJsonSchema<TaskDocument> = {
     assignee_id: {
       type: 'number',
     },
+    assignee_name: {
+      type: 'string',
+    },
     sprint_id: {
       type: 'number',
+    },
+    sprint_name: {
+      type: 'string',
     },
     due_date: {
       type: 'string',
