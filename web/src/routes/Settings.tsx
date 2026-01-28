@@ -41,9 +41,21 @@ export default function Settings() {
   const [isCreatingKey, setIsCreatingKey] = useState(false)
   const [isDeletingKey, setIsDeletingKey] = useState<number | null>(null)
 
+  // Team Management state
+  const [team, setTeam] = useState<any>(null)
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [invitations, setInvitations] = useState<any[]>([])
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [teamError, setTeamError] = useState('')
+  const [teamSuccess, setTeamSuccess] = useState('')
+  const [isInviting, setIsInviting] = useState(false)
+  const [isRemovingMember, setIsRemovingMember] = useState<number | null>(null)
+  const [isRespondingToInvitation, setIsRespondingToInvitation] = useState<number | null>(null)
+
   useEffect(() => {
     load2FAStatus()
     loadAPIKeys()
+    loadTeamData()
   }, [])
 
   const load2FAStatus = async () => {
@@ -240,6 +252,97 @@ export default function Settings() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString()
+  }
+
+  const loadTeamData = async () => {
+    try {
+      const [teamData, membersData, invitationsData] = await Promise.all([
+        apiClient.getMyTeam(),
+        apiClient.getTeamMembers(),
+        apiClient.getMyInvitations(),
+      ])
+      setTeam(teamData)
+      setTeamMembers(membersData)
+      setInvitations(invitationsData)
+    } catch (error) {
+      console.error('Failed to load team data:', error)
+    }
+  }
+
+  const handleInviteMember = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setTeamError('')
+    setTeamSuccess('')
+
+    if (!inviteEmail.trim()) {
+      setTeamError('Email is required')
+      return
+    }
+
+    setIsInviting(true)
+
+    try {
+      await apiClient.inviteTeamMember(inviteEmail)
+      setTeamSuccess(`Invitation sent to ${inviteEmail}`)
+      setInviteEmail('')
+      await loadTeamData()
+    } catch (error: any) {
+      setTeamError(error.message || 'Failed to send invitation')
+    } finally {
+      setIsInviting(false)
+    }
+  }
+
+  const handleRemoveMember = async (memberId: number, memberName: string) => {
+    if (!confirm(`Are you sure you want to remove ${memberName} from the team?`)) {
+      return
+    }
+
+    setIsRemovingMember(memberId)
+    setTeamError('')
+    setTeamSuccess('')
+
+    try {
+      await apiClient.removeTeamMember(memberId)
+      setTeamSuccess('Member removed successfully')
+      await loadTeamData()
+    } catch (error: any) {
+      setTeamError(error.message || 'Failed to remove member')
+    } finally {
+      setIsRemovingMember(null)
+    }
+  }
+
+  const handleAcceptInvitation = async (invitationId: number) => {
+    setIsRespondingToInvitation(invitationId)
+    setTeamError('')
+    setTeamSuccess('')
+
+    try {
+      await apiClient.acceptInvitation(invitationId)
+      setTeamSuccess('Invitation accepted! Reloading team data...')
+      await loadTeamData()
+    } catch (error: any) {
+      setTeamError(error.message || 'Failed to accept invitation')
+    } finally {
+      setIsRespondingToInvitation(null)
+    }
+  }
+
+  const handleRejectInvitation = async (invitationId: number) => {
+    setIsRespondingToInvitation(invitationId)
+    setTeamError('')
+    setTeamSuccess('')
+
+    try {
+      await apiClient.rejectInvitation(invitationId)
+      setTeamSuccess('Invitation rejected')
+      await loadTeamData()
+    } catch (error: any) {
+      setTeamError(error.message || 'Failed to reject invitation')
+    } finally {
+      setIsRespondingToInvitation(null)
+    }
   }
 
   return (
@@ -679,6 +782,177 @@ export default function Settings() {
                       <code className="block bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-bg-tertiary/30 font-mono text-xs">
                         Authorization: ApiKey YOUR_API_KEY
                       </code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Team Management Section */}
+          <Card className="shadow-md">
+            <div className="p-6 sm:p-8 flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-dark-text-primary mb-1">Team Management</h2>
+                <p className="text-sm text-dark-text-secondary mb-6">Invite team members and manage access to your projects</p>
+
+                {teamSuccess && (
+                  <div className="mb-4 p-4 bg-success-500/10 border-l-4 border-success-400 rounded-r-lg">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-success-300 font-medium">{teamSuccess}</span>
+                    </div>
+                  </div>
+                )}
+
+                {teamError && <FormError message={teamError} className="mb-4" />}
+
+                {/* Team Info */}
+                {team && (
+                  <div className="mb-6 p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-dark-text-secondary">Your Team</p>
+                        <p className="text-lg font-semibold text-dark-text-primary">{team.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-dark-text-secondary">Members</p>
+                        <p className="text-lg font-semibold text-dark-text-primary">{teamMembers.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending Invitations */}
+                {invitations.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-dark-text-primary mb-3">Pending Invitations</h3>
+                    <div className="space-y-2">
+                      {invitations.map((invitation: any) => (
+                        <div key={invitation.id} className="p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-dark-text-primary">
+                                Invitation to join {invitation.team_name}
+                              </p>
+                              {invitation.inviter_name && (
+                                <p className="text-sm text-dark-text-secondary">
+                                  From: {invitation.inviter_name}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleAcceptInvitation(invitation.id)}
+                                disabled={isRespondingToInvitation === invitation.id}
+                              >
+                                {isRespondingToInvitation === invitation.id ? 'Accepting...' : 'Accept'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleRejectInvitation(invitation.id)}
+                                disabled={isRespondingToInvitation === invitation.id}
+                              >
+                                Decline
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Invite Member Form */}
+                <form onSubmit={handleInviteMember} className="mb-6">
+                  <div className="flex gap-3 items-end">
+                    <div className="flex-1">
+                      <TextInput
+                        label="Invite Team Member"
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        required
+                      />
+                    </div>
+                    <Button type="submit" disabled={isInviting}>
+                      {isInviting ? 'Inviting...' : 'Send Invite'}
+                    </Button>
+                  </div>
+                </form>
+
+                {/* Team Members List */}
+                <div>
+                  <h3 className="text-sm font-semibold text-dark-text-primary mb-3">Team Members</h3>
+                  {teamMembers.length === 0 ? (
+                    <div className="text-center py-8 text-dark-text-tertiary">
+                      <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <p className="text-sm">No team members yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {teamMembers.map((member: any) => (
+                        <div key={member.id} className="p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-medium text-dark-text-primary">
+                                      {member.user_name || member.email}
+                                    </h4>
+                                    {member.role === 'owner' && (
+                                      <span className="px-2 py-0.5 text-xs font-medium bg-primary-500/10 text-primary-400 rounded">
+                                        Owner
+                                      </span>
+                                    )}
+                                    {member.role === 'admin' && (
+                                      <span className="px-2 py-0.5 text-xs font-medium bg-purple-500/10 text-purple-400 rounded">
+                                        Admin
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-dark-text-tertiary">{member.email}</p>
+                                </div>
+                              </div>
+                            </div>
+                            {member.role !== 'owner' && (
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => handleRemoveMember(member.id, member.user_name || member.email)}
+                                disabled={isRemovingMember === member.id}
+                              >
+                                {isRemovingMember === member.id ? 'Removing...' : 'Remove'}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <svg className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm text-dark-text-secondary">
+                      <p className="font-medium mb-1 text-dark-text-primary">About team access</p>
+                      <p>Team members can view and edit all projects, tasks, sprints, and tags shared with the team. Only the team owner can invite or remove members.</p>
                     </div>
                   </div>
                 </div>

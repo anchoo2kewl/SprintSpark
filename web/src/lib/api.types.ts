@@ -250,6 +250,11 @@ export interface components {
              */
             sprint_id?: number | null;
             /**
+             * @description Name of the assigned sprint (populated from join)
+             * @example Sprint 1
+             */
+            sprint_name?: string | null;
+            /**
              * @description Task priority level
              * @example medium
              * @enum {string}
@@ -261,6 +266,11 @@ export interface components {
              * @example 1
              */
             assignee_id?: number | null;
+            /**
+             * @description Name of the assigned user (populated from join)
+             * @example Anshuman Biswas
+             */
+            assignee_name?: string | null;
             /**
              * Format: float
              * @description Estimated hours to complete

@@ -386,6 +386,44 @@ class ApiClient {
       method: 'DELETE',
     })
   }
+
+  // Team endpoints
+  async getMyTeam(): Promise<any> {
+    return this.request<any>('/api/team')
+  }
+
+  async getTeamMembers(): Promise<any[]> {
+    return this.request<any[]>('/api/team/members')
+  }
+
+  async inviteTeamMember(email: string): Promise<void> {
+    return this.request<void>('/api/team/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  async removeTeamMember(memberId: number): Promise<void> {
+    return this.request<void>(`/api/team/members/${memberId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getMyInvitations(): Promise<any[]> {
+    return this.request<any[]>('/api/team/invitations')
+  }
+
+  async acceptInvitation(invitationId: number): Promise<void> {
+    return this.request<void>(`/api/team/invitations/${invitationId}/accept`, {
+      method: 'POST',
+    })
+  }
+
+  async rejectInvitation(invitationId: number): Promise<void> {
+    return this.request<void>(`/api/team/invitations/${invitationId}/reject`, {
+      method: 'POST',
+    })
+  }
 }
 
 // Export a singleton instance
