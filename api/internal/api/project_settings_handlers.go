@@ -16,9 +16,10 @@ type ProjectMember struct {
 	ProjectID int       `json:"project_id"`
 	UserID    int       `json:"user_id"`
 	Email     string    `json:"email"`
+	Name      *string   `json:"name,omitempty"`
 	Role      string    `json:"role"`
-	AddedBy   int       `json:"added_by"`
-	CreatedAt time.Time `json:"created_at"`
+	GrantedBy int       `json:"granted_by"`
+	GrantedAt time.Time `json:"granted_at"`
 }
 
 // ProjectGitHubSettings represents GitHub integration settings
@@ -77,11 +78,11 @@ func (s *Server) HandleGetProjectMembers(w http.ResponseWriter, r *http.Request)
 	}
 
 	query := `
-		SELECT pm.id, pm.project_id, pm.user_id, u.email, pm.role, pm.added_by, pm.created_at
+		SELECT pm.id, pm.project_id, pm.user_id, u.email, u.name, pm.role, pm.granted_by, pm.granted_at
 		FROM project_members pm
 		JOIN users u ON pm.user_id = u.id
 		WHERE pm.project_id = ?
-		ORDER BY pm.created_at ASC
+		ORDER BY pm.role DESC, pm.granted_at ASC
 	`
 
 	rows, err := s.db.Query(query, projectID)
@@ -94,7 +95,7 @@ func (s *Server) HandleGetProjectMembers(w http.ResponseWriter, r *http.Request)
 	members := []ProjectMember{}
 	for rows.Next() {
 		var m ProjectMember
-		if err := rows.Scan(&m.ID, &m.ProjectID, &m.UserID, &m.Email, &m.Role, &m.AddedBy, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.ProjectID, &m.UserID, &m.Email, &m.Name, &m.Role, &m.GrantedBy, &m.GrantedAt); err != nil {
 			http.Error(w, "Failed to scan member", http.StatusInternalServerError)
 			return
 		}
@@ -165,10 +166,34 @@ func (s *Server) HandleAddProjectMember(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Check if user is in the same team
+	var teamID int
+	err = s.db.QueryRow("SELECT team_id FROM projects WHERE id = ?", projectID).Scan(&teamID)
+	if err != nil {
+		http.Error(w, "Failed to get project team", http.StatusInternalServerError)
+		return
+	}
+
+	var memberInTeam bool
+	err = s.db.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM team_members
+			WHERE team_id = ? AND user_id = ? AND status = 'active'
+		)
+	`, teamID, memberUserID).Scan(&memberInTeam)
+	if err != nil {
+		http.Error(w, "Failed to check team membership", http.StatusInternalServerError)
+		return
+	}
+	if !memberInTeam {
+		http.Error(w, "User must be a member of the team to access this project", http.StatusBadRequest)
+		return
+	}
+
 	// Insert member
 	result, err := s.db.Exec(`
-		INSERT INTO project_members (project_id, user_id, role, added_by)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO project_members (project_id, user_id, role, granted_by, granted_at)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
 	`, projectID, memberUserID, req.Role, userID)
 
 	if err != nil {

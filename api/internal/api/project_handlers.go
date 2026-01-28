@@ -30,28 +30,22 @@ type UpdateProjectRequest struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// HandleListProjects returns all projects for the authenticated user's team
+// HandleListProjects returns all projects the authenticated user has access to
 func (s *Server) HandleListProjects(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
 	userID := r.Context().Value(UserIDKey).(int64)
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
-		return
-	}
-
 	query := `
-		SELECT id, owner_id, name, description, created_at, updated_at
-		FROM projects
-		WHERE team_id = ?
-		ORDER BY updated_at DESC
+		SELECT DISTINCT p.id, p.owner_id, p.name, p.description, p.created_at, p.updated_at
+		FROM projects p
+		INNER JOIN project_members pm ON p.id = pm.project_id
+		WHERE pm.user_id = ?
+		ORDER BY p.updated_at DESC
 	`
 
-	rows, err := s.db.QueryContext(ctx, query, teamID)
+	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to fetch projects", "internal_error")
 		return
@@ -88,21 +82,15 @@ func (s *Server) HandleGetProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
-		return
-	}
-
 	query := `
-		SELECT id, owner_id, name, description, created_at, updated_at
-		FROM projects
-		WHERE id = ? AND team_id = ?
+		SELECT p.id, p.owner_id, p.name, p.description, p.created_at, p.updated_at
+		FROM projects p
+		INNER JOIN project_members pm ON p.id = pm.project_id
+		WHERE p.id = ? AND pm.user_id = ?
 	`
 
 	var p Project
-	err = s.db.QueryRowContext(ctx, query, projectID, teamID).Scan(
+	err = s.db.QueryRowContext(ctx, query, projectID, userID).Scan(
 		&p.ID, &p.OwnerID, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -164,6 +152,19 @@ func (s *Server) HandleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Add creator as owner member of the project
+	memberQuery := `
+		INSERT INTO project_members (project_id, user_id, role, granted_by, granted_at)
+		VALUES (?, ?, 'owner', ?, CURRENT_TIMESTAMP)
+	`
+	_, err = s.db.ExecContext(ctx, memberQuery, projectID, userID, userID)
+	if err != nil {
+		// Rollback by deleting the project if member creation fails
+		s.db.ExecContext(ctx, "DELETE FROM projects WHERE id = ?", projectID)
+		respondError(w, http.StatusInternalServerError, "failed to add project owner", "internal_error")
+		return
+	}
+
 	// Fetch the created project
 	var p Project
 	fetchQuery := `
@@ -194,28 +195,32 @@ func (s *Server) HandleUpdateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
-		return
-	}
-
 	var req UpdateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body", "invalid_input")
 		return
 	}
 
-	// Check project exists and belongs to user's team
-	var exists bool
-	checkQuery := `SELECT EXISTS(SELECT 1 FROM projects WHERE id = ? AND team_id = ?)`
-	if err := s.db.QueryRowContext(ctx, checkQuery, projectID, teamID).Scan(&exists); err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to check project ownership", "internal_error")
+	// Check user has access and is owner or editor
+	var userRole string
+	checkQuery := `
+		SELECT pm.role
+		FROM project_members pm
+		WHERE pm.project_id = ? AND pm.user_id = ?
+	`
+	err = s.db.QueryRowContext(ctx, checkQuery, projectID, userID).Scan(&userRole)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "project not found", "not_found")
 		return
 	}
-	if !exists {
-		respondError(w, http.StatusNotFound, "project not found", "not_found")
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to check project access", "internal_error")
+		return
+	}
+
+	// Only owners and editors can update projects
+	if userRole != "owner" && userRole != "editor" {
+		respondError(w, http.StatusForbidden, "only project owners and editors can update projects", "forbidden")
 		return
 	}
 
@@ -241,8 +246,8 @@ func (s *Server) HandleUpdateProject(w http.ResponseWriter, r *http.Request) {
 		args = append(args, *req.Description)
 	}
 
-	query += " WHERE id = ? AND team_id = ?"
-	args = append(args, projectID, teamID)
+	query += " WHERE id = ?"
+	args = append(args, projectID)
 
 	_, err = s.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -280,15 +285,26 @@ func (s *Server) HandleDeleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
+	// Check if user is project owner
+	var ownerID int64
+	checkQuery := `SELECT owner_id FROM projects WHERE id = ?`
+	err = s.db.QueryRowContext(ctx, checkQuery, projectID).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "project not found", "not_found")
+		return
+	}
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		respondError(w, http.StatusInternalServerError, "failed to check project ownership", "internal_error")
 		return
 	}
 
-	query := `DELETE FROM projects WHERE id = ? AND team_id = ?`
-	result, err := s.db.ExecContext(ctx, query, projectID, teamID)
+	if ownerID != userID {
+		respondError(w, http.StatusForbidden, "only project owner can delete project", "forbidden")
+		return
+	}
+
+	query := `DELETE FROM projects WHERE id = ?`
+	result, err := s.db.ExecContext(ctx, query, projectID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to delete project", "internal_error")
 		return

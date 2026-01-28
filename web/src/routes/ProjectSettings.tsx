@@ -10,8 +10,18 @@ interface ProjectMember {
   id: number
   user_id: number
   email: string
+  name?: string
   role: string
-  created_at: string
+  granted_by: number
+  granted_at: string
+}
+
+interface TeamMember {
+  id: number
+  user_id: number
+  email: string
+  name?: string
+  role: string
 }
 
 interface GitHubSettings {
@@ -30,8 +40,9 @@ export default function ProjectSettings() {
 
   // Members state
   const [members, setMembers] = useState<ProjectMember[]>([])
-  const [newMemberEmail, setNewMemberEmail] = useState('')
-  const [newMemberRole, setNewMemberRole] = useState('viewer')
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const [newMemberRole, setNewMemberRole] = useState('member')
   const [memberError, setMemberError] = useState('')
   const [memberSuccess, setMemberSuccess] = useState('')
   const [isAddingMember, setIsAddingMember] = useState(false)
@@ -51,6 +62,7 @@ export default function ProjectSettings() {
 
   useEffect(() => {
     loadMembers()
+    loadTeamMembers()
     loadGitHubSettings()
   }, [projectId])
 
@@ -60,6 +72,15 @@ export default function ProjectSettings() {
       setMembers(data)
     } catch (error: any) {
       console.error('Failed to load members:', error)
+    }
+  }
+
+  const loadTeamMembers = async () => {
+    try {
+      const data = await apiClient.getTeamMembers()
+      setTeamMembers(data)
+    } catch (error: any) {
+      console.error('Failed to load team members:', error)
     }
   }
 
@@ -77,22 +98,25 @@ export default function ProjectSettings() {
     setMemberError('')
     setMemberSuccess('')
 
-    if (!newMemberEmail) {
-      setMemberError('Email is required')
+    if (!selectedUserId) {
+      setMemberError('Please select a team member')
       return
     }
 
     setIsAddingMember(true)
 
     try {
+      const userId = parseInt(selectedUserId)
+      const selectedMember = teamMembers.find(m => m.user_id === userId)
+
       await apiClient.addProjectMember(projectId, {
-        email: newMemberEmail,
+        email: selectedMember?.email || '',
         role: newMemberRole,
       })
 
       setMemberSuccess('Member added successfully')
-      setNewMemberEmail('')
-      setNewMemberRole('viewer')
+      setSelectedUserId('')
+      setNewMemberRole('member')
       loadMembers()
     } catch (error: any) {
       setMemberError(error.message || 'Failed to add member')
@@ -100,6 +124,11 @@ export default function ProjectSettings() {
       setIsAddingMember(false)
     }
   }
+
+  // Filter team members that aren't already project members
+  const availableTeamMembers = teamMembers.filter(
+    tm => !members.some(pm => pm.user_id === tm.user_id)
+  )
 
   const handleUpdateMemberRole = async (memberId: number, role: string) => {
     try {
@@ -150,14 +179,14 @@ export default function ProjectSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-dark-bg-primary py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Project Settings</h1>
-              <p className="text-gray-600 mt-1">Manage team members and GitHub integration</p>
+              <h1 className="text-3xl font-bold text-dark-text-primary">Project Settings</h1>
+              <p className="text-dark-text-secondary mt-1">Manage project access and GitHub integration</p>
             </div>
             <Button onClick={() => navigate(`/app/projects/${projectId}`)} variant="secondary">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,24 +202,24 @@ export default function ProjectSettings() {
           <Card className="shadow-md">
             <div className="p-6 sm:p-8">
               <div className="flex items-start gap-4 mb-6">
-                <div className="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/10 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-1">Team Members</h2>
-                  <p className="text-sm text-gray-600">Share this project with other users</p>
+                  <h2 className="text-xl font-semibold text-dark-text-primary mb-1">Team Members</h2>
+                  <p className="text-sm text-dark-text-secondary">Share this project with other users</p>
                 </div>
               </div>
 
               {memberSuccess && (
-                <div className="mb-4 p-4 bg-green-50 border-l-4 border-green-400 rounded-r-lg">
+                <div className="mb-4 p-4 bg-success-500/10 border-l-4 border-success-500/30 rounded-r-lg">
                   <div className="flex items-center">
-                    <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <span className="text-green-800 font-medium">{memberSuccess}</span>
+                    <span className="text-success-300 font-medium">{memberSuccess}</span>
                   </div>
                 </div>
               )}
@@ -198,47 +227,59 @@ export default function ProjectSettings() {
               {memberError && <FormError message={memberError} className="mb-4" />}
 
               {/* Add Member Form */}
-              <form onSubmit={handleAddMember} className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                <h3 className="font-semibold text-gray-900 mb-4">Add Team Member</h3>
+              <form onSubmit={handleAddMember} className="mb-6 p-4 bg-dark-bg-tertiary/30 border border-dark-bg-tertiary/30 rounded-lg">
+                <h3 className="font-semibold text-dark-text-primary mb-4">Grant Project Access</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2">
-                    <TextInput
-                      label="Email Address"
-                      type="email"
-                      value={newMemberEmail}
-                      onChange={(e) => setNewMemberEmail(e.target.value)}
-                      placeholder="colleague@example.com"
+                    <label className="block text-sm font-medium text-dark-text-primary mb-1">
+                      Team Member <span className="text-danger-400">*</span>
+                    </label>
+                    <select
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
                       required
-                    />
+                      className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                    >
+                      <option value="">Select a team member...</option>
+                      {availableTeamMembers.map(member => (
+                        <option key={member.user_id} value={member.user_id}>
+                          {member.name || member.email}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Role <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-dark-text-primary mb-1">
+                      Role <span className="text-danger-400">*</span>
                     </label>
                     <select
                       value={newMemberRole}
                       onChange={(e) => setNewMemberRole(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                      className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
                     >
                       <option value="viewer">Viewer</option>
+                      <option value="member">Member</option>
                       <option value="editor">Editor</option>
-                      <option value="admin">Admin</option>
+                      <option value="owner">Owner</option>
                     </select>
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Button type="submit" disabled={isAddingMember} size="sm">
-                    {isAddingMember ? 'Adding...' : 'Add Member'}
+                  <Button type="submit" disabled={isAddingMember || availableTeamMembers.length === 0} size="sm">
+                    {isAddingMember ? 'Adding...' : 'Grant Access'}
                   </Button>
+                  {availableTeamMembers.length === 0 && (
+                    <p className="text-sm text-dark-text-tertiary mt-2">All team members already have access</p>
+                  )}
                 </div>
               </form>
 
               {/* Members List */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Current Members ({members.length})</h3>
+                <h3 className="font-semibold text-dark-text-primary mb-3">Current Members ({members.length})</h3>
                 {members.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-center py-8 text-dark-text-tertiary">
+                    <svg className="w-12 h-12 mx-auto mb-3 text-dark-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                     <p>No members added yet</p>
@@ -249,30 +290,31 @@ export default function ProjectSettings() {
                     {members.map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                        className="flex items-center justify-between p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg hover:border-dark-bg-tertiary/30 transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
                             {member.email.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{member.email}</p>
-                            <p className="text-xs text-gray-500">Added {new Date(member.created_at).toLocaleDateString()}</p>
+                            <p className="font-medium text-dark-text-primary">{member.email}</p>
+                            <p className="text-xs text-dark-text-tertiary">Added {new Date(member.granted_at).toLocaleDateString()}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
                           <select
                             value={member.role}
                             onChange={(e) => handleUpdateMemberRole(member.id, e.target.value)}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                            className="px-3 py-1.5 text-sm bg-dark-bg-secondary text-dark-text-primary border border-dark-bg-tertiary/30 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                           >
                             <option value="viewer">Viewer</option>
+                            <option value="member">Member</option>
                             <option value="editor">Editor</option>
-                            <option value="admin">Admin</option>
+                            <option value="owner">Owner</option>
                           </select>
                           <button
                             onClick={() => handleRemoveMember(member.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-2 text-danger-300 hover:bg-danger-500/10 rounded-lg transition-colors"
                             title="Remove member"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -287,9 +329,9 @@ export default function ProjectSettings() {
               </div>
 
               {/* Role Descriptions */}
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-semibold text-blue-900 mb-2 text-sm">Role Permissions</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
+              <div className="mt-6 p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
+                <h4 className="font-semibold text-primary-300 mb-2 text-sm">Role Permissions</h4>
+                <ul className="text-sm text-primary-300 space-y-1">
                   <li><strong>Viewer:</strong> Can view project and tasks</li>
                   <li><strong>Editor:</strong> Can view, create, and edit tasks</li>
                   <li><strong>Admin:</strong> Full access including managing members and settings</li>
@@ -308,18 +350,18 @@ export default function ProjectSettings() {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-1">GitHub Integration</h2>
-                  <p className="text-sm text-gray-600">Connect this project to a GitHub repository</p>
+                  <h2 className="text-xl font-semibold text-dark-text-primary mb-1">GitHub Integration</h2>
+                  <p className="text-sm text-dark-text-secondary">Connect this project to a GitHub repository</p>
                 </div>
               </div>
 
               {githubSuccess && (
-                <div className="mb-4 p-4 bg-green-50 border-l-4 border-green-400 rounded-r-lg">
+                <div className="mb-4 p-4 bg-success-500/10 border-l-4 border-success-500/30 rounded-r-lg">
                   <div className="flex items-center">
-                    <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <span className="text-green-800 font-medium">{githubSuccess}</span>
+                    <span className="text-success-300 font-medium">{githubSuccess}</span>
                   </div>
                 </div>
               )}
@@ -363,22 +405,22 @@ export default function ProjectSettings() {
                   helpText="The default branch to track (e.g., main, master, develop)"
                 />
 
-                <div className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-center gap-3 p-4 bg-dark-bg-tertiary/30 border border-dark-bg-tertiary/30 rounded-lg">
                   <input
                     type="checkbox"
                     id="sync-enabled"
                     checked={githubSettings.github_sync_enabled}
                     onChange={(e) => setGithubSettings({ ...githubSettings, github_sync_enabled: e.target.checked })}
-                    className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                    className="w-4 h-4 text-primary-600 border-dark-bg-tertiary/30 rounded focus:ring-2 focus:ring-primary-500"
                   />
                   <label htmlFor="sync-enabled" className="flex-1">
-                    <span className="font-medium text-gray-900">Enable GitHub Sync</span>
-                    <p className="text-sm text-gray-600 mt-0.5">Automatically sync tasks with GitHub issues</p>
+                    <span className="font-medium text-dark-text-primary">Enable GitHub Sync</span>
+                    <p className="text-sm text-dark-text-secondary mt-0.5">Automatically sync tasks with GitHub issues</p>
                   </label>
                 </div>
 
                 {githubSettings.github_last_sync && (
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-dark-text-secondary">
                     Last synced: {new Date(githubSettings.github_last_sync).toLocaleString()}
                   </div>
                 )}
