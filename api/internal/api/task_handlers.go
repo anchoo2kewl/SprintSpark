@@ -68,10 +68,17 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user owns the project
-	var ownerID int64
-	checkQuery := `SELECT owner_id FROM projects WHERE id = ?`
-	if err := s.db.QueryRowContext(ctx, checkQuery, projectID).Scan(&ownerID); err == sql.ErrNoRows {
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
+	// Verify project belongs to user's team
+	var projectTeamID int64
+	checkQuery := `SELECT team_id FROM projects WHERE id = ?`
+	if err := s.db.QueryRowContext(ctx, checkQuery, projectID).Scan(&projectTeamID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "project not found", "not_found")
 		return
 	} else if err != nil {
@@ -79,7 +86,7 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ownerID != userID {
+	if projectTeamID != teamID {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -184,10 +191,17 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user owns the project
-	var ownerID int64
-	checkQuery := `SELECT owner_id FROM projects WHERE id = ?`
-	if err := s.db.QueryRowContext(ctx, checkQuery, projectID).Scan(&ownerID); err == sql.ErrNoRows {
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
+	// Verify project belongs to user's team
+	var projectTeamID int64
+	checkQuery := `SELECT team_id FROM projects WHERE id = ?`
+	if err := s.db.QueryRowContext(ctx, checkQuery, projectID).Scan(&projectTeamID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "project not found", "not_found")
 		return
 	} else if err != nil {
@@ -195,7 +209,7 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ownerID != userID {
+	if projectTeamID != teamID {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -336,14 +350,21 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user owns the project that contains this task
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
+	// Verify task's project belongs to user's team
 	checkQuery := `
-		SELECT p.owner_id FROM projects p
+		SELECT p.team_id FROM projects p
 		JOIN tasks t ON t.project_id = p.id
 		WHERE t.id = ?
 	`
-	var ownerID int64
-	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&ownerID); err == sql.ErrNoRows {
+	var projectTeamID int64
+	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&projectTeamID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "task not found", "not_found")
 		return
 	} else if err != nil {
@@ -351,7 +372,7 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ownerID != userID {
+	if projectTeamID != teamID {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -492,14 +513,21 @@ func (s *Server) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify user owns the project that contains this task
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
+	// Verify task's project belongs to user's team
 	checkQuery := `
-		SELECT p.owner_id FROM projects p
+		SELECT p.team_id FROM projects p
 		JOIN tasks t ON t.project_id = p.id
 		WHERE t.id = ?
 	`
-	var ownerID int64
-	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&ownerID); err == sql.ErrNoRows {
+	var projectTeamID int64
+	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&projectTeamID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "task not found", "not_found")
 		return
 	} else if err != nil {
@@ -507,7 +535,7 @@ func (s *Server) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ownerID != userID {
+	if projectTeamID != teamID {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}

@@ -30,21 +30,28 @@ type UpdateProjectRequest struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// HandleListProjects returns all projects for the authenticated user
+// HandleListProjects returns all projects for the authenticated user's team
 func (s *Server) HandleListProjects(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
 	userID := r.Context().Value(UserIDKey).(int64)
 
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
 	query := `
 		SELECT id, owner_id, name, description, created_at, updated_at
 		FROM projects
-		WHERE owner_id = ?
+		WHERE team_id = ?
 		ORDER BY updated_at DESC
 	`
 
-	rows, err := s.db.QueryContext(ctx, query, userID)
+	rows, err := s.db.QueryContext(ctx, query, teamID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to fetch projects", "internal_error")
 		return
@@ -81,14 +88,21 @@ func (s *Server) HandleGetProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
 	query := `
 		SELECT id, owner_id, name, description, created_at, updated_at
 		FROM projects
-		WHERE id = ? AND owner_id = ?
+		WHERE id = ? AND team_id = ?
 	`
 
 	var p Project
-	err = s.db.QueryRowContext(ctx, query, projectID, userID).Scan(
+	err = s.db.QueryRowContext(ctx, query, projectID, teamID).Scan(
 		&p.ID, &p.OwnerID, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -110,6 +124,13 @@ func (s *Server) HandleCreateProject(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.Context().Value(UserIDKey).(int64)
 
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
 	var req CreateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body", "invalid_input")
@@ -127,11 +148,11 @@ func (s *Server) HandleCreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		INSERT INTO projects (owner_id, name, description, created_at, updated_at)
-		VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO projects (owner_id, team_id, name, description, created_at, updated_at)
+		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 
-	result, err := s.db.ExecContext(ctx, query, userID, req.Name, req.Description)
+	result, err := s.db.ExecContext(ctx, query, userID, teamID, req.Name, req.Description)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create project", "internal_error")
 		return
@@ -173,16 +194,23 @@ func (s *Server) HandleUpdateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
 	var req UpdateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body", "invalid_input")
 		return
 	}
 
-	// Check project exists and belongs to user
+	// Check project exists and belongs to user's team
 	var exists bool
-	checkQuery := `SELECT EXISTS(SELECT 1 FROM projects WHERE id = ? AND owner_id = ?)`
-	if err := s.db.QueryRowContext(ctx, checkQuery, projectID, userID).Scan(&exists); err != nil {
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM projects WHERE id = ? AND team_id = ?)`
+	if err := s.db.QueryRowContext(ctx, checkQuery, projectID, teamID).Scan(&exists); err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to check project ownership", "internal_error")
 		return
 	}
@@ -213,8 +241,8 @@ func (s *Server) HandleUpdateProject(w http.ResponseWriter, r *http.Request) {
 		args = append(args, *req.Description)
 	}
 
-	query += " WHERE id = ? AND owner_id = ?"
-	args = append(args, projectID, userID)
+	query += " WHERE id = ? AND team_id = ?"
+	args = append(args, projectID, teamID)
 
 	_, err = s.db.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -252,8 +280,15 @@ func (s *Server) HandleDeleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `DELETE FROM projects WHERE id = ? AND owner_id = ?`
-	result, err := s.db.ExecContext(ctx, query, projectID, userID)
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		return
+	}
+
+	query := `DELETE FROM projects WHERE id = ? AND team_id = ?`
+	result, err := s.db.ExecContext(ctx, query, projectID, teamID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to delete project", "internal_error")
 		return

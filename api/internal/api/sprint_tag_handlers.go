@@ -62,18 +62,27 @@ type UpdateTagRequest struct {
 	Color *string `json:"color,omitempty"`
 }
 
-// HandleListSprints returns all sprints for the current user
+// HandleListSprints returns all sprints for the current user's team
 func (s *Server) HandleListSprints(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	userID, ok := GetUserID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
+		return
+	}
+
+	// Query sprints that belong to the user's team
 	query := `
 		SELECT id, user_id, name, COALESCE(goal, ''), COALESCE(start_date, ''), COALESCE(end_date, ''), status, created_at, updated_at
 		FROM sprints
-		WHERE user_id = ?
+		WHERE team_id = ?
 		ORDER BY
 			CASE status
 				WHEN 'active' THEN 1
@@ -84,7 +93,7 @@ func (s *Server) HandleListSprints(w http.ResponseWriter, r *http.Request) {
 			created_at DESC
 	`
 
-	rows, err := s.db.Query(query, userID)
+	rows, err := s.db.Query(query, teamID)
 	if err != nil {
 		http.Error(w, "Failed to fetch sprints", http.StatusInternalServerError)
 		return
@@ -106,9 +115,17 @@ func (s *Server) HandleListSprints(w http.ResponseWriter, r *http.Request) {
 
 // HandleCreateSprint creates a new sprint
 func (s *Server) HandleCreateSprint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	userID, ok := GetUserID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
 		return
 	}
 
@@ -135,9 +152,9 @@ func (s *Server) HandleCreateSprint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := s.db.Exec(`
-		INSERT INTO sprints (user_id, name, goal, start_date, end_date, status)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, userID, req.Name, req.Goal, req.StartDate, req.EndDate, status)
+		INSERT INTO sprints (user_id, team_id, name, goal, start_date, end_date, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, userID, teamID, req.Name, req.Goal, req.StartDate, req.EndDate, status)
 
 	if err != nil {
 		http.Error(w, "Failed to create sprint", http.StatusInternalServerError)
@@ -163,6 +180,7 @@ func (s *Server) HandleCreateSprint(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdateSprint updates a sprint
 func (s *Server) HandleUpdateSprint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	sprintID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		http.Error(w, "Invalid sprint ID", http.StatusBadRequest)
@@ -175,9 +193,16 @@ func (s *Server) HandleUpdateSprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if sprint belongs to user
-	var ownerID int
-	err = s.db.QueryRow("SELECT user_id FROM sprints WHERE id = ?", sprintID).Scan(&ownerID)
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if sprint belongs to user's team
+	var sprintTeamID int64
+	err = s.db.QueryRow("SELECT team_id FROM sprints WHERE id = ?", sprintID).Scan(&sprintTeamID)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Sprint not found", http.StatusNotFound)
 		return
@@ -186,7 +211,7 @@ func (s *Server) HandleUpdateSprint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if int64(ownerID) != userID {
+	if sprintTeamID != teamID {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -262,6 +287,7 @@ func (s *Server) HandleUpdateSprint(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeleteSprint deletes a sprint
 func (s *Server) HandleDeleteSprint(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	sprintID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		http.Error(w, "Invalid sprint ID", http.StatusBadRequest)
@@ -274,9 +300,16 @@ func (s *Server) HandleDeleteSprint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if sprint belongs to user
-	var ownerID int
-	err = s.db.QueryRow("SELECT user_id FROM sprints WHERE id = ?", sprintID).Scan(&ownerID)
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if sprint belongs to user's team
+	var sprintTeamID int64
+	err = s.db.QueryRow("SELECT team_id FROM sprints WHERE id = ?", sprintID).Scan(&sprintTeamID)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Sprint not found", http.StatusNotFound)
 		return
@@ -285,7 +318,7 @@ func (s *Server) HandleDeleteSprint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if int64(ownerID) != userID {
+	if sprintTeamID != teamID {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -299,22 +332,30 @@ func (s *Server) HandleDeleteSprint(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Sprint deleted successfully"})
 }
 
-// HandleListTags returns all tags for the current user
+// HandleListTags returns all tags for the current user's team
 func (s *Server) HandleListTags(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	userID, ok := GetUserID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
+		return
+	}
+
 	query := `
 		SELECT id, user_id, name, color, created_at
 		FROM tags
-		WHERE user_id = ?
+		WHERE team_id = ?
 		ORDER BY name ASC
 	`
 
-	rows, err := s.db.Query(query, userID)
+	rows, err := s.db.Query(query, teamID)
 	if err != nil {
 		http.Error(w, "Failed to fetch tags", http.StatusInternalServerError)
 		return
@@ -336,9 +377,17 @@ func (s *Server) HandleListTags(w http.ResponseWriter, r *http.Request) {
 
 // HandleCreateTag creates a new tag
 func (s *Server) HandleCreateTag(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	userID, ok := GetUserID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
 		return
 	}
 
@@ -359,9 +408,9 @@ func (s *Server) HandleCreateTag(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := s.db.Exec(`
-		INSERT INTO tags (user_id, name, color)
-		VALUES (?, ?, ?)
-	`, userID, req.Name, color)
+		INSERT INTO tags (user_id, team_id, name, color)
+		VALUES (?, ?, ?, ?)
+	`, userID, teamID, req.Name, color)
 
 	if err != nil {
 		http.Error(w, "Failed to create tag. Tag name must be unique.", http.StatusConflict)
@@ -387,6 +436,7 @@ func (s *Server) HandleCreateTag(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdateTag updates a tag
 func (s *Server) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	tagID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
@@ -399,9 +449,16 @@ func (s *Server) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if tag belongs to user
-	var ownerID int
-	err = s.db.QueryRow("SELECT user_id FROM tags WHERE id = ?", tagID).Scan(&ownerID)
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if tag belongs to user's team
+	var tagTeamID int64
+	err = s.db.QueryRow("SELECT team_id FROM tags WHERE id = ?", tagID).Scan(&tagTeamID)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Tag not found", http.StatusNotFound)
 		return
@@ -410,7 +467,7 @@ func (s *Server) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if int64(ownerID) != userID {
+	if tagTeamID != teamID {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -469,6 +526,7 @@ func (s *Server) HandleUpdateTag(w http.ResponseWriter, r *http.Request) {
 
 // HandleDeleteTag deletes a tag
 func (s *Server) HandleDeleteTag(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	tagID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		http.Error(w, "Invalid tag ID", http.StatusBadRequest)
@@ -481,9 +539,16 @@ func (s *Server) HandleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if tag belongs to user
-	var ownerID int
-	err = s.db.QueryRow("SELECT user_id FROM tags WHERE id = ?", tagID).Scan(&ownerID)
+	// Get user's team ID
+	teamID, err := s.getUserTeamID(ctx, userID)
+	if err != nil {
+		http.Error(w, "Failed to get user team", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if tag belongs to user's team
+	var tagTeamID int64
+	err = s.db.QueryRow("SELECT team_id FROM tags WHERE id = ?", tagID).Scan(&tagTeamID)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Tag not found", http.StatusNotFound)
 		return
@@ -492,7 +557,7 @@ func (s *Server) HandleDeleteTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if int64(ownerID) != userID {
+	if tagTeamID != teamID {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
