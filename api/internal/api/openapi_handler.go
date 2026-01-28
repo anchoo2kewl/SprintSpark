@@ -1,18 +1,25 @@
 package api
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 )
 
-// HandleOpenAPI serves the OpenAPI specification
-func (s *Server) HandleOpenAPI(w http.ResponseWriter, r *http.Request) {
-	// Read OpenAPI spec file
+// getOpenAPISpec reads and returns the OpenAPI specification file
+func (s *Server) getOpenAPISpec() ([]byte, error) {
 	specPath := "./openapi.yaml"
 	content, err := os.ReadFile(specPath)
 	if err != nil {
-		log.Printf("Failed to read OpenAPI spec: %v", err)
+		return nil, fmt.Errorf("failed to read OpenAPI spec: %w", err)
+	}
+	return content, nil
+}
+
+// HandleOpenAPI serves the OpenAPI specification (public endpoint)
+func (s *Server) HandleOpenAPI(w http.ResponseWriter, r *http.Request) {
+	content, err := s.getOpenAPISpec()
+	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to load API specification", "internal_error")
 		return
 	}

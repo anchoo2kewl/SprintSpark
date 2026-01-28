@@ -4,19 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	_ "modernc.org/sqlite"
 )
 
 // DB wraps the database connection
 type DB struct {
 	*sql.DB
+	logger *zap.Logger
 }
 
 // Config holds database configuration
@@ -26,7 +27,7 @@ type Config struct {
 }
 
 // New creates a new database connection and runs migrations
-func New(cfg Config) (*DB, error) {
+func New(cfg Config, logger *zap.Logger) (*DB, error) {
 	// Ensure data directory exists
 	dataDir := filepath.Dir(cfg.DBPath)
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
@@ -68,7 +69,7 @@ func New(cfg Config) (*DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	db := &DB{DB: sqlDB}
+	db := &DB{DB: sqlDB, logger: logger}
 
 	// Run migrations
 	if cfg.MigrationsPath != "" {
@@ -78,7 +79,7 @@ func New(cfg Config) (*DB, error) {
 		}
 	}
 
-	log.Printf("Database initialized at %s", cfg.DBPath)
+	logger.Info("Database initialized", zap.String("path", cfg.DBPath))
 	return db, nil
 }
 
@@ -116,7 +117,8 @@ func (db *DB) runMigrations(ctx context.Context, migrationsPath string) error {
 
 	// Check if migrations directory exists
 	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
-		log.Printf("Migrations directory %s does not exist, skipping migrations", migrationsPath)
+		db.logger.Warn("Migrations directory does not exist, skipping migrations",
+			zap.String("path", migrationsPath))
 		return nil
 	}
 
@@ -143,7 +145,7 @@ func (db *DB) runMigrations(ctx context.Context, migrationsPath string) error {
 			continue
 		}
 
-		log.Printf("Applying migration: %s", filename)
+		db.logger.Info("Applying migration", zap.String("file", filename))
 
 		// Read migration file
 		content, err := os.ReadFile(filepath.Join(migrationsPath, filename))
@@ -174,7 +176,7 @@ func (db *DB) runMigrations(ctx context.Context, migrationsPath string) error {
 			return fmt.Errorf("failed to commit migration %s: %w", filename, err)
 		}
 
-		log.Printf("Migration %s applied successfully", filename)
+		db.logger.Info("Migration applied successfully", zap.String("file", filename))
 	}
 
 	return nil

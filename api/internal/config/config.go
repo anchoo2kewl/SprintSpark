@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -55,7 +54,8 @@ func Load() *Config {
 
 	// Validate critical configuration
 	if cfg.Env == "production" && cfg.JWTSecret == "change-this-to-a-secure-random-string-in-production" {
-		log.Fatal("JWT_SECRET must be set in production environment")
+		logger := MustInitLogger(cfg.Env, cfg.LogLevel)
+		logger.Fatal("JWT_SECRET must be set in production environment")
 	}
 
 	return cfg
@@ -82,7 +82,7 @@ func getEnvAsInt(key string, defaultValue int) int {
 	}
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
-		log.Printf("Warning: Invalid integer value for %s, using default: %d", key, defaultValue)
+		// Silently use default - logger not available yet during config load
 		return defaultValue
 	}
 	return value

@@ -59,17 +59,48 @@ P: Update auth tests, add rate limit specific tests
 // ✅ ALWAYS
 - Prepared statements for SQL
 - Context with timeouts
-- Structured logging (no secrets)
+- Uber Zap for ALL logging (logger.Info/Warn/Error/Fatal with zap.String/Int/Error fields)
 - Error wrapping with context
 - Table-driven tests
 
 // ❌ NEVER
 - Raw SQL concatenation
 - Panic in handlers
-- Log passwords/tokens
+- log.Printf, log.Println, fmt.Print* for logging (use zap.Logger ONLY)
+- Log passwords/tokens/secrets
 - Ignore errors
 - Global mutable state
 ```
+
+### Logging Standard (MANDATORY)
+
+**ONLY use Uber's Zap logger for ALL logging operations**
+
+```go
+// ✅ CORRECT - Use Zap logger
+logger.Info("Server starting",
+    zap.String("env", cfg.Env),
+    zap.Int("port", cfg.Port),
+)
+
+logger.Error("Failed to connect",
+    zap.Error(err),
+    zap.String("host", host),
+)
+
+logger.Fatal("Critical error", zap.Error(err))
+
+// ❌ WRONG - Never use these
+log.Printf("Server starting on port %d", port)
+log.Println("Something happened")
+fmt.Printf("Debug: %v\n", value)
+```
+
+**Logger Initialization:**
+- Logger is initialized once in main() using `config.MustInitLogger(env, logLevel)`
+- Pass logger instance to all packages that need logging (db, api, etc.)
+- Server struct includes logger: `server.logger.Info(...)`
+- DB struct includes logger: `db.logger.Info(...)`
 
 ### React Frontend
 ```typescript

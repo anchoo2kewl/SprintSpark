@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"go.uber.org/zap"
 
 	"sprintspark/internal/api"
 	"sprintspark/internal/config"
@@ -23,7 +23,14 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	log.Printf("Starting SprintSpark API in %s mode", cfg.Env)
+	// Initialize logger
+	logger := config.MustInitLogger(cfg.Env, cfg.LogLevel)
+	defer logger.Sync() // Flush any buffered log entries
+
+	logger.Info("Starting SprintSpark API",
+		zap.String("env", cfg.Env),
+		zap.String("port", cfg.Port),
+	)
 
 	// Initialize database with auto-migrations
 	dbCfg := db.Config{
@@ -31,14 +38,14 @@ func main() {
 		MigrationsPath: cfg.MigrationsPath,
 	}
 
-	database, err := db.New(dbCfg)
+	database, err := db.New(dbCfg, logger)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		logger.Fatal("Failed to initialize database", zap.Error(err))
 	}
 	defer database.Close()
 
-	// Create server
-	server := api.NewServer(database, cfg)
+	// Create server with logger
+	server := api.NewServer(database, cfg, logger)
 
 	// Setup router
 	r := chi.NewRouter()
@@ -101,8 +108,11 @@ func main() {
 			fmt.Fprintf(w, `{"status":"ok"}`)
 		})
 
-		// OpenAPI specification
+		// OpenAPI specification (public)
 		r.Get("/openapi", server.HandleOpenAPI)
+
+		// Swagger UI (public)
+		r.Get("/docs", server.HandleSwaggerUI)
 
 		// Auth routes (public) with rate limiting
 		r.Route("/auth", func(r chi.Router) {
@@ -170,6 +180,9 @@ func main() {
 			r.Post("/api-keys", server.HandleCreateAPIKey)
 			r.Delete("/api-keys/{id}", server.HandleDeleteAPIKey)
 
+			// OpenAPI download with authentication
+			r.Get("/openapi.yaml", server.HandleOpenAPIYAML)
+
 			// Admin routes (requires admin role)
 			r.Get("/admin/users", server.HandleGetUsers)
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
@@ -192,7 +205,7 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Printf("Server listening on %s", addr)
+		logger.Info("Server listening", zap.String("addr", addr))
 		serverErrors <- srv.ListenAndServe()
 	}()
 
@@ -203,9 +216,9 @@ func main() {
 	// Block until we receive shutdown signal or server error
 	select {
 	case err := <-serverErrors:
-		log.Fatalf("Server error: %v", err)
+		logger.Fatal("Server error", zap.Error(err))
 	case sig := <-shutdown:
-		log.Printf("Received %v signal, starting graceful shutdown", sig)
+		logger.Info("Received shutdown signal, starting graceful shutdown", zap.String("signal", sig.String()))
 
 		// Give outstanding requests 30 seconds to complete
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -213,12 +226,12 @@ func main() {
 
 		// Gracefully shutdown server
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Printf("Graceful shutdown failed: %v", err)
+			logger.Error("Graceful shutdown failed", zap.Error(err))
 			if err := srv.Close(); err != nil {
-				log.Fatalf("Failed to close server: %v", err)
+				logger.Fatal("Failed to close server", zap.Error(err))
 			}
 		}
 
-		log.Println("Server stopped gracefully")
+		logger.Info("Server stopped gracefully")
 	}
 }

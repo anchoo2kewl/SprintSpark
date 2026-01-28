@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zaptest"
+
 	"sprintspark/internal/auth"
 	"sprintspark/internal/config"
 	"sprintspark/internal/db"
@@ -24,13 +26,16 @@ type TestServer struct {
 func NewTestServer(t *testing.T) *TestServer {
 	t.Helper()
 
+	// Create test logger
+	logger := zaptest.NewLogger(t)
+
 	// Create in-memory database
 	cfg := db.Config{
 		DBPath:         ":memory:",
 		MigrationsPath: "./../../internal/db/migrations",
 	}
 
-	database, err := db.New(cfg)
+	database, err := db.New(cfg, logger)
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
@@ -41,7 +46,7 @@ func NewTestServer(t *testing.T) *TestServer {
 		JWTExpiryHours: 24,
 	}
 
-	server := NewServer(database, testCfg)
+	server := NewServer(database, testCfg, logger)
 
 	return &TestServer{
 		Server: server,
