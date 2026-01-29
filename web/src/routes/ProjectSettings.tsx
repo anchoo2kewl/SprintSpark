@@ -35,8 +35,8 @@ interface GitHubSettings {
 
 export default function ProjectSettings() {
   const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
-  const projectId = parseInt(id || '0')
+  const { projectId: projectIdParam } = useParams<{ projectId: string }>()
+  const projectId = parseInt(projectIdParam || '0')
 
   // Members state
   const [members, setMembers] = useState<ProjectMember[]>([])
