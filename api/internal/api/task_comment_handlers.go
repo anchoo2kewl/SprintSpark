@@ -37,22 +37,24 @@ func (s *Server) HandleListTaskComments(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Verify user has access to this task (owns the project)
-	checkQuery := `
-		SELECT p.owner_id FROM projects p
-		JOIN tasks t ON t.project_id = p.id
-		WHERE t.id = ?
-	`
-	var ownerID int64
-	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&ownerID); err == sql.ErrNoRows {
+	// Get task's project ID and verify user has access
+	var projectID int64
+	projectQuery := `SELECT project_id FROM tasks WHERE id = ?`
+	if err := s.db.QueryRowContext(ctx, projectQuery, taskID).Scan(&projectID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "task not found", "not_found")
 		return
 	} else if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to verify task access", "internal_error")
+		respondError(w, http.StatusInternalServerError, "failed to get task project", "internal_error")
 		return
 	}
 
-	if ownerID != userID {
+	// Verify user has access to the project
+	hasAccess, err := s.checkProjectAccess(ctx, userID, projectID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify project access", "internal_error")
+		return
+	}
+	if !hasAccess {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -103,22 +105,24 @@ func (s *Server) HandleCreateTaskComment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Verify user has access to this task (owns the project)
-	checkQuery := `
-		SELECT p.owner_id FROM projects p
-		JOIN tasks t ON t.project_id = p.id
-		WHERE t.id = ?
-	`
-	var ownerID int64
-	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&ownerID); err == sql.ErrNoRows {
+	// Get task's project ID and verify user has access
+	var projectID int64
+	projectQuery := `SELECT project_id FROM tasks WHERE id = ?`
+	if err := s.db.QueryRowContext(ctx, projectQuery, taskID).Scan(&projectID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "task not found", "not_found")
 		return
 	} else if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to verify task access", "internal_error")
+		respondError(w, http.StatusInternalServerError, "failed to get task project", "internal_error")
 		return
 	}
 
-	if ownerID != userID {
+	// Verify user has access to the project
+	hasAccess, err := s.checkProjectAccess(ctx, userID, projectID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify project access", "internal_error")
+		return
+	}
+	if !hasAccess {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}

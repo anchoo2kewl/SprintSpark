@@ -68,25 +68,13 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
+	// Verify user has access to this project
+	hasAccess, err := s.checkProjectAccess(ctx, userID, projectID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		respondError(w, http.StatusInternalServerError, "failed to verify project access", "internal_error")
 		return
 	}
-
-	// Verify project belongs to user's team
-	var projectTeamID int64
-	checkQuery := `SELECT team_id FROM projects WHERE id = ?`
-	if err := s.db.QueryRowContext(ctx, checkQuery, projectID).Scan(&projectTeamID); err == sql.ErrNoRows {
-		respondError(w, http.StatusNotFound, "project not found", "not_found")
-		return
-	} else if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to verify project ownership", "internal_error")
-		return
-	}
-
-	if projectTeamID != teamID {
+	if !hasAccess {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -191,25 +179,13 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
+	// Verify user has access to this project
+	hasAccess, err := s.checkProjectAccess(ctx, userID, projectID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
+		respondError(w, http.StatusInternalServerError, "failed to verify project access", "internal_error")
 		return
 	}
-
-	// Verify project belongs to user's team
-	var projectTeamID int64
-	checkQuery := `SELECT team_id FROM projects WHERE id = ?`
-	if err := s.db.QueryRowContext(ctx, checkQuery, projectID).Scan(&projectTeamID); err == sql.ErrNoRows {
-		respondError(w, http.StatusNotFound, "project not found", "not_found")
-		return
-	} else if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to verify project ownership", "internal_error")
-		return
-	}
-
-	if projectTeamID != teamID {
+	if !hasAccess {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -350,29 +326,24 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
-		return
-	}
-
-	// Verify task's project belongs to user's team
-	checkQuery := `
-		SELECT p.team_id FROM projects p
-		JOIN tasks t ON t.project_id = p.id
-		WHERE t.id = ?
-	`
-	var projectTeamID int64
-	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&projectTeamID); err == sql.ErrNoRows {
+	// Get task's project ID and verify user has access
+	var projectID int64
+	projectQuery := `SELECT project_id FROM tasks WHERE id = ?`
+	if err := s.db.QueryRowContext(ctx, projectQuery, taskID).Scan(&projectID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "task not found", "not_found")
 		return
 	} else if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to verify task ownership", "internal_error")
+		respondError(w, http.StatusInternalServerError, "failed to get task project", "internal_error")
 		return
 	}
 
-	if projectTeamID != teamID {
+	// Verify user has access to the project
+	hasAccess, err := s.checkProjectAccess(ctx, userID, projectID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify project access", "internal_error")
+		return
+	}
+	if !hasAccess {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -513,29 +484,24 @@ func (s *Server) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's team ID
-	teamID, err := s.getUserTeamID(ctx, userID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get user team", "internal_error")
-		return
-	}
-
-	// Verify task's project belongs to user's team
-	checkQuery := `
-		SELECT p.team_id FROM projects p
-		JOIN tasks t ON t.project_id = p.id
-		WHERE t.id = ?
-	`
-	var projectTeamID int64
-	if err := s.db.QueryRowContext(ctx, checkQuery, taskID).Scan(&projectTeamID); err == sql.ErrNoRows {
+	// Get task's project ID and verify user has access
+	var projectID int64
+	projectQuery := `SELECT project_id FROM tasks WHERE id = ?`
+	if err := s.db.QueryRowContext(ctx, projectQuery, taskID).Scan(&projectID); err == sql.ErrNoRows {
 		respondError(w, http.StatusNotFound, "task not found", "not_found")
 		return
 	} else if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to verify task ownership", "internal_error")
+		respondError(w, http.StatusInternalServerError, "failed to get task project", "internal_error")
 		return
 	}
 
-	if projectTeamID != teamID {
+	// Verify user has access to the project
+	hasAccess, err := s.checkProjectAccess(ctx, userID, projectID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify project access", "internal_error")
+		return
+	}
+	if !hasAccess {
 		respondError(w, http.StatusForbidden, "access denied", "forbidden")
 		return
 	}
@@ -559,4 +525,17 @@ func (s *Server) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// checkProjectAccess verifies that a user has access to a project via project_members table
+func (s *Server) checkProjectAccess(ctx context.Context, userID, projectID int64) (bool, error) {
+	var hasAccess bool
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM project_members
+			WHERE project_id = ? AND user_id = ?
+		)
+	`
+	err := s.db.QueryRowContext(ctx, query, projectID, userID).Scan(&hasAccess)
+	return hasAccess, err
 }
