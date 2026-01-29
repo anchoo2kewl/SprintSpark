@@ -25,6 +25,7 @@ export interface CreateTaskRequest {
   title: string
   description?: string
   status?: 'todo' | 'in_progress' | 'done'
+  swim_lane_id?: number
   due_date?: string
   sprint_id?: number
   priority?: 'low' | 'medium' | 'high' | 'urgent'
@@ -38,6 +39,7 @@ export interface UpdateTaskRequest {
   title?: string
   description?: string
   status?: 'todo' | 'in_progress' | 'done'
+  swim_lane_id?: number | null
   due_date?: string | null
   sprint_id?: number | null
   priority?: 'low' | 'medium' | 'high' | 'urgent'
@@ -45,6 +47,28 @@ export interface UpdateTaskRequest {
   estimated_hours?: number | null
   actual_hours?: number | null
   tag_ids?: number[]
+}
+
+export interface SwimLane {
+  id: number
+  project_id: number
+  name: string
+  color: string
+  position: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateSwimLaneRequest {
+  name: string
+  color: string
+  position: number
+}
+
+export interface UpdateSwimLaneRequest {
+  name?: string
+  color?: string
+  position?: number
 }
 
 // Helper types for API responses (using available operations)
@@ -422,6 +446,31 @@ class ApiClient {
   async rejectInvitation(invitationId: number): Promise<void> {
     return this.request<void>(`/api/team/invitations/${invitationId}/reject`, {
       method: 'POST',
+    })
+  }
+
+  // Swim lane endpoints
+  async getSwimLanes(projectId: number): Promise<SwimLane[]> {
+    return this.request<SwimLane[]>(`/api/projects/${projectId}/swim-lanes`)
+  }
+
+  async createSwimLane(projectId: number, data: CreateSwimLaneRequest): Promise<SwimLane> {
+    return this.request<SwimLane>(`/api/projects/${projectId}/swim-lanes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateSwimLane(swimLaneId: number, data: UpdateSwimLaneRequest): Promise<SwimLane> {
+    return this.request<SwimLane>(`/api/swim-lanes/${swimLaneId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteSwimLane(swimLaneId: number): Promise<void> {
+    return this.request<void>(`/api/swim-lanes/${swimLaneId}`, {
+      method: 'DELETE',
     })
   }
 }

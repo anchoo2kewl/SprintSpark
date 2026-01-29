@@ -4,7 +4,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import TextInput from '../components/ui/TextInput'
 import FormError from '../components/ui/FormError'
-import { apiClient } from '../lib/api'
+import { apiClient, type SwimLane } from '../lib/api'
 
 interface ProjectMember {
   id: number
@@ -60,10 +60,21 @@ export default function ProjectSettings() {
   const [githubSuccess, setGithubSuccess] = useState('')
   const [isSavingGitHub, setIsSavingGitHub] = useState(false)
 
+  // Swim lanes state
+  const [swimLanes, setSwimLanes] = useState<SwimLane[]>([])
+  const [editingLane, setEditingLane] = useState<number | null>(null)
+  const [editLaneName, setEditLaneName] = useState('')
+  const [editLaneColor, setEditLaneColor] = useState('')
+  const [newLaneName, setNewLaneName] = useState('')
+  const [newLaneColor, setNewLaneColor] = useState('#6B7280')
+  const [swimLaneError, setSwimLaneError] = useState('')
+  const [swimLaneSuccess, setSwimLaneSuccess] = useState('')
+
   useEffect(() => {
     loadMembers()
     loadTeamMembers()
     loadGitHubSettings()
+    loadSwimLanes()
   }, [projectId])
 
   const loadMembers = async () => {
@@ -90,6 +101,106 @@ export default function ProjectSettings() {
       setGithubSettings(data)
     } catch (error: any) {
       console.error('Failed to load GitHub settings:', error)
+    }
+  }
+
+  const loadSwimLanes = async () => {
+    try {
+      const data = await apiClient.getSwimLanes(projectId)
+      setSwimLanes(data)
+    } catch (error: any) {
+      console.error('Failed to load swim lanes:', error)
+    }
+  }
+
+  const handleAddSwimLane = async () => {
+    setSwimLaneError('')
+    setSwimLaneSuccess('')
+
+    if (!newLaneName.trim()) {
+      setSwimLaneError('Swim lane name is required')
+      return
+    }
+
+    if (swimLanes.length >= 6) {
+      setSwimLaneError('Maximum 6 swim lanes allowed per project')
+      return
+    }
+
+    try {
+      await apiClient.createSwimLane(projectId, {
+        name: newLaneName.trim(),
+        color: newLaneColor,
+        position: swimLanes.length,
+      })
+      setSwimLaneSuccess('Swim lane created successfully')
+      setNewLaneName('')
+      setNewLaneColor('#6B7280')
+      loadSwimLanes()
+    } catch (error: any) {
+      setSwimLaneError(error.message || 'Failed to create swim lane')
+    }
+  }
+
+  const handleUpdateSwimLane = async (laneId: number) => {
+    setSwimLaneError('')
+    setSwimLaneSuccess('')
+
+    if (!editLaneName.trim()) {
+      setSwimLaneError('Swim lane name is required')
+      return
+    }
+
+    try {
+      await apiClient.updateSwimLane(laneId, {
+        name: editLaneName.trim(),
+        color: editLaneColor,
+      })
+      setSwimLaneSuccess('Swim lane updated successfully')
+      setEditingLane(null)
+      loadSwimLanes()
+    } catch (error: any) {
+      setSwimLaneError(error.message || 'Failed to update swim lane')
+    }
+  }
+
+  const handleDeleteSwimLane = async (laneId: number) => {
+    if (!confirm('Are you sure you want to delete this swim lane? Tasks using this swim lane will need to be reassigned.')) {
+      return
+    }
+
+    if (swimLanes.length <= 2) {
+      setSwimLaneError('Minimum 2 swim lanes required per project')
+      return
+    }
+
+    try {
+      await apiClient.deleteSwimLane(laneId)
+      setSwimLaneSuccess('Swim lane deleted successfully')
+      loadSwimLanes()
+    } catch (error: any) {
+      setSwimLaneError(error.message || 'Failed to delete swim lane')
+    }
+  }
+
+  const handleMoveSwimLane = async (laneId: number, direction: 'up' | 'down') => {
+    const currentIndex = swimLanes.findIndex(l => l.id === laneId)
+    if (currentIndex === -1) return
+    if (direction === 'up' && currentIndex === 0) return
+    if (direction === 'down' && currentIndex === swimLanes.length - 1) return
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    const swappedLane = swimLanes[newIndex]
+
+    try {
+      // Update both positions
+      await Promise.all([
+        apiClient.updateSwimLane(laneId, { position: newIndex }),
+        apiClient.updateSwimLane(swappedLane.id, { position: currentIndex }),
+      ])
+      loadSwimLanes()
+    } catch (error: any) {
+      setSwimLaneError(error.message || 'Failed to reorder swim lanes')
     }
   }
 
@@ -336,6 +447,179 @@ export default function ProjectSettings() {
                   <li><strong>Editor:</strong> Can view, create, and edit tasks</li>
                   <li><strong>Admin:</strong> Full access including managing members and settings</li>
                 </ul>
+              </div>
+            </div>
+          </Card>
+
+          {/* Swim Lanes Section */}
+          <Card className="shadow-md">
+            <div className="p-6 sm:p-8">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex-shrink-0 w-10 h-10 bg-primary-500/10 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold text-dark-text-primary mb-1">Swim Lanes</h2>
+                  <p className="text-sm text-dark-text-secondary">Customize the columns on your Kanban board (min: 2, max: 6)</p>
+                </div>
+              </div>
+
+              {swimLaneSuccess && (
+                <div className="mb-4 p-4 bg-success-500/10 border-l-4 border-success-500/30 rounded-r-lg">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-success-300 font-medium">{swimLaneSuccess}</span>
+                  </div>
+                </div>
+              )}
+
+              {swimLaneError && <FormError message={swimLaneError} className="mb-4" />}
+
+              {/* Add Swim Lane Form */}
+              {swimLanes.length < 6 && (
+                <div className="mb-6 p-4 bg-dark-bg-tertiary/30 border border-dark-bg-tertiary/30 rounded-lg">
+                  <h3 className="font-semibold text-dark-text-primary mb-4">Add New Swim Lane</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-dark-text-primary mb-1">
+                        Name <span className="text-danger-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newLaneName}
+                        onChange={(e) => setNewLaneName(e.target.value)}
+                        placeholder="e.g., In Review, Testing"
+                        className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                        maxLength={50}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-dark-text-primary mb-1">
+                        Color
+                      </label>
+                      <input
+                        type="color"
+                        value={newLaneColor}
+                        onChange={(e) => setNewLaneColor(e.target.value)}
+                        className="w-full h-[42px] px-2 py-1 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button onClick={handleAddSwimLane} disabled={!newLaneName.trim()} size="sm">
+                      Add Swim Lane
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Swim Lanes List */}
+              <div>
+                <h3 className="font-semibold text-dark-text-primary mb-3">Current Swim Lanes ({swimLanes.length})</h3>
+                <div className="space-y-2">
+                  {swimLanes.map((lane, index) => (
+                    <div
+                      key={lane.id}
+                      className="flex items-center gap-3 p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg hover:border-dark-bg-tertiary/30 transition-colors"
+                    >
+                      {/* Color indicator */}
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: lane.color }}
+                      />
+
+                      {editingLane === lane.id ? (
+                        <>
+                          <input
+                            type="text"
+                            value={editLaneName}
+                            onChange={(e) => setEditLaneName(e.target.value)}
+                            className="flex-1 px-3 py-1 bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                            maxLength={50}
+                          />
+                          <input
+                            type="color"
+                            value={editLaneColor}
+                            onChange={(e) => setEditLaneColor(e.target.value)}
+                            className="w-12 h-8 px-1 bg-dark-bg-primary border border-dark-bg-tertiary/30 rounded-md cursor-pointer"
+                          />
+                          <button
+                            onClick={() => handleUpdateSwimLane(lane.id)}
+                            className="px-3 py-1 bg-primary-500 hover:bg-primary-600 text-white text-sm rounded-md transition-colors"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingLane(null)}
+                            className="px-3 py-1 bg-dark-bg-tertiary/30 hover:bg-dark-bg-tertiary/50 text-dark-text-secondary text-sm rounded-md transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex-1">
+                            <span className="font-medium text-dark-text-primary">{lane.name}</span>
+                            <span className="ml-2 text-xs text-dark-text-tertiary">Position: {lane.position + 1}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            {/* Move up */}
+                            <button
+                              onClick={() => handleMoveSwimLane(lane.id, 'up')}
+                              disabled={index === 0}
+                              className="p-1.5 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-tertiary/30 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Move up"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            </button>
+                            {/* Move down */}
+                            <button
+                              onClick={() => handleMoveSwimLane(lane.id, 'down')}
+                              disabled={index === swimLanes.length - 1}
+                              className="p-1.5 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-tertiary/30 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Move down"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                            {/* Edit */}
+                            <button
+                              onClick={() => {
+                                setEditingLane(lane.id)
+                                setEditLaneName(lane.name)
+                                setEditLaneColor(lane.color)
+                              }}
+                              className="p-1.5 text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            {/* Delete */}
+                            <button
+                              onClick={() => handleDeleteSwimLane(lane.id)}
+                              disabled={swimLanes.length <= 2}
+                              className="p-1.5 text-danger-400 hover:text-danger-300 hover:bg-danger-500/10 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Delete"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </Card>

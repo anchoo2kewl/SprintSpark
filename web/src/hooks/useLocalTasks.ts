@@ -70,6 +70,7 @@ export function useLocalTasks(projectId: number) {
     title: string
     description?: string
     status?: 'todo' | 'in_progress' | 'done'
+    swim_lane_id?: number
     priority?: 'low' | 'medium' | 'high' | 'urgent'
     assignee_id?: number
     due_date?: string
@@ -90,6 +91,7 @@ export function useLocalTasks(projectId: number) {
       title: data.title,
       description: data.description,
       status: data.status || 'todo',
+      swim_lane_id: data.swim_lane_id,
       priority: data.priority,
       assignee_id: data.assignee_id,
       due_date: data.due_date,

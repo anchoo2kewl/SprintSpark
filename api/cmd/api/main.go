@@ -144,6 +144,12 @@ func main() {
 			r.Patch("/tasks/{id}", server.HandleUpdateTask)
 			r.Delete("/tasks/{id}", server.HandleDeleteTask)
 
+			// Swim lane routes
+			r.Get("/projects/{projectId}/swim-lanes", server.HandleListSwimLanes)
+			r.Post("/projects/{projectId}/swim-lanes", server.HandleCreateSwimLane)
+			r.Patch("/swim-lanes/{id}", server.HandleUpdateSwimLane)
+			r.Delete("/swim-lanes/{id}", server.HandleDeleteSwimLane)
+
 			// Task comment routes
 			r.Get("/tasks/{taskId}/comments", server.HandleListTaskComments)
 			r.Post("/tasks/{taskId}/comments", server.HandleCreateTaskComment)

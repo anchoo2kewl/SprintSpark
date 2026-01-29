@@ -103,6 +103,8 @@ export type TaskDocument = {
   title: string
   description?: string
   status: 'todo' | 'in_progress' | 'done'
+  swim_lane_id?: number
+  swim_lane_name?: string
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   assignee_id?: number
   assignee_name?: string
@@ -140,6 +142,12 @@ export const taskSchema: RxJsonSchema<TaskDocument> = {
     status: {
       type: 'string',
       enum: ['todo', 'in_progress', 'done'],
+    },
+    swim_lane_id: {
+      type: 'number',
+    },
+    swim_lane_name: {
+      type: 'string',
     },
     priority: {
       type: 'string',

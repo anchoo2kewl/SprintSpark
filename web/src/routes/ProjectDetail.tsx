@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { api, Project } from '../lib/api'
+import { api, Project, type SwimLane } from '../lib/api'
 import { useLocalTasks } from '../hooks/useLocalTasks'
 import type { TaskDocument } from '../lib/db/schema'
 
@@ -11,6 +11,8 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<Project | null>(null)
   const [loadingProject, setLoadingProject] = useState(true)
   const [projectError, setProjectError] = useState<string | null>(null)
+  const [swimLanes, setSwimLanes] = useState<SwimLane[]>([])
+  const [loadingSwimLanes, setLoadingSwimLanes] = useState(true)
 
   // Use local-first tasks hook
   const {
@@ -19,7 +21,6 @@ export default function ProjectDetail() {
     error: tasksError,
     createTask,
     updateTask,
-    updateTaskStatus,
   } = useLocalTasks(Number(projectId))
 
   // New task modal state
@@ -48,10 +49,11 @@ export default function ProjectDetail() {
     })
   )
 
-  // Load project metadata (tasks are handled by useLocalTasks hook)
+  // Load project metadata and swim lanes (tasks are handled by useLocalTasks hook)
   useEffect(() => {
     if (projectId) {
       loadProject()
+      loadSwimLanes()
     }
   }, [projectId])
 
@@ -68,6 +70,24 @@ export default function ProjectDetail() {
     }
   }
 
+  const loadSwimLanes = async () => {
+    try {
+      setLoadingSwimLanes(true)
+      const lanes = await api.getSwimLanes(Number(projectId))
+      setSwimLanes(lanes.sort((a, b) => a.position - b.position))
+    } catch (err) {
+      console.error('Failed to load swim lanes:', err)
+      // Fallback to default swim lanes if fetch fails
+      setSwimLanes([
+        { id: 0, project_id: Number(projectId), name: 'To Do', color: '#6B7280', position: 0, created_at: '', updated_at: '' },
+        { id: 1, project_id: Number(projectId), name: 'In Progress', color: '#3B82F6', position: 1, created_at: '', updated_at: '' },
+        { id: 2, project_id: Number(projectId), name: 'Done', color: '#10B981', position: 2, created_at: '', updated_at: '' },
+      ])
+    } finally {
+      setLoadingSwimLanes(false)
+    }
+  }
+
   const handleCreateTask = async () => {
     if (!newTaskTitle.trim() || !projectId) return
 
@@ -78,6 +98,7 @@ export default function ProjectDetail() {
         title: newTaskTitle.trim(),
         description: newTaskDescription.trim() || undefined,
         status: 'todo',
+        swim_lane_id: swimLanes.length > 0 ? swimLanes[0].id : undefined,
         due_date: newTaskDueDate || undefined,
       })
       setShowNewTaskModal(false)
@@ -131,20 +152,33 @@ export default function ProjectDetail() {
     if (!over) return
 
     const taskId = active.id as number
-    const newStatus = over.id as 'todo' | 'in_progress' | 'done'
+    const newSwimLaneId = over.id as number
 
     const task = tasks.find(t => t.id === taskId)
-    if (!task || task.status === newStatus) return
+    if (!task || task.swim_lane_id === newSwimLaneId) return
+
+    // Find the swim lane to get the status mapping
+    const swimLane = swimLanes.find(l => l.id === newSwimLaneId)
+    if (!swimLane) return
+
+    // Map swim lane names to status for backward compatibility
+    let newStatus: 'todo' | 'in_progress' | 'done' = task.status as 'todo' | 'in_progress' | 'done'
+    if (swimLane.name === 'To Do') newStatus = 'todo'
+    else if (swimLane.name === 'In Progress') newStatus = 'in_progress'
+    else if (swimLane.name === 'Done') newStatus = 'done'
 
     try {
       // Optimistic update - UI updates instantly, syncs in background
-      await updateTaskStatus(taskId, newStatus)
+      await updateTask(taskId, {
+        status: newStatus,
+        swim_lane_id: newSwimLaneId,
+      })
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update task status')
     }
   }
 
-  if (loadingProject || loadingTasks) {
+  if (loadingProject || loadingTasks || loadingSwimLanes) {
     return (
       <div className="p-6 bg-dark-bg-primary">
         <div className="animate-pulse space-y-3">
@@ -170,11 +204,11 @@ export default function ProjectDetail() {
     )
   }
 
-  const tasksByStatus = {
-    todo: tasks.filter((t) => t.status === 'todo'),
-    in_progress: tasks.filter((t) => t.status === 'in_progress'),
-    done: tasks.filter((t) => t.status === 'done'),
-  }
+  // Group tasks by swim lane
+  const tasksBySwimLane = swimLanes.reduce((acc, lane) => {
+    acc[lane.id] = tasks.filter((t) => t.swim_lane_id === lane.id)
+    return acc
+  }, {} as Record<number, TaskDocument[]>)
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -215,25 +249,18 @@ export default function ProjectDetail() {
           </div>
 
           {/* Task Stats */}
-          <div className="flex gap-4 mt-3">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-dark-text-tertiary"></div>
-              <span className="text-xs text-dark-text-secondary">
-                {tasksByStatus.todo.length} To Do
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-primary-400"></div>
-              <span className="text-xs text-dark-text-secondary">
-                {tasksByStatus.in_progress.length} In Progress
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-success-400"></div>
-              <span className="text-xs text-dark-text-secondary">
-                {tasksByStatus.done.length} Done
-              </span>
-            </div>
+          <div className="flex gap-4 mt-3 flex-wrap">
+            {swimLanes.map((lane) => (
+              <div key={lane.id} className="flex items-center gap-1.5">
+                <div
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: lane.color }}
+                ></div>
+                <span className="text-xs text-dark-text-secondary">
+                  {tasksBySwimLane[lane.id]?.length || 0} {lane.name}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -262,39 +289,19 @@ export default function ProjectDetail() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-6">
-              {/* To Do Column */}
-              <TaskColumn
-                id="todo"
-                title="To Do"
-                count={tasksByStatus.todo.length}
-                tasks={tasksByStatus.todo}
-                color="gray"
-                projectId={projectId || ''}
-                onTaskClick={handleTaskClick}
-              />
-
-              {/* In Progress Column */}
-              <TaskColumn
-                id="in_progress"
-                title="In Progress"
-                count={tasksByStatus.in_progress.length}
-                tasks={tasksByStatus.in_progress}
-                color="blue"
-                projectId={projectId || ''}
-                onTaskClick={handleTaskClick}
-              />
-
-              {/* Done Column */}
-              <TaskColumn
-                id="done"
-                title="Done"
-                count={tasksByStatus.done.length}
-                tasks={tasksByStatus.done}
-                color="green"
-                projectId={projectId || ''}
-                onTaskClick={handleTaskClick}
-              />
+            <div className={`grid gap-6`} style={{ gridTemplateColumns: `repeat(${swimLanes.length}, minmax(0, 1fr))` }}>
+              {swimLanes.map((lane) => (
+                <TaskColumn
+                  key={lane.id}
+                  id={lane.id.toString()}
+                  title={lane.name}
+                  count={tasksBySwimLane[lane.id]?.length || 0}
+                  tasks={tasksBySwimLane[lane.id] || []}
+                  color={lane.color}
+                  projectId={projectId || ''}
+                  onTaskClick={handleTaskClick}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -492,16 +499,13 @@ function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: 
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
-  const colorClasses = {
-    gray: 'bg-dark-text-tertiary',
-    blue: 'bg-primary-400',
-    green: 'bg-success-400',
-  }
-
   return (
     <div ref={setNodeRef} className={`min-h-[200px] ${isOver ? 'bg-dark-bg-tertiary/20 ring-1 ring-primary-500/30 rounded-md' : ''}`}>
       <h3 className="text-xs font-semibold text-dark-text-secondary mb-2 flex items-center gap-1.5">
-        <div className={`w-1.5 h-1.5 rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}></div>
+        <div
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: color }}
+        ></div>
         {title} ({count})
       </h3>
       <div className="space-y-2">

@@ -17,6 +17,8 @@ type Task struct {
 	Title          string    `json:"title"`
 	Description    *string   `json:"description,omitempty"`
 	Status         string    `json:"status"`
+	SwimLaneID     *int64    `json:"swim_lane_id,omitempty"`
+	SwimLaneName   *string   `json:"swim_lane_name,omitempty"`
 	DueDate        *string   `json:"due_date,omitempty"`
 	SprintID       *int64    `json:"sprint_id,omitempty"`
 	SprintName     *string   `json:"sprint_name,omitempty"`
@@ -34,6 +36,7 @@ type CreateTaskRequest struct {
 	Title          string   `json:"title"`
 	Description    *string  `json:"description,omitempty"`
 	Status         *string  `json:"status,omitempty"`
+	SwimLaneID     *int64   `json:"swim_lane_id,omitempty"`
 	DueDate        *string  `json:"due_date,omitempty"`
 	SprintID       *int64   `json:"sprint_id,omitempty"`
 	Priority       *string  `json:"priority,omitempty"`
@@ -47,6 +50,7 @@ type UpdateTaskRequest struct {
 	Title          *string  `json:"title,omitempty"`
 	Description    *string  `json:"description,omitempty"`
 	Status         *string  `json:"status,omitempty"`
+	SwimLaneID     *int64   `json:"swim_lane_id,omitempty"`
 	DueDate        *string  `json:"due_date,omitempty"`
 	SprintID       *int64   `json:"sprint_id,omitempty"`
 	Priority       *string  `json:"priority,omitempty"`
@@ -79,15 +83,16 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First, fetch all tasks with assignee and sprint names
+	// First, fetch all tasks with assignee, sprint, and swim lane names
 	query := `
-		SELECT t.id, t.project_id, t.title, t.description, t.status, t.due_date,
+		SELECT t.id, t.project_id, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
 		       t.sprint_id, s.name as sprint_name,
 		       t.priority, t.assignee_id, u.name as assignee_name,
 		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
 		FROM tasks t
 		LEFT JOIN users u ON t.assignee_id = u.id
 		LEFT JOIN sprints s ON t.sprint_id = s.id
+		LEFT JOIN swim_lanes sl ON t.swim_lane_id = sl.id
 		WHERE t.project_id = ?
 		ORDER BY t.created_at DESC
 	`
@@ -106,7 +111,7 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t Task
 		var priority sql.NullString
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate,
+		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
 			&t.SprintID, &t.SprintName, &priority, &t.AssigneeID, &t.AssigneeName,
 			&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan task", "internal_error")
@@ -206,7 +211,7 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Default status to 'todo' if not provided
+	// Default status to 'todo' if not provided (for backward compatibility)
 	status := "todo"
 	if req.Status != nil {
 		status = *req.Status
@@ -216,6 +221,30 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	if status != "todo" && status != "in_progress" && status != "done" {
 		respondError(w, http.StatusBadRequest, "invalid status (must be: todo, in_progress, or done)", "invalid_input")
 		return
+	}
+
+	// If swim_lane_id is not provided, find the default swim lane for the status
+	var swimLaneID *int64
+	if req.SwimLaneID != nil {
+		swimLaneID = req.SwimLaneID
+	} else {
+		// Map status to swim lane name
+		var laneName string
+		switch status {
+		case "todo":
+			laneName = "To Do"
+		case "in_progress":
+			laneName = "In Progress"
+		case "done":
+			laneName = "Done"
+		}
+
+		// Find swim lane by name
+		var laneID int64
+		laneQuery := `SELECT id FROM swim_lanes WHERE project_id = ? AND name = ? LIMIT 1`
+		if err := s.db.QueryRowContext(ctx, laneQuery, projectID, laneName).Scan(&laneID); err == nil {
+			swimLaneID = &laneID
+		}
 	}
 
 	// Default priority
@@ -231,11 +260,11 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		INSERT INTO tasks (project_id, title, description, status, due_date, sprint_id, priority, assignee_id, estimated_hours, actual_hours, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO tasks (project_id, title, description, status, swim_lane_id, due_date, sprint_id, priority, assignee_id, estimated_hours, actual_hours, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 
-	result, err := s.db.ExecContext(ctx, query, projectID, req.Title, req.Description, status, req.DueDate, req.SprintID, priority, req.AssigneeID, req.EstimatedHours, req.ActualHours)
+	result, err := s.db.ExecContext(ctx, query, projectID, req.Title, req.Description, status, swimLaneID, req.DueDate, req.SprintID, priority, req.AssigneeID, req.EstimatedHours, req.ActualHours)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create task", "internal_error")
 		return
@@ -258,21 +287,22 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fetch the created task with assignee and sprint names
+	// Fetch the created task with assignee, sprint, and swim lane names
 	var t Task
 	var priorityVal sql.NullString
 	fetchQuery := `
-		SELECT t.id, t.project_id, t.title, t.description, t.status, t.due_date,
+		SELECT t.id, t.project_id, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
 		       t.sprint_id, s.name as sprint_name,
 		       t.priority, t.assignee_id, u.name as assignee_name,
 		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
 		FROM tasks t
 		LEFT JOIN users u ON t.assignee_id = u.id
 		LEFT JOIN sprints s ON t.sprint_id = s.id
+		LEFT JOIN swim_lanes sl ON t.swim_lane_id = sl.id
 		WHERE t.id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate,
+		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
 		&t.SprintID, &t.SprintName, &priorityVal, &t.AssigneeID, &t.AssigneeName,
 		&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
 	)
@@ -379,6 +409,11 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		args = append(args, *req.Status)
 	}
 
+	if req.SwimLaneID != nil {
+		query += ", swim_lane_id = ?"
+		args = append(args, *req.SwimLaneID)
+	}
+
 	if req.DueDate != nil {
 		query += ", due_date = ?"
 		args = append(args, *req.DueDate)
@@ -422,21 +457,22 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch the updated task with assignee and sprint names
+	// Fetch the updated task with assignee, sprint, and swim lane names
 	var t Task
 	var priorityVal sql.NullString
 	fetchQuery := `
-		SELECT t.id, t.project_id, t.title, t.description, t.status, t.due_date,
+		SELECT t.id, t.project_id, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
 		       t.sprint_id, s.name as sprint_name,
 		       t.priority, t.assignee_id, u.name as assignee_name,
 		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
 		FROM tasks t
 		LEFT JOIN users u ON t.assignee_id = u.id
 		LEFT JOIN sprints s ON t.sprint_id = s.id
+		LEFT JOIN swim_lanes sl ON t.swim_lane_id = sl.id
 		WHERE t.id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.DueDate,
+		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
 		&t.SprintID, &t.SprintName, &priorityVal, &t.AssigneeID, &t.AssigneeName,
 		&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
 	)
