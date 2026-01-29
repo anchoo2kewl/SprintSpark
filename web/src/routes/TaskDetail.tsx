@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Button from '../components/ui/Button'
-import { apiClient, Task } from '../lib/api'
+import { apiClient, Task, type SwimLane } from '../lib/api'
 
 export default function TaskDetail() {
   const { projectId, taskId } = useParams()
@@ -18,6 +18,7 @@ export default function TaskDetail() {
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editStatus, setEditStatus] = useState<'todo' | 'in_progress' | 'done'>('todo')
+  const [editSwimLaneId, setEditSwimLaneId] = useState<number | null>(null)
   const [editPriority, setEditPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium')
   const [editDueDate, setEditDueDate] = useState('')
   const [editSprintId, setEditSprintId] = useState('')
@@ -25,8 +26,9 @@ export default function TaskDetail() {
   const [editEstimatedHours, setEditEstimatedHours] = useState('')
   const [editActualHours, setEditActualHours] = useState('')
 
-  // Sprints for selector
+  // Sprints and swim lanes for selectors
   const [sprints, setSprints] = useState<any[]>([])
+  const [swimLanes, setSwimLanes] = useState<SwimLane[]>([])
 
   // Comments state
   const [comments, setComments] = useState<any[]>([])
@@ -36,6 +38,7 @@ export default function TaskDetail() {
   useEffect(() => {
     loadTask()
     loadSprints()
+    loadSwimLanes()
     loadComments()
   }, [projectId, taskId])
 
@@ -51,6 +54,7 @@ export default function TaskDetail() {
         setEditTitle(foundTask.title || '')
         setEditDescription(foundTask.description || '')
         setEditStatus(foundTask.status || 'todo')
+        setEditSwimLaneId(foundTask.swim_lane_id ?? null)
         setEditPriority(foundTask.priority || 'medium')
         setEditDueDate(foundTask.due_date || '')
         setEditSprintId(foundTask.sprint_id?.toString() || '')
@@ -76,6 +80,15 @@ export default function TaskDetail() {
     }
   }
 
+  const loadSwimLanes = async () => {
+    try {
+      const lanes = await apiClient.getSwimLanes(Number(projectId))
+      setSwimLanes(lanes.sort((a, b) => a.position - b.position))
+    } catch (error: any) {
+      console.error('Failed to load swim lanes:', error)
+    }
+  }
+
   const loadComments = async () => {
     try {
       const commentsData = await apiClient.getTaskComments(Number(taskId))
@@ -90,10 +103,23 @@ export default function TaskDetail() {
 
     try {
       setSaving(true)
+
+      // Find swim lane to get status mapping
+      const swimLane = swimLanes.find(l => l.id === editSwimLaneId)
+      let newStatus = editStatus
+
+      // Map swim lane to status for backward compatibility
+      if (swimLane) {
+        if (swimLane.name === 'To Do') newStatus = 'todo'
+        else if (swimLane.name === 'In Progress') newStatus = 'in_progress'
+        else if (swimLane.name === 'Done') newStatus = 'done'
+      }
+
       await apiClient.updateTask(task.id!, {
         title: editTitle.trim(),
         description: editDescription.trim() || undefined,
-        status: editStatus,
+        status: newStatus,
+        swim_lane_id: editSwimLaneId,
         priority: editPriority,
         due_date: editDueDate || undefined,
         sprint_id: editSprintId ? parseInt(editSprintId) : null,
@@ -243,6 +269,7 @@ export default function TaskDetail() {
                       setEditTitle(task.title || '')
                       setEditDescription(task.description || '')
                       setEditStatus(task.status || 'todo')
+                      setEditSwimLaneId(task.swim_lane_id ?? null)
                       setEditPriority(task.priority || 'medium')
                       setEditDueDate(task.due_date || '')
                       setEditSprintId(task.sprint_id?.toString() || '')
@@ -401,22 +428,24 @@ export default function TaskDetail() {
           {/* Right Column - Metadata */}
           <div className="w-80 flex-shrink-0">
             <div className="space-y-6">
-              {/* Status */}
+              {/* Swim Lane */}
               <div>
-                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Status</label>
+                <label className="block text-xs font-semibold text-dark-text-secondary mb-2">Swim Lane</label>
                 {isEditing ? (
                   <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as any)}
+                    value={editSwimLaneId ?? ''}
+                    onChange={(e) => setEditSwimLaneId(e.target.value ? Number(e.target.value) : null)}
                     className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   >
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
+                    {swimLanes.map((lane) => (
+                      <option key={lane.id} value={lane.id}>
+                        {lane.name}
+                      </option>
+                    ))}
                   </select>
                 ) : (
                   <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${getStatusColor(task.status || '')}`}>
-                    {getStatusLabel(task.status || '')}
+                    {task.swim_lane_name || getStatusLabel(task.status || '')}
                   </span>
                 )}
               </div>

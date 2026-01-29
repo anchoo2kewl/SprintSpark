@@ -365,6 +365,15 @@ components:
           type: string
           enum: [todo, in_progress, done]
           example: "todo"
+        swim_lane_id:
+          type: [integer, "null"]
+          format: int64
+          example: 1
+          description: "Optional swim lane assignment"
+        swim_lane_name:
+          type: [string, "null"]
+          example: "Testing"
+          description: "Name of the assigned swim lane (populated from join)"
         due_date:
           type: [string, "null"]
           format: date-time

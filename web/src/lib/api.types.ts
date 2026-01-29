@@ -238,6 +238,17 @@ export interface components {
              */
             status?: "todo" | "in_progress" | "done";
             /**
+             * Format: int64
+             * @description Optional swim lane assignment
+             * @example 1
+             */
+            swim_lane_id?: number | null;
+            /**
+             * @description Name of the assigned swim lane (populated from join)
+             * @example Testing
+             */
+            swim_lane_name?: string | null;
+            /**
              * Format: date-time
              * @description Optional due date for the task
              * @example 2025-10-25T00:00:00Z
