@@ -377,6 +377,20 @@ func (s *Server) HandleAcceptInvitation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Add user to all existing team projects
+	addToProjectsQuery := `
+		INSERT INTO project_members (project_id, user_id, role, granted_by, granted_at)
+		SELECT p.id, ?, 'member', p.owner_id, CURRENT_TIMESTAMP
+		FROM projects p
+		WHERE p.team_id = ?
+	`
+	_, err = tx.ExecContext(ctx, addToProjectsQuery, userID, inv.TeamID)
+	if err != nil {
+		s.logger.Error("Failed to add user to team projects", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to add to team projects", "internal_error")
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		s.logger.Error("Failed to commit transaction", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to process invitation", "internal_error")

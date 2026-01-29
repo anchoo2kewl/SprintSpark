@@ -37,17 +37,6 @@ func NewTestServer(t *testing.T) *TestServer {
 
 	// Create temporary database
 	tmpDB := fmt.Sprintf(":memory:")
-	
-	// Initialize database
-	dbCfg := db.Config{
-		DBPath:         tmpDB,
-		MigrationsPath: "../db/migrations",
-	}
-	
-	database, err := db.New(dbCfg)
-	if err != nil {
-		t.Fatalf("Failed to create database: %v", err)
-	}
 
 	// Create server configuration
 	cfg := &config.Config{
@@ -61,8 +50,22 @@ func NewTestServer(t *testing.T) *TestServer {
 		LogLevel:           "error",
 	}
 
+	// Initialize logger
+	logger := config.MustInitLogger(cfg.Env, cfg.LogLevel)
+
+	// Initialize database
+	dbCfg := db.Config{
+		DBPath:         tmpDB,
+		MigrationsPath: "../db/migrations",
+	}
+
+	database, err := db.New(dbCfg, logger)
+	if err != nil {
+		t.Fatalf("Failed to create database: %v", err)
+	}
+
 	// Create API server
-	server := api.NewServer(database, cfg)
+	server := api.NewServer(database, cfg, logger)
 
 	// Setup router
 	r := chi.NewRouter()
@@ -134,6 +137,17 @@ func NewTestServer(t *testing.T) *TestServer {
 			r.Post("/projects/{projectId}/tasks", server.HandleCreateTask)
 			r.Patch("/tasks/{id}", server.HandleUpdateTask)
 			r.Delete("/tasks/{id}", server.HandleDeleteTask)
+
+			// Team routes
+			r.Route("/team", func(r chi.Router) {
+				r.Get("/", server.HandleGetMyTeam)
+				r.Get("/members", server.HandleGetTeamMembers)
+				r.Post("/invitations", server.HandleInviteTeamMember)
+				r.Get("/invitations", server.HandleGetMyInvitations)
+				r.Post("/invitations/{id}/accept", server.HandleAcceptInvitation)
+				r.Post("/invitations/{id}/reject", server.HandleRejectInvitation)
+				r.Delete("/members/{memberId}", server.HandleRemoveTeamMember)
+			})
 		})
 	})
 
@@ -680,8 +694,9 @@ func TestAuthorizationChecks(t *testing.T) {
 			t.Fatalf("Request failed: %v", err)
 		}
 
-		if resp.StatusCode != http.StatusNotFound {
-			t.Errorf("Expected status 404, got %d", resp.StatusCode)
+		// Should return 403 (Forbidden) because only project owner can delete
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected status 403, got %d", resp.StatusCode)
 		}
 	})
 }
@@ -722,7 +737,7 @@ func TestValidationErrors(t *testing.T) {
 
 		projectID := int(project["id"].(float64))
 		path := fmt.Sprintf("/api/projects/%d/tasks", projectID)
-		
+
 		body := map[string]interface{}{
 			"title":  "Test Task",
 			"status": "invalid_status",
@@ -737,4 +752,119 @@ func TestValidationErrors(t *testing.T) {
 			t.Errorf("Expected status 400, got %d", resp.StatusCode)
 		}
 	})
+}
+
+func TestTeamProjectAccess(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	// Create first user
+	user1Email := fmt.Sprintf("user1-%d@example.com", time.Now().UnixNano())
+	user1Token, _, err := ts.Signup(user1Email, "password123")
+	if err != nil {
+		t.Fatalf("Signup user1 failed: %v", err)
+	}
+
+	// Create a second user
+	user2Email := fmt.Sprintf("user2-%d@example.com", time.Now().UnixNano())
+	user2Token, _, err := ts.Signup(user2Email, "password123")
+	if err != nil {
+		t.Fatalf("Signup user2 failed: %v", err)
+	}
+
+	// User1 creates a project
+	project, err := ts.CreateProject(user1Token, "Shared Project", "Should be visible to team members")
+	if err != nil {
+		t.Fatalf("Create project failed: %v", err)
+	}
+
+	// User1 invites user2 to their team
+	inviteBody := map[string]string{"email": user2Email}
+	inviteResp, err := ts.DoRequest("POST", "/api/team/invitations", inviteBody, user1Token)
+	if err != nil {
+		t.Fatalf("Invite failed: %v", err)
+	}
+	if inviteResp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(inviteResp.Body)
+		t.Fatalf("Expected status 201, got %d: %s", inviteResp.StatusCode, string(body))
+	}
+
+	// User2 gets their invitations
+	listInvResp, err := ts.DoRequest("GET", "/api/team/invitations", nil, user2Token)
+	if err != nil {
+		t.Fatalf("List invitations failed: %v", err)
+	}
+	var invitations []map[string]interface{}
+	if err := json.NewDecoder(listInvResp.Body).Decode(&invitations); err != nil {
+		t.Fatalf("Decode invitations failed: %v", err)
+	}
+	if len(invitations) == 0 {
+		t.Fatalf("Expected at least one invitation, got 0")
+	}
+	invitationID := int(invitations[0]["id"].(float64))
+
+	// User2 accepts the invitation
+	acceptPath := fmt.Sprintf("/api/team/invitations/%d/accept", invitationID)
+	acceptResp, err := ts.DoRequest("POST", acceptPath, nil, user2Token)
+	if err != nil {
+		t.Fatalf("Accept invitation failed: %v", err)
+	}
+	if acceptResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(acceptResp.Body)
+		t.Fatalf("Expected status 200, got %d: %s", acceptResp.StatusCode, string(body))
+	}
+
+	// User2 should now be able to see the project
+	listProjectsResp, err := ts.DoRequest("GET", "/api/projects", nil, user2Token)
+	if err != nil {
+		t.Fatalf("List projects failed: %v", err)
+	}
+	var projects []map[string]interface{}
+	if err := json.NewDecoder(listProjectsResp.Body).Decode(&projects); err != nil {
+		t.Fatalf("Decode projects failed: %v", err)
+	}
+
+	// Verify user2 can see the project
+	found := false
+	projectID := int64(project["id"].(float64))
+	for _, p := range projects {
+		if int64(p["id"].(float64)) == projectID {
+			found = true
+			if p["name"].(string) != "Shared Project" {
+				t.Errorf("Expected project name 'Shared Project', got %s", p["name"].(string))
+			}
+			break
+		}
+	}
+	if !found {
+		t.Errorf("User2 cannot see the shared project (expected to find project ID %d)", projectID)
+	}
+
+	// User1 creates a new project after user2 joined
+	newProject, err := ts.CreateProject(user1Token, "New Project After Join", "Created after user2 joined team")
+	if err != nil {
+		t.Fatalf("Create new project failed: %v", err)
+	}
+
+	// User2 should also see this new project
+	listProjectsResp2, err := ts.DoRequest("GET", "/api/projects", nil, user2Token)
+	if err != nil {
+		t.Fatalf("List projects failed: %v", err)
+	}
+	var projects2 []map[string]interface{}
+	if err := json.NewDecoder(listProjectsResp2.Body).Decode(&projects2); err != nil {
+		t.Fatalf("Decode projects failed: %v", err)
+	}
+
+	found2 := false
+	newProjectID := int64(newProject["id"].(float64))
+	for _, p := range projects2 {
+		if int64(p["id"].(float64)) == newProjectID {
+			found2 = true
+			break
+		}
+	}
+	if !found2 {
+		t.Errorf("User2 cannot see the new project created after they joined (expected to find project ID %d)", newProjectID)
+	}
 }

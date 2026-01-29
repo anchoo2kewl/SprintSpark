@@ -165,6 +165,21 @@ func (s *Server) HandleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Add all other team members to the project
+	addTeamMembersQuery := `
+		INSERT INTO project_members (project_id, user_id, role, granted_by, granted_at)
+		SELECT ?, tm.user_id, 'member', ?, CURRENT_TIMESTAMP
+		FROM team_members tm
+		WHERE tm.team_id = ? AND tm.user_id != ? AND tm.status = 'active'
+	`
+	_, err = s.db.ExecContext(ctx, addTeamMembersQuery, projectID, userID, teamID, userID)
+	if err != nil {
+		// Rollback by deleting the project if adding team members fails
+		s.db.ExecContext(ctx, "DELETE FROM projects WHERE id = ?", projectID)
+		respondError(w, http.StatusInternalServerError, "failed to add team members to project", "internal_error")
+		return
+	}
+
 	// Fetch the created project
 	var p Project
 	fetchQuery := `
