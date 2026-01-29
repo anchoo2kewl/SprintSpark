@@ -167,7 +167,7 @@ export default function ProjectDetail() {
     if (!over) return
 
     const taskId = active.id as number
-    const newSwimLaneId = over.id as number
+    const newSwimLaneId = Number(over.id) // Convert string ID to number
 
     const task = tasks.find(t => t.id === taskId)
     if (!task || task.swim_lane_id === newSwimLaneId) return
