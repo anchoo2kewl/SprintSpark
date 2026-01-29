@@ -35,6 +35,7 @@ export default function ProjectDetail() {
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editStatus, setEditStatus] = useState<'todo' | 'in_progress' | 'done'>('todo')
+  const [editSwimLaneId, setEditSwimLaneId] = useState<number | null>(null)
   const [editDueDate, setEditDueDate] = useState('')
   const [updating, setUpdating] = useState(false)
 
@@ -117,6 +118,7 @@ export default function ProjectDetail() {
     setEditTitle(task.title || '')
     setEditDescription(task.description || '')
     setEditStatus(task.status as 'todo' | 'in_progress' | 'done')
+    setEditSwimLaneId(task.swim_lane_id ?? null)
     setEditDueDate(task.due_date ? task.due_date.split('T')[0] : '')
   }
 
@@ -125,11 +127,24 @@ export default function ProjectDetail() {
 
     try {
       setUpdating(true)
+
+      // Find swim lane to get status mapping
+      const swimLane = swimLanes.find(l => l.id === editSwimLaneId)
+      let newStatus = editStatus
+
+      // Map swim lane to status for backward compatibility
+      if (swimLane) {
+        if (swimLane.name === 'To Do') newStatus = 'todo'
+        else if (swimLane.name === 'In Progress') newStatus = 'in_progress'
+        else if (swimLane.name === 'Done') newStatus = 'done'
+      }
+
       // Optimistic update - updates UI instantly
       await updateTask(selectedTask.id, {
         title: editTitle.trim(),
         description: editDescription.trim() || undefined,
-        status: editStatus,
+        status: newStatus,
+        swim_lane_id: editSwimLaneId,
         due_date: editDueDate || null,
       })
       setSelectedTask(null)
@@ -431,18 +446,20 @@ export default function ProjectDetail() {
                 </div>
 
                 <div>
-                  <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
+                  <label htmlFor="edit-swim-lane" className="block text-sm font-medium text-gray-700 mb-1">
+                    Swim Lane
                   </label>
                   <select
-                    id="edit-status"
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as 'todo' | 'in_progress' | 'done')}
+                    id="edit-swim-lane"
+                    value={editSwimLaneId ?? ''}
+                    onChange={(e) => setEditSwimLaneId(e.target.value ? Number(e.target.value) : null)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
+                    {swimLanes.map((lane) => (
+                      <option key={lane.id} value={lane.id}>
+                        {lane.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
