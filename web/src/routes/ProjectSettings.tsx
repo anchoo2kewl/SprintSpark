@@ -193,11 +193,13 @@ export default function ProjectSettings() {
     const swappedLane = swimLanes[newIndex]
 
     try {
-      // Update both positions
-      await Promise.all([
-        apiClient.updateSwimLane(laneId, { position: newIndex }),
-        apiClient.updateSwimLane(swappedLane.id, { position: currentIndex }),
-      ])
+      // Update positions sequentially to avoid UNIQUE constraint violation
+      // Step 1: Move first lane to temporary high position
+      await apiClient.updateSwimLane(laneId, { position: 999 })
+      // Step 2: Move swapped lane to the target position
+      await apiClient.updateSwimLane(swappedLane.id, { position: currentIndex })
+      // Step 3: Move first lane to its final position
+      await apiClient.updateSwimLane(laneId, { position: newIndex })
       loadSwimLanes()
     } catch (error: any) {
       setSwimLaneError(error.message || 'Failed to reorder swim lanes')
