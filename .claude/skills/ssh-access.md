@@ -67,33 +67,86 @@ curl -I https://sprintspark.biswas.me
 
 ## Deployment Workflow
 
-When webhook deployment fails:
+### Full Deployment Process
 
-1. **SSH to server and check status**
+Use this complete workflow to deploy changes from local to production:
+
+1. **Build locally** (if needed)
    ```bash
-   ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose ps"
+   # For frontend changes
+   cd web && npm run build
+
+   # For backend changes
+   cd api && go build ./cmd/api
    ```
 
-2. **Pull latest code** (if needed)
+2. **Commit and push changes**
+   ```bash
+   git add -A
+   git commit -m "$(cat <<'EOF'
+   <type>(<scope>): <subject>
+
+   - Detailed change 1
+   - Detailed change 2
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+   Co-Authored-By: Claude <noreply@anthropic.com>
+   EOF
+   )"
+   git push origin main
+   ```
+
+3. **Pull latest code on production**
    ```bash
    ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && git pull origin main"
    ```
 
-3. **Rebuild containers**
+4. **Rebuild affected containers**
    ```bash
+   # For API changes
+   ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose build api"
+
+   # For web changes
+   ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose build web"
+
+   # For both or unclear changes
    ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose build --no-cache"
    ```
 
-4. **Start services**
+5. **Restart services**
    ```bash
    ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose up -d"
    ```
 
-5. **Verify deployment**
+6. **Verify deployment**
    ```bash
+   # Check container health
+   ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose ps"
+
+   # Check API logs
    ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose logs api --tail 30"
+
+   # Test health endpoints
    curl -s https://sprintspark.biswas.me/api/health
+   curl -I https://sprintspark.biswas.me
    ```
+
+### Quick Deploy (when webhook fails)
+
+When webhook deployment fails, use this streamlined process:
+
+```bash
+# 1. Check status
+ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose ps"
+
+# 2. Pull, rebuild, and restart
+ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && git pull origin main && docker compose build --no-cache && docker compose up -d"
+
+# 3. Verify
+ssh ubuntu@biswas.me "cd /home/ubuntu/projects/sprintspark && docker compose ps"
+curl -s https://sprintspark.biswas.me/api/health
+```
 
 ## Troubleshooting
 
