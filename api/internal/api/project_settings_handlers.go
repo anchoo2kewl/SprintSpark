@@ -137,8 +137,8 @@ func (s *Server) HandleAddProjectMember(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Validate role
-	if req.Role != "viewer" && req.Role != "editor" && req.Role != "admin" {
-		http.Error(w, "Invalid role. Must be viewer, editor, or admin", http.StatusBadRequest)
+	if req.Role != "viewer" && req.Role != "member" && req.Role != "editor" && req.Role != "owner" {
+		http.Error(w, "Invalid role. Must be viewer, member, editor, or owner", http.StatusBadRequest)
 		return
 	}
 
@@ -251,9 +251,31 @@ func (s *Server) HandleUpdateProjectMember(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Validate role
-	if req.Role != "viewer" && req.Role != "editor" && req.Role != "admin" {
-		http.Error(w, "Invalid role. Must be viewer, editor, or admin", http.StatusBadRequest)
+	if req.Role != "viewer" && req.Role != "member" && req.Role != "editor" && req.Role != "owner" {
+		http.Error(w, "Invalid role. Must be viewer, member, editor, or owner", http.StatusBadRequest)
 		return
+	}
+
+	// Check if changing from owner to another role
+	var currentRole string
+	err = s.db.QueryRow(`SELECT role FROM project_members WHERE id = ? AND project_id = ?`, memberID, projectID).Scan(&currentRole)
+	if err != nil {
+		http.Error(w, "Member not found", http.StatusNotFound)
+		return
+	}
+
+	// If changing from owner, ensure at least one other owner exists
+	if currentRole == "owner" && req.Role != "owner" {
+		var ownerCount int
+		err = s.db.QueryRow(`SELECT COUNT(*) FROM project_members WHERE project_id = ? AND role = 'owner'`, projectID).Scan(&ownerCount)
+		if err != nil {
+			http.Error(w, "Failed to check owner count", http.StatusInternalServerError)
+			return
+		}
+		if ownerCount <= 1 {
+			http.Error(w, "Cannot change role - project must have at least one owner", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Update member role
@@ -300,6 +322,28 @@ func (s *Server) HandleRemoveProjectMember(w http.ResponseWriter, r *http.Reques
 	if !isOwnerOrAdmin {
 		http.Error(w, "Forbidden - only project owners and admins can remove members", http.StatusForbidden)
 		return
+	}
+
+	// Check if member being removed is an owner
+	var memberRole string
+	err = s.db.QueryRow(`SELECT role FROM project_members WHERE id = ? AND project_id = ?`, memberID, projectID).Scan(&memberRole)
+	if err != nil {
+		http.Error(w, "Member not found", http.StatusNotFound)
+		return
+	}
+
+	// If removing an owner, ensure at least one other owner exists
+	if memberRole == "owner" {
+		var ownerCount int
+		err = s.db.QueryRow(`SELECT COUNT(*) FROM project_members WHERE project_id = ? AND role = 'owner'`, projectID).Scan(&ownerCount)
+		if err != nil {
+			http.Error(w, "Failed to check owner count", http.StatusInternalServerError)
+			return
+		}
+		if ownerCount <= 1 {
+			http.Error(w, "Cannot remove the last owner - project must have at least one owner", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Delete member
