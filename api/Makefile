@@ -1,4 +1,4 @@
-.PHONY: run test lint fmt migrate db-reset clean help
+.PHONY: run test lint fmt migrate db-reset clean help openapi-check
 
 # Variables
 DB_PATH ?= ./data/sprintspark.db
@@ -83,6 +83,9 @@ install-tools: ## Install development tools
 	go install github.com/air-verse/air@latest
 	go install golang.org/x/tools/cmd/goimports@latest
 	@echo "Done! Tools installed to $(shell go env GOPATH)/bin"
+
+openapi-check: ## Verify OpenAPI spec covers all routes
+	go test -run TestOpenAPIRoutesCoverage ./internal/api/
 
 openapi-validate: ## Validate OpenAPI specification
 	@echo "Validating OpenAPI specification..."

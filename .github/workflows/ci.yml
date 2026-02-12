@@ -50,6 +50,14 @@ jobs:
           go fmt ./...
           go vet ./...
 
+      - name: Validate OpenAPI spec
+        working-directory: ./api
+        run: npx @redocly/cli lint openapi.yaml
+
+      - name: Check OpenAPI route coverage
+        working-directory: ./api
+        run: go test -run TestOpenAPIRoutesCoverage ./internal/api/
+
       - name: Run unit tests with coverage
         working-directory: ./api
         run: |

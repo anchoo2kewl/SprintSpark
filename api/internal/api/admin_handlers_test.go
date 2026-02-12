@@ -9,12 +9,16 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zaptest"
+
 	"sprintspark/internal/auth"
 	"sprintspark/internal/config"
 	"sprintspark/internal/db"
 )
 
 func TestAdminHandlers(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+
 	// Setup test database
 	cfg := &config.Config{
 		DBPath:         ":memory:",
@@ -28,13 +32,13 @@ func TestAdminHandlers(t *testing.T) {
 		MigrationsPath: cfg.MigrationsPath,
 	}
 
-	database, err := db.New(dbCfg)
+	database, err := db.New(dbCfg, logger)
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
 	defer database.Close()
 
-	server := NewServer(database, cfg)
+	server := NewServer(database, cfg, logger)
 
 	// Create test users
 	adminPassword, err := auth.HashPassword("admin123")
@@ -223,6 +227,8 @@ func TestAdminHandlers(t *testing.T) {
 }
 
 func TestActivityLogging(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+
 	// Setup test database
 	cfg := &config.Config{
 		DBPath:         ":memory:",
@@ -236,13 +242,13 @@ func TestActivityLogging(t *testing.T) {
 		MigrationsPath: cfg.MigrationsPath,
 	}
 
-	database, err := db.New(dbCfg)
+	database, err := db.New(dbCfg, logger)
 	if err != nil {
 		t.Fatalf("Failed to create test database: %v", err)
 	}
 	defer database.Close()
 
-	server := NewServer(database, cfg)
+	server := NewServer(database, cfg, logger)
 	ctx := context.Background()
 
 	// Create test user

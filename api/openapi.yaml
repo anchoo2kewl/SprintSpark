@@ -2,16 +2,20 @@ openapi: 3.1.0
 info:
   title: SprintSpark API
   description: |
-    SprintSpark is a lightweight project management system with task tracking capabilities.
+    SprintSpark is a lightweight project management system with task tracking,
+    sprints, swim lanes, team collaboration, and GitHub integration.
 
     ## Authentication
-    Most endpoints require JWT authentication via Bearer token in the Authorization header.
+    Most endpoints require authentication via one of:
+    - **JWT Bearer Token**: `Authorization: Bearer <token>` (from signup/login)
+    - **API Key**: `Authorization: ApiKey <key>` (from API key management)
 
     ## Rate Limiting
-    - 100 requests per 15-minute window (configurable)
+    - Auth endpoints: 20 requests per minute
+    - Protected endpoints: 100 requests per minute (configurable)
 
     ## Error Handling
-    All errors return a consistent JSON format with `error` message and optional `code` field.
+    All errors return JSON: `{"error": "message", "code": "error_code"}`
   version: 0.1.0
   contact:
     name: SprintSpark Team
@@ -21,20 +25,42 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local development server
-  - url: http://localhost:8080/api
-    description: Local development API
+  - url: https://sprintspark.biswas.me
+    description: Production server
 
 tags:
   - name: Health
     description: Health check and monitoring endpoints
   - name: Authentication
-    description: User registration and authentication
+    description: User registration and login
   - name: Users
     description: User profile management
   - name: Projects
-    description: Project management (coming soon)
+    description: Project CRUD operations
   - name: Tasks
-    description: Task management (coming soon)
+    description: Task management within projects
+  - name: SwimLanes
+    description: Swim lane management for task boards
+  - name: Comments
+    description: Task comments
+  - name: Sprints
+    description: Sprint planning and tracking
+  - name: Tags
+    description: Tag management for categorizing tasks
+  - name: ProjectMembers
+    description: Project member management
+  - name: GitHub
+    description: GitHub integration settings
+  - name: Security
+    description: Password and two-factor authentication settings
+  - name: APIKeys
+    description: API key management
+  - name: Teams
+    description: Team management and collaboration
+  - name: Invitations
+    description: Team invitation management
+  - name: Admin
+    description: Administrative endpoints (requires admin role)
 
 paths:
   /:
@@ -44,7 +70,7 @@ paths:
       tags: [Health]
       operationId: getRoot
       responses:
-        '200':
+        "200":
           description: API information
           content:
             application/json:
@@ -65,7 +91,7 @@ paths:
       tags: [Health]
       operationId: healthCheck
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
@@ -78,15 +104,30 @@ paths:
                   database:
                     type: string
                     example: "connected"
-        '503':
+        "503":
           description: Service unavailable
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: "database unavailable"
-                code: "internal_error"
+                $ref: "#/components/schemas/Error"
+
+  /api/health:
+    get:
+      summary: Legacy Health Check
+      description: Legacy health endpoint (use /healthz instead)
+      tags: [Health]
+      operationId: legacyHealthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
 
   /api/openapi:
     get:
@@ -95,17 +136,33 @@ paths:
       tags: [Health]
       operationId: getOpenAPISpec
       responses:
-        '200':
+        "200":
           description: OpenAPI specification
           content:
             application/yaml:
               schema:
                 type: string
 
+  /api/docs:
+    get:
+      summary: Swagger UI
+      description: Interactive API documentation
+      tags: [Health]
+      operationId: getSwaggerUI
+      responses:
+        "200":
+          description: Swagger UI HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  # ── Authentication ──────────────────────────────────────────────────
+
   /api/auth/signup:
     post:
       summary: Sign Up
-      description: Create a new user account
+      description: Create a new user account. Password must be at least 8 characters and contain both a letter and a digit.
       tags: [Authentication]
       operationId: signup
       requestBody:
@@ -113,44 +170,28 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SignupRequest'
+              $ref: "#/components/schemas/SignupRequest"
       responses:
-        '201':
+        "201":
           description: User created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
-          description: Invalid request
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid request or validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-              examples:
-                invalidRequest:
-                  value:
-                    error: "invalid request body"
-                    code: "invalid_request"
-                validationError:
-                  value:
-                    error: "password must be at least 8 characters"
-                    code: "validation_error"
-        '409':
+                $ref: "#/components/schemas/Error"
+        "409":
           description: Email already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: "email already exists"
-                code: "email_exists"
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/auth/login:
     post:
@@ -163,35 +204,30 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
+        "200":
           description: Login successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '400':
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '401':
+                $ref: "#/components/schemas/Error"
+        "401":
           description: Invalid credentials
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: "invalid email or password"
-                code: "invalid_credentials"
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Users ───────────────────────────────────────────────────────────
 
   /api/me:
     get:
@@ -201,40 +237,1617 @@ paths:
       operationId: getCurrentUser
       security:
         - BearerAuth: []
+        - ApiKeyAuth: []
       responses:
-        '200':
+        "200":
           description: User profile
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '401':
-          description: Unauthorized
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      summary: Update Profile
+      description: Update the current user's profile (e.g. display name)
+      tags: [Users]
+      operationId: updateProfile
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated user profile
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-              examples:
-                missingToken:
-                  value:
-                    error: "missing authorization header"
-                    code: "unauthorized"
-                invalidToken:
-                  value:
-                    error: "invalid or expired token"
-                    code: "unauthorized"
-        '404':
-          description: User not found
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Projects ────────────────────────────────────────────────────────
+
+  /api/projects:
+    get:
+      summary: List Projects
+      description: List all projects accessible to the current user
+      tags: [Projects]
+      operationId: listProjects
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of projects
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create Project
+      description: Create a new project
+      tags: [Projects]
+      operationId: createProject
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects/{id}:
+    get:
+      summary: Get Project
+      description: Get a project by ID
+      tags: [Projects]
+      operationId: getProject
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      summary: Update Project
+      description: Update a project (owner only)
+      tags: [Projects]
+      operationId: updateProject
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete Project
+      description: Delete a project (owner only)
+      tags: [Projects]
+      operationId: deleteProject
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "204":
+          description: Project deleted
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Tasks ───────────────────────────────────────────────────────────
+
+  /api/projects/{projectId}/tasks:
+    get:
+      summary: List Tasks
+      description: List all tasks for a project
+      tags: [Tasks]
+      operationId: listTasks
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdPath"
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create Task
+      description: Create a new task in a project
+      tags: [Tasks]
+      operationId: createTask
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/tasks/{id}:
+    patch:
+      summary: Update Task
+      description: Update a task by ID
+      tags: [Tasks]
+      operationId: updateTask
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete Task
+      description: Delete a task by ID
+      tags: [Tasks]
+      operationId: deleteTask
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TaskId"
+      responses:
+        "204":
+          description: Task deleted
+        "400":
+          description: Invalid task ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Swim Lanes ──────────────────────────────────────────────────────
+
+  /api/projects/{projectId}/swim-lanes:
+    get:
+      summary: List Swim Lanes
+      description: List all swim lanes for a project
+      tags: [SwimLanes]
+      operationId: listSwimLanes
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdPath"
+      responses:
+        "200":
+          description: List of swim lanes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SwimLane"
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create Swim Lane
+      description: Create a new swim lane in a project (max 6 per project)
+      tags: [SwimLanes]
+      operationId: createSwimLane
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSwimLaneRequest"
+      responses:
+        "201":
+          description: Swim lane created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwimLane"
+        "400":
+          description: Invalid request or max swim lanes reached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/swim-lanes/{id}:
+    patch:
+      summary: Update Swim Lane
+      description: Update a swim lane by ID
+      tags: [SwimLanes]
+      operationId: updateSwimLane
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SwimLaneId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSwimLaneRequest"
+      responses:
+        "200":
+          description: Updated swim lane
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwimLane"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete Swim Lane
+      description: Delete a swim lane (minimum 2 required per project)
+      tags: [SwimLanes]
+      operationId: deleteSwimLane
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SwimLaneId"
+      responses:
+        "204":
+          description: Swim lane deleted
+        "400":
+          description: Invalid ID or minimum swim lanes required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Task Comments ───────────────────────────────────────────────────
+
+  /api/tasks/{taskId}/comments:
+    get:
+      summary: List Task Comments
+      description: List all comments for a task
+      tags: [Comments]
+      operationId: listTaskComments
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TaskIdPath"
+      responses:
+        "200":
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskComment"
+        "400":
+          description: Invalid task ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create Task Comment
+      description: Add a comment to a task
+      tags: [Comments]
+      operationId: createTaskComment
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TaskIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskComment"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Sprints ─────────────────────────────────────────────────────────
+
+  /api/sprints:
+    get:
+      summary: List Sprints
+      description: List all sprints for the current user
+      tags: [Sprints]
+      operationId: listSprints
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of sprints
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sprint"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create Sprint
+      description: Create a new sprint
+      tags: [Sprints]
+      operationId: createSprint
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSprintRequest"
+      responses:
+        "201":
+          description: Sprint created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sprint"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/sprints/{id}:
+    patch:
+      summary: Update Sprint
+      description: Update a sprint by ID
+      tags: [Sprints]
+      operationId: updateSprint
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SprintId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSprintRequest"
+      responses:
+        "200":
+          description: Updated sprint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sprint"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete Sprint
+      description: Delete a sprint by ID
+      tags: [Sprints]
+      operationId: deleteSprint
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/SprintId"
+      responses:
+        "200":
+          description: Sprint deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid sprint ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Tags ────────────────────────────────────────────────────────────
+
+  /api/tags:
+    get:
+      summary: List Tags
+      description: List all tags for the current user
+      tags: [Tags]
+      operationId: listTags
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tag"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create Tag
+      description: Create a new tag
+      tags: [Tags]
+      operationId: createTag
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTagRequest"
+      responses:
+        "201":
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Tag name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/tags/{id}:
+    patch:
+      summary: Update Tag
+      description: Update a tag by ID
+      tags: [Tags]
+      operationId: updateTag
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TagId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTagRequest"
+      responses:
+        "200":
+          description: Updated tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete Tag
+      description: Delete a tag by ID
+      tags: [Tags]
+      operationId: deleteTag
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TagId"
+      responses:
+        "200":
+          description: Tag deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid tag ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Project Members ─────────────────────────────────────────────────
+
+  /api/projects/{id}/members:
+    get:
+      summary: List Project Members
+      description: List all members of a project
+      tags: [ProjectMembers]
+      operationId: listProjectMembers
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: List of project members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectMember"
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Add Project Member
+      description: Add a user to a project by email
+      tags: [ProjectMembers]
+      operationId: addProjectMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddProjectMemberRequest"
+      responses:
+        "201":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Member added successfully"
+                  member_id:
+                    type: integer
+                    format: int64
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: User already a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/projects/{id}/members/{memberId}:
+    patch:
+      summary: Update Project Member Role
+      description: Update the role of a project member
+      tags: [ProjectMembers]
+      operationId: updateProjectMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectMemberRequest"
+      responses:
+        "200":
+          description: Member role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Remove Project Member
+      description: Remove a member from a project
+      tags: [ProjectMembers]
+      operationId: removeProjectMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid IDs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── GitHub Settings ─────────────────────────────────────────────────
+
+  /api/projects/{id}/github:
+    get:
+      summary: Get GitHub Settings
+      description: Get GitHub integration settings for a project
+      tags: [GitHub]
+      operationId: getProjectGitHubSettings
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: GitHub settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectGitHubSettings"
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      summary: Update GitHub Settings
+      description: Update GitHub integration settings for a project
+      tags: [GitHub]
+      operationId: updateProjectGitHubSettings
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGitHubSettingsRequest"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Security Settings ───────────────────────────────────────────────
+
+  /api/settings/password:
+    post:
+      summary: Change Password
+      description: Change the current user's password
+      tags: [Security]
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid request or weak password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/settings/2fa/status:
+    get:
+      summary: Get 2FA Status
+      description: Check whether 2FA is enabled for the current user
+      tags: [Security]
+      operationId: get2FAStatus
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: 2FA status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/settings/2fa/setup:
+    post:
+      summary: Setup 2FA
+      description: Generate a TOTP secret and QR code for 2FA setup
+      tags: [Security]
+      operationId: setup2FA
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: 2FA setup data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorSetupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/settings/2fa/enable:
+    post:
+      summary: Enable 2FA
+      description: Verify TOTP code and enable 2FA, returns backup codes
+      tags: [Security]
+      operationId: enable2FA
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Enable2FARequest"
+      responses:
+        "200":
+          description: 2FA enabled with backup codes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TwoFactorEnableResponse"
+        "400":
+          description: Invalid TOTP code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/settings/2fa/disable:
+    post:
+      summary: Disable 2FA
+      description: Disable 2FA (requires password confirmation)
+      tags: [Security]
+      operationId: disable2FA
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Disable2FARequest"
+      responses:
+        "200":
+          description: 2FA disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── API Keys ────────────────────────────────────────────────────────
+
+  /api/api-keys:
+    get:
+      summary: List API Keys
+      description: List all API keys for the current user
+      tags: [APIKeys]
+      operationId: listAPIKeys
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of API keys (without full key values)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/APIKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      summary: Create API Key
+      description: Create a new API key. The full key is only returned once at creation time.
+      tags: [APIKeys]
+      operationId: createAPIKey
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAPIKeyRequest"
+      responses:
+        "201":
+          description: API key created (includes full key)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateAPIKeyResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/api-keys/{id}:
+    delete:
+      summary: Delete API Key
+      description: Delete an API key by ID
+      tags: [APIKeys]
+      operationId: deleteAPIKey
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyId"
+      responses:
+        "204":
+          description: API key deleted
+        "400":
+          description: Invalid API key ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── OpenAPI YAML Download ───────────────────────────────────────────
+
+  /api/openapi.yaml:
+    get:
+      summary: Download OpenAPI YAML
+      description: Download the OpenAPI specification as a YAML file (authenticated)
+      tags: [Health]
+      operationId: downloadOpenAPIYAML
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OpenAPI YAML file
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  # ── Teams ───────────────────────────────────────────────────────────
+
+  /api/team:
+    get:
+      summary: Get My Team
+      description: Get the team the current user owns or belongs to
+      tags: [Teams]
+      operationId: getMyTeam
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Team details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/team/members:
+    get:
+      summary: List Team Members
+      description: List all members of the current user's team
+      tags: [Teams]
+      operationId: listTeamMembers
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of team members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamMember"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/team/invite:
+    post:
+      summary: Invite Team Member
+      description: Send a team invitation by email
+      tags: [Teams]
+      operationId: inviteTeamMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteTeamMemberRequest"
+      responses:
+        "201":
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInvitation"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invitation already exists or user is already a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/team/members/{memberId}:
+    delete:
+      summary: Remove Team Member
+      description: Remove a member from the team
+      tags: [Teams]
+      operationId: removeTeamMember
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TeamMemberId"
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid member ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Invitations ─────────────────────────────────────────────────────
+
+  /api/team/invitations:
+    get:
+      summary: List My Invitations
+      description: List pending team invitations for the current user
+      tags: [Invitations]
+      operationId: listMyInvitations
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of invitations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamInvitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/team/invitations/{id}/accept:
+    post:
+      summary: Accept Invitation
+      description: Accept a team invitation
+      tags: [Invitations]
+      operationId: acceptInvitation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid invitation ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invitation already responded to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/team/invitations/{id}/reject:
+    post:
+      summary: Reject Invitation
+      description: Reject a team invitation
+      tags: [Invitations]
+      operationId: rejectInvitation
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/InvitationId"
+      responses:
+        "200":
+          description: Invitation rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid invitation ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invitation already responded to
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ── Admin ───────────────────────────────────────────────────────────
+
+  /api/admin/users:
+    get:
+      summary: List All Users
+      description: List all users with stats (admin only)
+      tags: [Admin]
+      operationId: adminListUsers
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: List of users with stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserWithStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/admin/users/{id}/activity:
+    get:
+      summary: Get User Activity
+      description: Get activity log for a specific user (admin only)
+      tags: [Admin]
+      operationId: adminGetUserActivity
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User activity log
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserActivity"
+        "400":
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/admin/users/{id}/admin:
+    patch:
+      summary: Update Admin Status
+      description: Grant or revoke admin privileges for a user (admin only)
+      tags: [Admin]
+      operationId: adminUpdateUserAdmin
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAdminStatusRequest"
+      responses:
+        "200":
+          description: Admin status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    format: int64
+                  is_admin:
+                    type: boolean
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
 components:
   securitySchemes:
@@ -242,46 +1855,475 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: |
-        JWT token obtained from `/api/auth/signup` or `/api/auth/login`.
+      description: "JWT token from /api/auth/signup or /api/auth/login. Use as: Authorization: Bearer <token>"
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: "API key from /api/api-keys. Use as: Authorization: ApiKey <key>"
 
-        Include in requests as: `Authorization: Bearer <token>`
+  parameters:
+    ProjectId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Project ID
+    ProjectIdPath:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Project ID
+    TaskId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Task ID
+    TaskIdPath:
+      name: taskId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Task ID
+    SwimLaneId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Swim lane ID
+    SprintId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Sprint ID
+    TagId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Tag ID
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Member ID
+    TeamMemberId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Team member ID
+    InvitationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Invitation ID
+    ApiKeyId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: API key ID
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: User ID
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
   schemas:
+    # ── Request Schemas ─────────────────────────────────────────────
+
     SignupRequest:
       type: object
-      required:
-        - email
-        - password
+      required: [email, password]
       properties:
         email:
           type: string
           format: email
-          description: User's email address (must be unique)
           example: "user@example.com"
         password:
           type: string
           format: password
           minLength: 8
-          description: User's password (minimum 8 characters)
-          example: "securepassword123"
+          description: Must contain at least one letter and one digit
+          example: "securepass123"
 
     LoginRequest:
       type: object
-      required:
-        - email
-        - password
+      required: [email, password]
       properties:
         email:
           type: string
           format: email
-          description: User's email address
           example: "user@example.com"
         password:
           type: string
           format: password
-          description: User's password
-          example: "securepassword123"
+          example: "securepass123"
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: "Anshuman Biswas"
+
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: "My Project"
+        description:
+          type: string
+          example: "Project description"
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: "Updated Project Name"
+        description:
+          type: string
+          example: "Updated description"
+
+    CreateTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          example: "Implement feature"
+        description:
+          type: string
+          example: "Task description in markdown"
+        status:
+          type: string
+          enum: [todo, in_progress, done]
+          default: todo
+        swim_lane_id:
+          type: integer
+          format: int64
+        due_date:
+          type: string
+          format: date-time
+        sprint_id:
+          type: integer
+          format: int64
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        assignee_id:
+          type: integer
+          format: int64
+        estimated_hours:
+          type: number
+          format: float
+        actual_hours:
+          type: number
+          format: float
+        tag_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        status:
+          type: string
+          enum: [todo, in_progress, done]
+        swim_lane_id:
+          type: integer
+          format: int64
+        due_date:
+          type: string
+          format: date-time
+        sprint_id:
+          type: integer
+          format: int64
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        assignee_id:
+          type: integer
+          format: int64
+        estimated_hours:
+          type: number
+          format: float
+        actual_hours:
+          type: number
+          format: float
+        tag_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    CreateSwimLaneRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          example: "Testing"
+        color:
+          type: string
+          default: "#6B7280"
+          example: "#6B7280"
+        position:
+          type: integer
+          default: 0
+
+    UpdateSwimLaneRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        color:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+
+    CreateCommentRequest:
+      type: object
+      required: [comment]
+      properties:
+        comment:
+          type: string
+          maxLength: 5000
+          example: "This looks good, but needs testing."
+
+    CreateSprintRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Sprint 1"
+        goal:
+          type: string
+          example: "Complete authentication module"
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [planned, active, completed]
+          default: planned
+
+    UpdateSprintRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        goal:
+          type: string
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [planned, active, completed]
+
+    CreateTagRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "bug"
+        color:
+          type: string
+          default: "#3B82F6"
+          example: "#FF0000"
+
+    UpdateTagRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+
+    AddProjectMemberRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "member@example.com"
+        role:
+          type: string
+          enum: [viewer, member, editor, owner]
+          example: "member"
+
+    UpdateProjectMemberRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [viewer, member, editor, owner]
+          example: "editor"
+
+    UpdateGitHubSettingsRequest:
+      type: object
+      properties:
+        github_repo_url:
+          type: string
+          example: "https://github.com/user/repo"
+        github_owner:
+          type: string
+          example: "user"
+        github_repo_name:
+          type: string
+          example: "repo"
+        github_branch:
+          type: string
+          example: "main"
+        github_sync_enabled:
+          type: boolean
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+
+    Enable2FARequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          description: TOTP verification code
+          example: "123456"
+
+    Disable2FARequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          format: password
+
+    CreateAPIKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: "CI/CD Key"
+        expires_in:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: Expiration in days (optional)
+
+    InviteTeamMemberRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "teammate@example.com"
+
+    UpdateAdminStatusRequest:
+      type: object
+      required: [is_admin]
+      properties:
+        is_admin:
+          type: boolean
+
+    # ── Response / Entity Schemas ───────────────────────────────────
 
     AuthResponse:
       type: object
@@ -291,7 +2333,7 @@ components:
           description: JWT authentication token
           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         user:
-          $ref: '#/components/schemas/User'
+          $ref: "#/components/schemas/User"
 
     User:
       type: object
@@ -299,26 +2341,23 @@ components:
         id:
           type: integer
           format: int64
-          description: Unique user identifier
           example: 1
         email:
           type: string
           format: email
-          description: User's email address
           example: "user@example.com"
+        name:
+          type: ["string", "null"]
+          example: "Anshuman Biswas"
         is_admin:
           type: boolean
-          description: Whether the user has admin privileges
           example: false
         created_at:
           type: string
           format: date-time
-          description: Account creation timestamp
-          example: "2025-10-17T22:59:13Z"
 
     Project:
       type: object
-      description: Project entity (coming soon)
       properties:
         id:
           type: integer
@@ -332,20 +2371,17 @@ components:
           type: string
           example: "My Project"
         description:
-          type: [string, "null"]
+          type: ["string", "null"]
           example: "Project description"
         created_at:
           type: string
           format: date-time
-          example: "2025-10-17T22:59:13Z"
         updated_at:
           type: string
           format: date-time
-          example: "2025-10-17T22:59:13Z"
 
     Task:
       type: object
-      description: Task entity with enhanced fields
       properties:
         id:
           type: integer
@@ -359,76 +2395,145 @@ components:
           type: string
           example: "Implement feature"
         description:
-          type: [string, "null"]
+          type: ["string", "null"]
           example: "Task description in markdown"
         status:
           type: string
           enum: [todo, in_progress, done]
           example: "todo"
         swim_lane_id:
-          type: [integer, "null"]
+          type: ["integer", "null"]
           format: int64
-          example: 1
-          description: "Optional swim lane assignment"
         swim_lane_name:
-          type: [string, "null"]
+          type: ["string", "null"]
           example: "Testing"
-          description: "Name of the assigned swim lane (populated from join)"
         due_date:
-          type: [string, "null"]
+          type: ["string", "null"]
           format: date-time
-          example: "2025-10-25T00:00:00Z"
-          description: "Optional due date for the task"
         sprint_id:
-          type: [integer, "null"]
+          type: ["integer", "null"]
           format: int64
-          example: 1
-          description: "Optional sprint assignment"
         sprint_name:
-          type: [string, "null"]
+          type: ["string", "null"]
           example: "Sprint 1"
-          description: "Name of the assigned sprint (populated from join)"
         priority:
           type: string
           enum: [low, medium, high, urgent]
           example: "medium"
-          description: "Task priority level"
         assignee_id:
-          type: [integer, "null"]
+          type: ["integer", "null"]
           format: int64
-          example: 1
-          description: "Optional user assigned to task"
         assignee_name:
-          type: [string, "null"]
+          type: ["string", "null"]
           example: "Anshuman Biswas"
-          description: "Name of the assigned user (populated from join)"
         estimated_hours:
-          type: [number, "null"]
+          type: ["number", "null"]
           format: float
-          example: 8.5
-          description: "Estimated hours to complete"
         actual_hours:
-          type: [number, "null"]
+          type: ["number", "null"]
           format: float
-          example: 10.0
-          description: "Actual hours spent"
         tags:
           type: array
           items:
-            $ref: '#/components/schemas/Tag'
-          description: "Tags associated with this task"
+            $ref: "#/components/schemas/Tag"
         created_at:
           type: string
           format: date-time
-          example: "2025-10-17T22:59:13Z"
         updated_at:
           type: string
           format: date-time
-          example: "2025-10-17T22:59:13Z"
+
+    SwimLane:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        project_id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "Testing"
+        color:
+          type: string
+          example: "#6B7280"
+        position:
+          type: integer
+          example: 0
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TaskComment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        task_id:
+          type: integer
+          format: int64
+          example: 1
+        user_id:
+          type: integer
+          format: int64
+          example: 1
+        user_name:
+          type: ["string", "null"]
+          example: "Anshuman Biswas"
+        comment:
+          type: string
+          example: "This looks good, but needs testing."
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Sprint:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        user_id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "Sprint 1"
+        goal:
+          type: ["string", "null"]
+          example: "Complete authentication module"
+        start_date:
+          type: ["string", "null"]
+          format: date-time
+        end_date:
+          type: ["string", "null"]
+          format: date-time
+        status:
+          type: string
+          enum: [planned, active, completed]
+          example: "planned"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     Tag:
       type: object
-      description: Tag entity for categorizing tasks
       properties:
         id:
           type: integer
@@ -444,16 +2549,292 @@ components:
         color:
           type: string
           example: "#FF0000"
-          description: "Hex color code"
         created_at:
           type: string
           format: date-time
-          example: "2025-10-17T22:59:13Z"
+
+    ProjectMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        project_id:
+          type: integer
+          format: int64
+          example: 1
+        user_id:
+          type: integer
+          format: int64
+          example: 2
+        email:
+          type: string
+          format: email
+          example: "member@example.com"
+        name:
+          type: ["string", "null"]
+          example: "Team Member"
+        role:
+          type: string
+          enum: [viewer, member, editor, owner]
+          example: "member"
+        granted_by:
+          type: integer
+          format: int64
+          example: 1
+        granted_at:
+          type: string
+          format: date-time
+
+    ProjectGitHubSettings:
+      type: object
+      properties:
+        github_repo_url:
+          type: string
+          example: "https://github.com/user/repo"
+        github_owner:
+          type: string
+          example: "user"
+        github_repo_name:
+          type: string
+          example: "repo"
+        github_branch:
+          type: string
+          example: "main"
+        github_sync_enabled:
+          type: boolean
+          example: false
+        github_last_sync:
+          type: ["string", "null"]
+          format: date-time
+
+    TwoFactorSetupResponse:
+      type: object
+      properties:
+        secret:
+          type: string
+          description: TOTP secret key
+        qr_code_url:
+          type: string
+          description: Base64-encoded QR code PNG data URL
+        qr_code_svg:
+          type: string
+          description: TOTP provisioning URL
+
+    TwoFactorEnableResponse:
+      type: object
+      properties:
+        backup_codes:
+          type: array
+          items:
+            type: string
+          description: One-time backup codes for account recovery
+
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "CI/CD Key"
+        key_prefix:
+          type: string
+          example: "sk_abc1"
+        last_used_at:
+          type: ["string", "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: ["string", "null"]
+          format: date-time
+
+    CreateAPIKeyResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "CI/CD Key"
+        key:
+          type: string
+          description: Full API key (only returned at creation time)
+          example: "sk_abc123def456..."
+        key_prefix:
+          type: string
+          example: "sk_abc1"
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: ["string", "null"]
+          format: date-time
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: "Engineering Team"
+        owner_id:
+          type: integer
+          format: int64
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        team_id:
+          type: integer
+          format: int64
+          example: 1
+        user_id:
+          type: integer
+          format: int64
+          example: 2
+        user_name:
+          type: ["string", "null"]
+          example: "Team Member"
+        email:
+          type: string
+          format: email
+          example: "member@example.com"
+        role:
+          type: string
+          enum: [owner, admin, member]
+          example: "member"
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+        joined_at:
+          type: string
+          format: date-time
+
+    TeamInvitation:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        team_id:
+          type: integer
+          format: int64
+          example: 1
+        team_name:
+          type: string
+          example: "Engineering Team"
+        inviter_id:
+          type: integer
+          format: int64
+          example: 1
+        inviter_name:
+          type: ["string", "null"]
+          example: "Anshuman Biswas"
+        invitee_email:
+          type: string
+          format: email
+          example: "invitee@example.com"
+        invitee_id:
+          type: ["integer", "null"]
+          format: int64
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+          example: "pending"
+        created_at:
+          type: string
+          format: date-time
+        responded_at:
+          type: ["string", "null"]
+          format: date-time
+
+    UserWithStats:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        email:
+          type: string
+          format: email
+        is_admin:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        login_count:
+          type: integer
+          example: 42
+        last_login_at:
+          type: ["string", "null"]
+          format: date-time
+        last_login_ip:
+          type: ["string", "null"]
+          example: "192.168.1.1"
+        failed_attempts:
+          type: integer
+          example: 0
+
+    UserActivity:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        user_id:
+          type: integer
+          format: int64
+          example: 1
+        activity_type:
+          type: string
+          enum: [login, logout, failed_login]
+          example: "login"
+        ip_address:
+          type: ["string", "null"]
+          example: "192.168.1.1"
+        user_agent:
+          type: ["string", "null"]
+          example: "Mozilla/5.0..."
+        created_at:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operation successful"
 
     Error:
       type: object
-      required:
-        - error
+      required: [error]
       properties:
         error:
           type: string
@@ -463,13 +2844,5 @@ components:
           type: string
           description: Machine-readable error code
           example: "invalid_request"
-          enum:
-            - invalid_request
-            - validation_error
-            - unauthorized
-            - not_found
-            - email_exists
-            - invalid_credentials
-            - internal_error
 
 security: []
