@@ -1,39 +1,24 @@
 ---
-# Configure Nginx for both domains
+# Configure Nginx for the target environment domain
 
 - name: Remove default Nginx site
   file:
     path: /etc/nginx/sites-enabled/default
     state: absent
 
-- name: Create Nginx configuration for primary domain (pre-SSL)
+- name: Create Nginx configuration for {{ domain }} (pre-SSL)
   template:
     src: ../templates/nginx-pre-ssl.conf.j2
-    dest: "/etc/nginx/sites-available/{{ primary_domain }}"
+    dest: "/etc/nginx/sites-available/{{ domain }}"
     owner: root
     group: root
     mode: '0644'
-  vars:
-    domain: "{{ primary_domain }}"
 
-- name: Create Nginx configuration for secondary domain (pre-SSL)
-  template:
-    src: ../templates/nginx-pre-ssl.conf.j2
-    dest: "/etc/nginx/sites-available/{{ secondary_domain }}"
-    owner: root
-    group: root
-    mode: '0644'
-  vars:
-    domain: "{{ secondary_domain }}"
-
-- name: Enable Nginx sites
+- name: Enable Nginx site for {{ domain }}
   file:
-    src: "/etc/nginx/sites-available/{{ item }}"
-    dest: "/etc/nginx/sites-enabled/{{ item }}"
+    src: "/etc/nginx/sites-available/{{ domain }}"
+    dest: "/etc/nginx/sites-enabled/{{ domain }}"
     state: link
-  loop:
-    - "{{ primary_domain }}"
-    - "{{ secondary_domain }}"
 
 - name: Test Nginx configuration
   command: nginx -t

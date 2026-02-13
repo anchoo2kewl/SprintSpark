@@ -11,9 +11,19 @@ all:
       ansible_python_interpreter: /usr/bin/python3
 
   vars:
-    # Domain configuration
-    primary_domain: taskai.cc
-    secondary_domain: sprintspark.biswas.me
+    # Staging environment
+    staging_domain: sprintspark.biswas.me
+    staging_app_name: sprintspark-staging
+    staging_app_dir: /home/{{ ansible_user }}/sprintspark-staging
+    staging_api_port: 8082
+    staging_web_port: 8086
+
+    # Production environment
+    production_domain: taskai.cc
+    production_app_name: sprintspark
+    production_app_dir: /home/{{ ansible_user }}/sprintspark
+    production_api_port: 8081
+    production_web_port: 8085
 
     # Cloudflare configuration
     cloudflare_email: "YOUR_CLOUDFLARE_EMAIL"
@@ -21,16 +31,8 @@ all:
     cloudflare_zone_id_primary: "YOUR_TASKAI_CC_ZONE_ID"
     cloudflare_zone_id_secondary: "YOUR_BISWAS_ME_ZONE_ID"
 
-    # Application configuration
-    app_name: sprintspark
+    # Shared configuration
     app_user: "{{ ansible_user }}"
-    app_dir: /home/{{ app_user }}/{{ app_name }}
-
-    # GitHub repository
     github_repo: https://github.com/anchoo2kewl/SprintSpark.git
-
-    # JWT configuration
     jwt_secret: "CHANGE_ME_STRONG_JWT_SECRET_AT_LEAST_32_CHARS"
-
-    # Logging
     log_level: info

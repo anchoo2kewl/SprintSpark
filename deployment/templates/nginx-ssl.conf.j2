@@ -63,7 +63,7 @@ server {
     location ~ ^/api/auth {
         limit_req zone={{ domain | replace('.', '_') }}_auth burst=3 nodelay;
 
-        proxy_pass http://127.0.0.1:8081;
+        proxy_pass http://127.0.0.1:{{ api_host_port }};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -75,7 +75,7 @@ server {
     location /api/ {
         limit_req zone={{ domain | replace('.', '_') }}_api burst=20 nodelay;
 
-        proxy_pass http://127.0.0.1:8081;
+        proxy_pass http://127.0.0.1:{{ api_host_port }};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -93,13 +93,13 @@ server {
 
     # Health check endpoint (no logging)
     location /health {
-        proxy_pass http://127.0.0.1:8081;
+        proxy_pass http://127.0.0.1:{{ api_host_port }};
         access_log off;
     }
 
     # Frontend (React app via web container)
     location / {
-        proxy_pass http://127.0.0.1:8085;
+        proxy_pass http://127.0.0.1:{{ web_host_port }};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -111,7 +111,7 @@ server {
 
         # Cache static assets
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-            proxy_pass http://127.0.0.1:8085;
+            proxy_pass http://127.0.0.1:{{ web_host_port }};
             expires 1y;
             add_header Cache-Control "public, immutable";
         }

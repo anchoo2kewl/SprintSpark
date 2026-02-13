@@ -25,7 +25,7 @@
 
 - name: Wait for API to be healthy
   uri:
-    url: "http://127.0.0.1:8081/api/health"
+    url: "http://127.0.0.1:{{ api_host_port }}/api/health"
     status_code: 200
   register: health_result
   until: health_result.status == 200
@@ -36,14 +36,11 @@
   debug:
     msg: |
       ==========================================
-      Deployment completed successfully!
+      {{ env_name | upper }} deployment completed!
 
-      Application URLs:
-      - https://{{ primary_domain }}
-      - https://{{ secondary_domain }}
-
-      API Health:
-      - https://{{ primary_domain }}/api/health
+      Environment: {{ env_name }}
+      URL: https://{{ domain }}
+      API Health: https://{{ domain }}/api/health
 
       Check logs:
       cd {{ app_dir }} && docker compose logs -f

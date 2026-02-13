@@ -1,0 +1,104 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Sync code to staging
+        run: |
+          rsync -azP --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='api/tmp' \
+            --exclude='api/data' \
+            --exclude='web/dist' \
+            --exclude='.env' \
+            --exclude='.claude' \
+            --exclude='.entire' \
+            --exclude='deployment/inventory.yml' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            ./ ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/home/${{ secrets.SERVER_USER }}/sprintspark-staging/source/
+
+      - name: Deploy staging on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set -e
+            APP_DIR=/home/${{ secrets.SERVER_USER }}/sprintspark-staging
+
+            echo "=== Deploying SprintSpark to STAGING ==="
+
+            # Ensure directory structure exists
+            mkdir -p "$APP_DIR"/{data,logs,source}
+
+            echo "-> Building Docker images..."
+            cd "$APP_DIR"
+            docker compose build --no-cache
+
+            echo "-> Restarting containers..."
+            docker compose down
+            docker compose up -d
+
+            echo "-> Waiting for services..."
+            sleep 10
+
+            # Health check API (staging port 8082)
+            echo "-> Checking API health..."
+            for i in $(seq 1 30); do
+              if curl -sf http://127.0.0.1:8082/api/health > /dev/null 2>&1; then
+                echo "OK: API is healthy"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "FAIL: API health check failed"
+                docker compose logs api | tail -20
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # Health check web (staging port 8086)
+            echo "-> Checking web health..."
+            for i in $(seq 1 30); do
+              if curl -sf http://127.0.0.1:8086/health > /dev/null 2>&1; then
+                echo "OK: Web is healthy"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "FAIL: Web health check failed"
+                docker compose logs web | tail -20
+                exit 1
+              fi
+              sleep 2
+            done
+
+            echo "-> Cleaning up old Docker images..."
+            docker image prune -f
+
+            echo ""
+            echo "=== Staging deployment completed! ==="
+            echo "URL: https://sprintspark.biswas.me"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SprintSpark Production Server Management Script
+# SprintSpark Server Management Script
 # Manages deployment, testing, health checks, and operations
 
 set -e
@@ -14,15 +14,47 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Remote production settings
-REMOTE_SERVER="ubuntu@31.97.102.48"
-REMOTE_DEPLOY_PATH="/home/ubuntu/sprintspark"
-REMOTE_DOMAIN="taskai.cc"
-REMOTE_DOMAIN_SECONDARY="sprintspark.biswas.me"
+# Server connection
+REMOTE_HOST="31.97.102.48"
+REMOTE_USER="ubuntu"
+REMOTE_SERVER="${REMOTE_USER}@${REMOTE_HOST}"
+
+# Staging environment
+STAGING_DEPLOY_PATH="/home/ubuntu/sprintspark-staging"
+STAGING_DOMAIN="sprintspark.biswas.me"
+STAGING_API_PORT=8082
+STAGING_WEB_PORT=8086
+
+# Production environment
+PROD_DEPLOY_PATH="/home/ubuntu/sprintspark"
+PROD_DOMAIN="taskai.cc"
+PROD_API_PORT=8081
+PROD_WEB_PORT=8085
 
 # Local development settings
 LOCAL_WEB_PORT=8084
 LOCAL_API_PORT=8083
+
+# Resolve environment — sets REMOTE_DEPLOY_PATH, REMOTE_DOMAIN, REMOTE_API_PORT, REMOTE_WEB_PORT
+resolve_env() {
+    local env="${1:-staging}"
+    case "$env" in
+        prod|production)
+            REMOTE_DEPLOY_PATH="$PROD_DEPLOY_PATH"
+            REMOTE_DOMAIN="$PROD_DOMAIN"
+            REMOTE_API_PORT="$PROD_API_PORT"
+            REMOTE_WEB_PORT="$PROD_WEB_PORT"
+            ENV_LABEL="PRODUCTION"
+            ;;
+        staging|*)
+            REMOTE_DEPLOY_PATH="$STAGING_DEPLOY_PATH"
+            REMOTE_DOMAIN="$STAGING_DOMAIN"
+            REMOTE_API_PORT="$STAGING_API_PORT"
+            REMOTE_WEB_PORT="$STAGING_WEB_PORT"
+            ENV_LABEL="STAGING"
+            ;;
+    esac
+}
 
 # Function to print colored output
 print_status() {
@@ -60,14 +92,21 @@ show_help() {
     echo "  local:logs [service] Show local logs"
     echo "  local:clean          Stop and remove all local containers/volumes"
     echo ""
-    echo -e "${YELLOW}Production Commands:${NC}"
-    echo "  deploy [\"message\"]   Commit changes, push to GitHub, wait for webhook deploy"
-    echo "  restart              Restart production services"
-    echo "  stop                 Stop production services"
-    echo "  start                Start production services"
-    echo "  status               Show production service status"
-    echo "  logs [api|web]       Show production logs"
-    echo "  health               Check production health"
+    echo -e "${YELLOW}Deployment Commands:${NC}"
+    echo "  deploy [\"message\"]   Commit, push to main, auto-deploy to STAGING"
+    echo "  promote [ref]        Promote to PRODUCTION (triggers GitHub Action)"
+    echo ""
+    echo -e "${YELLOW}Staging Commands (sprintspark.biswas.me):${NC}"
+    echo "  staging status       Show staging service status"
+    echo "  staging logs [svc]   Show staging logs"
+    echo "  staging health       Check staging health"
+    echo "  staging restart      Restart staging services"
+    echo ""
+    echo -e "${YELLOW}Production Commands (taskai.cc):${NC}"
+    echo "  prod status          Show production service status"
+    echo "  prod logs [svc]      Show production logs"
+    echo "  prod health          Check production health"
+    echo "  prod restart         Restart production services"
     echo ""
     echo -e "${YELLOW}Test Commands:${NC}"
     echo "  test                 Run all tests (backend + frontend + coverage)"
@@ -76,10 +115,10 @@ show_help() {
     echo "  test-e2e             Run Playwright E2E tests"
     echo ""
     echo -e "${YELLOW}Admin Commands:${NC}"
-    echo "  admin create <email> Create admin user (local or remote)"
-    echo "  admin list           List all admins (local or remote)"
-    echo "  admin revoke <email> Revoke admin privileges (local or remote)"
-    echo "  remote admin ...     Execute admin command on remote server"
+    echo "  admin create <email> Create admin user (production)"
+    echo "  admin list           List all admins (production)"
+    echo "  admin revoke <email> Revoke admin privileges (production)"
+    echo "  remote admin ...     Execute admin command on production"
     echo "  local admin ...      Execute admin command on local database"
     echo ""
     echo -e "${YELLOW}Utility Commands:${NC}"
@@ -87,25 +126,19 @@ show_help() {
     echo "  db-query <query>     Execute SQL on production database"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
-    echo "  $0 local:start                               # Start local development server"
-    echo "  $0 local admin list                          # List all local admin users"
-    echo "  $0 local admin create user@example.com       # Promote local user to admin"
-    echo "  $0 local admin revoke user@example.com       # Remove admin privileges locally"
-    echo ""
-    echo "  $0 admin list                                # List all remote admin users"
-    echo "  $0 admin create user@example.com             # Promote remote user to admin"
-    echo "  $0 deploy                                    # Deploy with default message"
-    echo "  $0 deploy \"fix: resolve login bug\"          # Deploy with custom message"
-    echo "  $0 test                                      # Run all tests and show summary"
-    echo "  $0 health                                    # Check API health"
-    echo "  $0 db-query \"SELECT * FROM users LIMIT 5;\"  # Query production DB"
+    echo "  $0 deploy \"feat: add dark mode\"       # Deploy to staging"
+    echo "  $0 promote                             # Promote main to production"
+    echo "  $0 promote abc123                      # Promote specific commit"
+    echo "  $0 staging health                      # Check staging health"
+    echo "  $0 prod health                         # Check production health"
+    echo "  $0 staging logs api                    # View staging API logs"
 }
 
-# Deploy to production (commit, push, wait for webhook, verify)
-deploy_to_production() {
+# Deploy to staging (commit, push, GitHub Actions handles staging deploy)
+deploy_to_staging() {
     local commit_message="${1:-Deploy: automated deployment}"
 
-    print_header "Deploying to Production"
+    print_header "Deploying to Staging"
 
     # Check for uncommitted changes
     if [ -n "$(git status --porcelain)" ]; then
@@ -124,137 +157,139 @@ Co-Authored-By: Claude <noreply@anthropic.com>" || {
     fi
 
     # Push to remote
-    print_status "Pushing to GitHub..."
+    print_status "Pushing to GitHub (triggers staging deploy)..."
     git push origin main || {
         print_error "Failed to push to GitHub"
         return 1
     }
 
-    print_success "Code pushed to GitHub"
+    print_success "Code pushed to GitHub — staging deployment triggered"
+    print_status "Monitor: https://github.com/anchoo2kewl/SprintSpark/actions"
+    echo ""
 
-    # Test SSH connection
-    print_status "Testing SSH connection to production..."
-    if ! ssh -o ConnectTimeout=10 "$REMOTE_SERVER" "echo 'SSH connection successful'" >/dev/null 2>&1; then
-        print_error "Cannot connect to $REMOTE_SERVER"
-        return 1
-    fi
+    # Wait and verify staging
+    print_status "Waiting for staging deployment (60 seconds)..."
+    sleep 60
 
-    # Wait for webhook to trigger (if configured)
-    print_status "Waiting for webhook to trigger (30 seconds)..."
-    sleep 30
-
-    # Check if containers are still running (webhook may have restarted them)
-    print_status "Checking if webhook rebuild is in progress..."
-    local containers_running=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps --services --filter 'status=running' 2>/dev/null | wc -l" 2>/dev/null || echo "0")
-
-    if [ "$containers_running" -lt 2 ]; then
-        print_warning "Containers not running. Webhook may be rebuilding or failed."
-        print_status "Manually triggering rebuild on production..."
-        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose down && docker-compose build --no-cache && docker-compose up -d" || {
-            print_error "Failed to rebuild containers on production"
-            return 1
-        }
-        print_success "Manual rebuild triggered successfully"
-        sleep 10
-    else
-        print_status "Containers are running, webhook may have completed"
-    fi
-
-    # Verify health
-    print_status "Verifying deployment..."
+    resolve_env staging
+    print_status "Verifying staging deployment..."
     local max_attempts=20
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -f -s "https://$REMOTE_DOMAIN/api/health" >/dev/null 2>&1; then
-            # Double-check containers are actually healthy
-            local healthy_count=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps --format '{{.Status}}' 2>/dev/null | grep -c '(healthy)'" 2>/dev/null || echo "0")
-
-            if [ "$healthy_count" -ge 2 ]; then
-                print_success "✅ Deployment successful! All services are healthy"
-                echo ""
-                echo -e "${CYAN}Production URLs:${NC}"
-                echo "  Web:    https://$REMOTE_DOMAIN"
-                echo "  Web:    https://$REMOTE_DOMAIN_SECONDARY"
-                echo "  API:    https://$REMOTE_DOMAIN/api/health"
-                echo "  Docs:   https://$REMOTE_DOMAIN/api/openapi"
-                echo ""
-                print_status "Deployment completed at $(date)"
-                return 0
-            fi
+        if curl -f -s "https://$STAGING_DOMAIN/api/health" >/dev/null 2>&1; then
+            print_success "Staging deployment successful!"
+            echo ""
+            echo -e "${CYAN}Staging URL:${NC} https://$STAGING_DOMAIN"
+            echo -e "${CYAN}API Health:${NC} https://$STAGING_DOMAIN/api/health"
+            echo ""
+            print_status "To promote to production: $0 promote"
+            return 0
         fi
 
-        print_status "Waiting for services to be ready (attempt $attempt/$max_attempts)..."
+        print_status "Waiting for staging to be ready (attempt $attempt/$max_attempts)..."
         sleep 5
         attempt=$((attempt + 1))
     done
 
-    print_error "❌ Deployment verification failed - API not responding after $max_attempts attempts"
-    print_status "Check logs with: $0 logs api"
-    print_status "Check container status: $0 status"
+    print_warning "Staging not responding yet — deployment may still be in progress"
+    print_status "Check status: $0 staging health"
+    print_status "Check actions: https://github.com/anchoo2kewl/SprintSpark/actions"
     return 1
 }
 
-# Restart production services
-restart_services() {
-    print_header "Restarting Production Services"
+# Promote to production (triggers GitHub Actions workflow)
+promote_to_production() {
+    local ref="${1:-main}"
 
-    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose restart"
+    print_header "Promoting to Production"
+    echo -e "${CYAN}Ref:${NC} $ref"
+    echo ""
 
-    print_success "Services restarted"
+    # Check if gh CLI is available
+    if ! command -v gh &> /dev/null; then
+        print_error "GitHub CLI (gh) is not installed"
+        print_status "Install: brew install gh"
+        return 1
+    fi
+
+    # Trigger the production deployment workflow
+    print_status "Triggering production deployment..."
+    gh workflow run deploy-production.yml \
+        -f ref="$ref" \
+        -f confirm="deploy" || {
+        print_error "Failed to trigger production deployment"
+        return 1
+    }
+
+    print_success "Production deployment triggered!"
+    echo ""
+    echo -e "${CYAN}Monitor:${NC} https://github.com/anchoo2kewl/SprintSpark/actions"
+    echo ""
+    print_status "After deployment completes, verify: $0 prod health"
+}
+
+# Environment-specific operations
+env_restart() {
+    local env="$1"
+    resolve_env "$env"
+    print_header "Restarting $ENV_LABEL Services"
+
+    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose restart"
+
+    print_success "$ENV_LABEL services restarted"
     sleep 3
-    show_status
+    env_status "$env"
 }
 
-# Stop production services
-stop_services() {
-    print_header "Stopping Production Services"
+env_stop() {
+    local env="$1"
+    resolve_env "$env"
+    print_header "Stopping $ENV_LABEL Services"
 
-    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose stop"
+    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose stop"
 
-    print_success "Services stopped"
+    print_success "$ENV_LABEL services stopped"
 }
 
-# Start production services
-start_services() {
-    print_header "Starting Production Services"
+env_start() {
+    local env="$1"
+    resolve_env "$env"
+    print_header "Starting $ENV_LABEL Services"
 
-    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose up -d"
+    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose up -d"
 
-    print_success "Services started"
+    print_success "$ENV_LABEL services started"
     sleep 3
-    show_status
+    env_status "$env"
 }
 
-# Show service status
-show_status() {
-    print_header "Production Service Status"
+env_status() {
+    local env="$1"
+    resolve_env "$env"
+    print_header "$ENV_LABEL Service Status"
 
-    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose ps"
+    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose ps"
 }
 
-# Show logs
-show_logs() {
-    local service="${1:-api}"
+env_logs() {
+    local env="$1"
+    local service="${2:-}"
+    resolve_env "$env"
 
-    print_header "Production Logs: $service"
+    print_header "$ENV_LABEL Logs${service:+: $service}"
 
-    case "$service" in
-        api)
-            ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose logs --tail=50 api"
-            ;;
-        web)
-            ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose logs --tail=50 web"
-            ;;
-        *)
-            ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose logs --tail=50"
-            ;;
-    esac
+    if [ -z "$service" ]; then
+        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose logs --tail=50"
+    else
+        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose logs --tail=50 $service"
+    fi
 }
 
-# Check health
-check_health() {
-    print_header "Health Check"
+env_health() {
+    local env="$1"
+    resolve_env "$env"
+    print_header "$ENV_LABEL Health Check"
 
     # Check API
     print_status "Checking API health..."
@@ -274,7 +309,7 @@ check_health() {
 
     # Check database via SSH
     print_status "Checking database..."
-    if ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T api sh -c 'wget -q -O- http://localhost:8080/api/health'" | grep -q "ok"; then
+    if ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose exec -T api sh -c 'wget -q -O- http://localhost:8080/api/health'" 2>/dev/null | grep -q "ok"; then
         echo -e "${GREEN}✓ Database${NC} - Accessible from API"
     else
         echo -e "${YELLOW}⚠ Database${NC} - Unable to verify"
@@ -422,6 +457,7 @@ execute_db_query() {
         return 1
     fi
 
+    resolve_env production
     print_header "Production Database Query"
     echo -e "${CYAN}Server:${NC} $REMOTE_SERVER"
     echo -e "${CYAN}Query:${NC} $query"
@@ -434,7 +470,7 @@ execute_db_query() {
     fi
 
     # Execute query via docker exec as root (to install sqlite3 if needed)
-    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
+    ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose exec -T -u root api sh -c '
         if ! command -v sqlite3 >/dev/null 2>&1; then
             apk add --no-cache sqlite >/dev/null 2>&1
         fi
@@ -452,13 +488,15 @@ admin_create() {
         return 1
     fi
 
+    # Admin commands always target production
+    resolve_env production
     print_header "Creating Admin User"
     echo -e "${CYAN}Email:${NC} $email"
     echo -e "${CYAN}Environment:${NC} $env"
     echo ""
 
     if [ "$env" = "remote" ]; then
-        local result=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
+        local result=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose exec -T -u root api sh -c '
             if ! command -v sqlite3 >/dev/null 2>&1; then
                 apk add --no-cache sqlite >/dev/null 2>&1
             fi
@@ -504,6 +542,9 @@ admin_create() {
 admin_list() {
     local env="${1:-remote}"
 
+    if [ "$env" = "remote" ]; then
+        resolve_env production
+    fi
     print_header "Admin Users"
     echo -e "${CYAN}Environment:${NC} $env"
     echo ""
@@ -511,7 +552,7 @@ admin_list() {
     local query="SELECT id, email, created_at FROM users WHERE is_admin = 1 ORDER BY created_at DESC;"
 
     if [ "$env" = "remote" ]; then
-        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
+        ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose exec -T -u root api sh -c '
             if ! command -v sqlite3 >/dev/null 2>&1; then
                 apk add --no-cache sqlite >/dev/null 2>&1
             fi
@@ -595,10 +636,6 @@ users_reset_password() {
     print_status "New password: $new_password"
     echo ""
 
-    # Use the API to reset password by signing up again (will fail) or direct DB update
-    # Since we can't easily generate bcrypt hash in bash, let's use the API signup endpoint
-    # But that would create a new user. Instead, let's delete and recreate.
-
     # First, check if user exists
     local user_exists=$(docker-compose exec -T -u root api sh -c "
         sqlite3 /data/sprintspark.db \"SELECT id FROM users WHERE email = '$email';\"
@@ -663,13 +700,16 @@ admin_revoke() {
         return 1
     fi
 
+    if [ "$env" = "remote" ]; then
+        resolve_env production
+    fi
     print_header "Revoking Admin Privileges"
     echo -e "${CYAN}Email:${NC} $email"
     echo -e "${CYAN}Environment:${NC} $env"
     echo ""
 
     if [ "$env" = "remote" ]; then
-        local result=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker-compose exec -T -u root api sh -c '
+        local result=$(ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose exec -T -u root api sh -c '
             if ! command -v sqlite3 >/dev/null 2>&1; then
                 apk add --no-cache sqlite >/dev/null 2>&1
             fi
@@ -956,25 +996,83 @@ case ${1:-help} in
         ;;
     deploy)
         shift
-        deploy_to_production "$*"
+        deploy_to_staging "$*"
         ;;
+    promote)
+        promote_to_production "$2"
+        ;;
+    staging)
+        case "$2" in
+            status)
+                env_status staging
+                ;;
+            logs)
+                env_logs staging "$3"
+                ;;
+            health)
+                env_health staging
+                ;;
+            restart)
+                env_restart staging
+                ;;
+            stop)
+                env_stop staging
+                ;;
+            start)
+                env_start staging
+                ;;
+            *)
+                print_error "Unknown staging command: $2"
+                echo "Available: status, logs, health, restart, stop, start"
+                exit 1
+                ;;
+        esac
+        ;;
+    prod)
+        case "$2" in
+            status)
+                env_status production
+                ;;
+            logs)
+                env_logs production "$3"
+                ;;
+            health)
+                env_health production
+                ;;
+            restart)
+                env_restart production
+                ;;
+            stop)
+                env_stop production
+                ;;
+            start)
+                env_start production
+                ;;
+            *)
+                print_error "Unknown production command: $2"
+                echo "Available: status, logs, health, restart, stop, start"
+                exit 1
+                ;;
+        esac
+        ;;
+    # Legacy shortcuts (default to staging for safety)
     restart)
-        restart_services
+        env_restart staging
         ;;
     stop)
-        stop_services
+        env_stop staging
         ;;
     start)
-        start_services
+        env_start staging
         ;;
     status)
-        show_status
+        env_status staging
         ;;
     logs)
-        show_logs "$2"
+        env_logs staging "$2"
         ;;
     health)
-        check_health
+        env_health staging
         ;;
     test)
         run_all_tests

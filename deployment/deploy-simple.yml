@@ -1,11 +1,30 @@
 ---
-# Simplified deployment playbook - assumes DNS is already configured
-# Usage: ansible-playbook -i inventory.yml deploy-simple.yml
+# Deployment playbook - assumes DNS is already configured
+# Usage:
+#   ansible-playbook -i inventory.yml deploy-simple.yml -e target_env=staging
+#   ansible-playbook -i inventory.yml deploy-simple.yml -e target_env=production
 
-- name: Deploy SprintSpark Application (Simple)
+- name: Deploy SprintSpark Application
   hosts: production
   become: yes
   gather_facts: yes
+
+  vars:
+    target_env: "{{ target_env | default('production') }}"
+
+  pre_tasks:
+    - name: Resolve environment-specific variables
+      set_fact:
+        app_name: "{{ (target_env == 'staging') | ternary(staging_app_name, production_app_name) }}"
+        app_dir: "{{ (target_env == 'staging') | ternary(staging_app_dir, production_app_dir) }}"
+        domain: "{{ (target_env == 'staging') | ternary(staging_domain, production_domain) }}"
+        api_host_port: "{{ (target_env == 'staging') | ternary(staging_api_port, production_api_port) }}"
+        web_host_port: "{{ (target_env == 'staging') | ternary(staging_web_port, production_web_port) }}"
+        env_name: "{{ target_env }}"
+
+    - name: Display deployment target
+      debug:
+        msg: "Deploying to {{ env_name }} — {{ domain }} (API:{{ api_host_port }}, Web:{{ web_host_port }})"
 
   tasks:
     - name: Update apt cache

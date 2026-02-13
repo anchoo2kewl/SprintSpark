@@ -1,62 +1,34 @@
 ---
-# Setup SSL certificates with Let's Encrypt
+# Setup SSL certificate with Let's Encrypt for the target environment domain
 
 - name: Wait for DNS propagation
   pause:
     seconds: 30
     prompt: "Waiting for DNS propagation..."
 
-- name: Obtain SSL certificate for primary domain
+- name: Obtain SSL certificate for {{ domain }}
   command: >
-    certbot --nginx -d {{ primary_domain }}
+    certbot --nginx -d {{ domain }}
     --non-interactive --agree-tos
     --email anshuman@biswas.me
     --redirect
   args:
-    creates: "/etc/letsencrypt/live/{{ primary_domain }}/fullchain.pem"
-  register: certbot_primary
+    creates: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+  register: certbot_result
 
-- name: Obtain SSL certificate for secondary domain
-  command: >
-    certbot --nginx -d {{ secondary_domain }}
-    --non-interactive --agree-tos
-    --email anshuman@biswas.me
-    --redirect
-  args:
-    creates: "/etc/letsencrypt/live/{{ secondary_domain }}/fullchain.pem"
-  register: certbot_secondary
-
-- name: Check if primary SSL cert exists
+- name: Check if SSL cert exists for {{ domain }}
   stat:
-    path: "/etc/letsencrypt/live/{{ primary_domain }}/fullchain.pem"
-  register: primary_ssl_cert
+    path: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+  register: ssl_cert
 
-- name: Check if secondary SSL cert exists
-  stat:
-    path: "/etc/letsencrypt/live/{{ secondary_domain }}/fullchain.pem"
-  register: secondary_ssl_cert
-
-- name: Create Nginx configuration for primary domain (with SSL)
+- name: Create Nginx SSL configuration for {{ domain }}
   template:
     src: ../templates/nginx-ssl.conf.j2
-    dest: "/etc/nginx/sites-available/{{ primary_domain }}"
+    dest: "/etc/nginx/sites-available/{{ domain }}"
     owner: root
     group: root
     mode: '0644'
-  vars:
-    domain: "{{ primary_domain }}"
-  when: primary_ssl_cert.stat.exists
-
-- name: Create Nginx configuration for secondary domain (with SSL)
-  template:
-    src: ../templates/nginx-ssl.conf.j2
-    dest: "/etc/nginx/sites-available/{{ secondary_domain }}"
-    owner: root
-    group: root
-    mode: '0644'
-  vars:
-    domain: "{{ secondary_domain }}"
-  when: secondary_ssl_cert.stat.exists
+  when: ssl_cert.stat.exists
 
 - name: Test Nginx configuration
   command: nginx -t

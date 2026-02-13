@@ -1,4 +1,4 @@
-# Production Docker Compose for SprintSpark
+# Docker Compose for SprintSpark ({{ env_name }})
 # Architecture: linux/amd64
 
 services:
@@ -14,13 +14,13 @@ services:
       DB_PATH: /data/sprintspark.db
       JWT_SECRET: {{ jwt_secret }}
       PORT: 8080
-      ENV: production
-      CORS_ALLOWED_ORIGINS: https://{{ primary_domain }},https://{{ secondary_domain }}
+      ENV: {{ env_name }}
+      CORS_ALLOWED_ORIGINS: https://{{ domain }}
       LOG_LEVEL: {{ log_level }}
     ports:
-      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:{{ api_host_port }}:8080"
     volumes:
-      - sprintspark-data:/data
+      - {{ app_name }}-data:/data
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
       interval: 30s
@@ -40,7 +40,7 @@ services:
     platform: linux/amd64
     container_name: {{ app_name }}-web
     ports:
-      - "127.0.0.1:8085:80"
+      - "127.0.0.1:{{ web_host_port }}:80"
     depends_on:
       api:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
       - {{ app_name }}-network
 
 volumes:
-  sprintspark-data:
+  {{ app_name }}-data:
     driver: local
 
 networks:
