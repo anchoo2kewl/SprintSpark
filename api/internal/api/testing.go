@@ -13,6 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap/zaptest"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"sprintspark/internal/auth"
 	"sprintspark/internal/config"
 	"sprintspark/internal/db"
@@ -27,6 +29,9 @@ type TestServer struct {
 // NewTestServer creates a new test server with in-memory SQLite database
 func NewTestServer(t *testing.T) *TestServer {
 	t.Helper()
+
+	// Use fast bcrypt for tests (MinCost=4 vs production Cost=12)
+	auth.SetBcryptCost(bcrypt.MinCost)
 
 	// Create test logger
 	logger := zaptest.NewLogger(t)

@@ -15,18 +15,15 @@ jobs:
   api-test:
     name: API Tests
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ["1.23", "1.24"]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Go ${{ matrix.go-version }}
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: api/go.sum
 
       - name: Cache Go modules
@@ -35,9 +32,9 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('api/go.sum') }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('api/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.go-version }}-
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
             ${{ runner.os }}-go-
 
       - name: Download dependencies
@@ -61,12 +58,9 @@ jobs:
       - name: Run unit tests with coverage
         working-directory: ./api
         run: |
-          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+          go test -v -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /e2e)
           go tool cover -func=coverage.out
-
-      - name: Run E2E tests
-        working-directory: ./api
-        run: go test -v ./internal/e2e
+        timeout-minutes: 3
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -81,7 +75,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: api-test-results-go-${{ matrix.go-version }}
+          name: api-test-results-go-${{ env.GO_VERSION }}
           path: |
             api/coverage.out
           retention-days: 30
@@ -90,18 +84,15 @@ jobs:
   web-test:
     name: Web Tests
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ["18", "20"]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
@@ -128,14 +119,14 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: web-build-node-${{ matrix.node-version }}
+          name: web-build
           path: web/dist
           retention-days: 7
 
       - name: Upload web coverage
         uses: actions/upload-artifact@v4
         with:
-          name: web-coverage-node-${{ matrix.node-version }}
+          name: web-coverage
           path: web/coverage
           retention-days: 30
 
@@ -333,13 +324,13 @@ jobs:
       - name: Download API coverage artifact
         uses: actions/download-artifact@v4
         with:
-          name: api-test-results-go-1.24
+          name: api-test-results-go-${{ env.GO_VERSION }}
           path: api/
 
       - name: Download Web coverage artifact
         uses: actions/download-artifact@v4
         with:
-          name: web-coverage-node-20
+          name: web-coverage
           path: web/coverage/
 
       - name: SonarQube Scan

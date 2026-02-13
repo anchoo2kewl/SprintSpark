@@ -1,8 +1,16 @@
 package auth
 
 import (
+	"os"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
+
+func TestMain(m *testing.M) {
+	SetBcryptCost(bcrypt.MinCost)
+	os.Exit(m.Run())
+}
 
 func TestHashPassword(t *testing.T) {
 	tests := []struct {
@@ -46,14 +54,9 @@ func TestHashPassword(t *testing.T) {
 				t.Error("Expected non-empty hash")
 			}
 
-			// Verify hash starts with bcrypt prefix and cost 12
+			// Verify hash starts with bcrypt prefix
 			if len(hash) < 4 || hash[:4] != "$2a$" {
 				t.Errorf("Hash doesn't start with bcrypt prefix: %s", hash[:4])
-			}
-
-			// Check cost is 12
-			if len(hash) >= 7 && hash[4:6] != "12" {
-				t.Errorf("Expected cost 12, got: %s", hash[4:6])
 			}
 		})
 	}

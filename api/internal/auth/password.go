@@ -6,10 +6,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
+var (
 	// BcryptCost is the cost factor for bcrypt hashing (12 = ~250ms per hash)
+	// Tests can lower this via SetBcryptCost for speed.
 	BcryptCost = 12
 )
+
+// SetBcryptCost overrides the bcrypt cost (use bcrypt.MinCost in tests for speed)
+func SetBcryptCost(cost int) {
+	BcryptCost = cost
+}
 
 // HashPassword generates a bcrypt hash of the password
 func HashPassword(password string) (string, error) {

@@ -162,7 +162,7 @@ func TestTokenExpiry(t *testing.T) {
 	userID := int64(1)
 	email := "user@example.com"
 
-	// Create token that expires in 1 second
+	// Create token that expires in 1 second (JWT uses second precision)
 	token, err := GenerateToken(userID, email, secret, 1*time.Second)
 	if err != nil {
 		t.Fatalf("Failed to generate token: %v", err)
@@ -178,8 +178,8 @@ func TestTokenExpiry(t *testing.T) {
 		t.Errorf("UserID mismatch: got %d, want %d", claims.UserID, userID)
 	}
 
-	// Wait for token to expire
-	time.Sleep(2 * time.Second)
+	// Wait for token to expire (JWT uses second precision, so 1.5s is sufficient)
+	time.Sleep(1500 * time.Millisecond)
 
 	// Should be expired now
 	_, err = ValidateToken(token, secret)
