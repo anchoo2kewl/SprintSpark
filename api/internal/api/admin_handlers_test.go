@@ -338,3 +338,164 @@ func TestActivityLogging(t *testing.T) {
 		}
 	})
 }
+
+func TestHandleGetUserActivity_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/admin/users/1/activity", nil, nil)
+	req.SetPathValue("id", "1")
+	ts.HandleGetUserActivity(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "user not authenticated", "unauthorized")
+}
+
+func TestHandleGetUserActivity_NonAdmin(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodGet, "/api/admin/users/1/activity", nil, userID, nil)
+	req.SetPathValue("id", "1")
+	ts.HandleGetUserActivity(rec, req)
+
+	AssertError(t, rec, http.StatusForbidden, "admin access required", "forbidden")
+}
+
+func TestHandleGetUserActivity_InvalidUserID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	adminID := ts.CreateTestUser(t, "admin@example.com", "password123")
+	makeAdmin(t, ts, adminID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodGet, "/api/admin/users/abc/activity", nil, adminID, nil)
+	req.SetPathValue("id", "abc")
+	ts.HandleGetUserActivity(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid user id", "validation_error")
+}
+
+func TestHandleGetUserActivity_EmptyUserID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	adminID := ts.CreateTestUser(t, "admin@example.com", "password123")
+	makeAdmin(t, ts, adminID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodGet, "/api/admin/users//activity", nil, adminID, nil)
+	req.SetPathValue("id", "")
+	ts.HandleGetUserActivity(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "user id required", "validation_error")
+}
+
+func TestHandleUpdateUserAdmin_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodPatch, "/api/admin/users/1/admin", map[string]bool{"is_admin": true}, nil)
+	req.SetPathValue("id", "1")
+	ts.HandleUpdateUserAdmin(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "user not authenticated", "unauthorized")
+}
+
+func TestHandleUpdateUserAdmin_NonAdmin(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/admin/users/1/admin", map[string]bool{"is_admin": true}, userID, nil)
+	req.SetPathValue("id", "1")
+	ts.HandleUpdateUserAdmin(rec, req)
+
+	AssertError(t, rec, http.StatusForbidden, "admin access required", "forbidden")
+}
+
+func TestHandleUpdateUserAdmin_InvalidUserID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	adminID := ts.CreateTestUser(t, "admin@example.com", "password123")
+	makeAdmin(t, ts, adminID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/admin/users/abc/admin", map[string]bool{"is_admin": true}, adminID, nil)
+	req.SetPathValue("id", "abc")
+	ts.HandleUpdateUserAdmin(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid user id", "validation_error")
+}
+
+func TestHandleUpdateUserAdmin_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	adminID := ts.CreateTestUser(t, "admin@example.com", "password123")
+	makeAdmin(t, ts, adminID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/admin/users/1/admin", "not-json", adminID, nil)
+	req.SetPathValue("id", "1")
+	ts.HandleUpdateUserAdmin(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_request")
+}
+
+func TestHandleUpdateUserAdmin_UserNotFound(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	adminID := ts.CreateTestUser(t, "admin@example.com", "password123")
+	makeAdmin(t, ts, adminID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/admin/users/99999/admin", map[string]bool{"is_admin": true}, adminID, nil)
+	req.SetPathValue("id", "99999")
+	ts.HandleUpdateUserAdmin(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "user not found", "not_found")
+}
+
+func TestHandleGetUsers_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/admin/users", nil, nil)
+	ts.HandleGetUsers(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "user not authenticated", "unauthorized")
+}
+
+func TestGetClientIP(t *testing.T) {
+	tests := []struct {
+		name   string
+		xff    string
+		xri    string
+		remote string
+		want   string
+	}{
+		{"X-Forwarded-For single", "1.2.3.4", "", "5.6.7.8:1234", "1.2.3.4"},
+		{"X-Forwarded-For multiple", "1.2.3.4, 10.0.0.1", "", "5.6.7.8:1234", "1.2.3.4"},
+		{"X-Real-IP", "", "9.8.7.6", "5.6.7.8:1234", "9.8.7.6"},
+		{"RemoteAddr fallback", "", "", "5.6.7.8:1234", "5.6.7.8:1234"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest(http.MethodGet, "/", nil)
+			if tt.xff != "" {
+				req.Header.Set("X-Forwarded-For", tt.xff)
+			}
+			if tt.xri != "" {
+				req.Header.Set("X-Real-IP", tt.xri)
+			}
+			req.RemoteAddr = tt.remote
+
+			got := getClientIP(req)
+			if got != tt.want {
+				t.Errorf("getClientIP() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

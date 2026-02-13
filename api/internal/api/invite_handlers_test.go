@@ -251,6 +251,147 @@ func makeAdmin(t *testing.T, ts *TestServer, userID int64) {
 	}
 }
 
+func TestHandleListInvites_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/invites", nil, nil)
+	ts.HandleListInvites(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "user not authenticated", "unauthorized")
+}
+
+func TestHandleCreateInvite_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodPost, "/api/invites", nil, nil)
+	ts.HandleCreateInvite(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "user not authenticated", "unauthorized")
+}
+
+func TestHandleCreateInvite_AdminUnlimited(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	adminID := ts.CreateTestUser(t, "admin@example.com", "password123")
+	makeAdmin(t, ts, adminID)
+
+	// Set invite_count to 0 — admin should still be able to create
+	ctx := context.Background()
+	_, err := ts.DB.ExecContext(ctx, `UPDATE users SET invite_count = 0 WHERE id = ?`, adminID)
+	if err != nil {
+		t.Fatalf("Failed to update invite count: %v", err)
+	}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/invites", nil, adminID, nil)
+	ts.HandleCreateInvite(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusCreated)
+
+	var resp map[string]interface{}
+	DecodeJSON(t, rec, &resp)
+	if resp["code"] == nil || resp["code"].(string) == "" {
+		t.Error("Expected non-empty invite code from admin")
+	}
+}
+
+func TestHandleValidateInvite_Expired(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+	code := ts.CreateTestInvite(t, inviterID)
+
+	// Set expiry to the past
+	ctx := context.Background()
+	pastTime := time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
+	_, err := ts.DB.ExecContext(ctx, `UPDATE invites SET expires_at = ? WHERE code = ?`, pastTime, code)
+	if err != nil {
+		t.Fatalf("Failed to set expiry: %v", err)
+	}
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/invites/validate?code="+code, nil, nil)
+	ts.HandleValidateInvite(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var status InviteStatus
+	DecodeJSON(t, rec, &status)
+	if status.Valid {
+		t.Error("Expected expired invite to be invalid")
+	}
+	if status.Message != "this invite has expired" {
+		t.Errorf("Expected 'this invite has expired', got %q", status.Message)
+	}
+}
+
+func TestHandleValidateInvite_ValidWithInviterName(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+
+	// Set name for inviter
+	ctx := context.Background()
+	_, err := ts.DB.ExecContext(ctx, `UPDATE users SET name = 'John Doe' WHERE id = ?`, inviterID)
+	if err != nil {
+		t.Fatalf("Failed to update user name: %v", err)
+	}
+
+	code := ts.CreateTestInvite(t, inviterID)
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/invites/validate?code="+code, nil, nil)
+	ts.HandleValidateInvite(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var status InviteStatus
+	DecodeJSON(t, rec, &status)
+	if !status.Valid {
+		t.Error("Expected valid invite")
+	}
+	if status.InviterName != "John Doe" {
+		t.Errorf("Expected inviter name 'John Doe', got %q", status.InviterName)
+	}
+}
+
+func TestHandleListInvites_WithUsedInvite(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	code := ts.CreateTestInvite(t, inviterID)
+
+	// Mark invite as used with an invitee
+	ctx := context.Background()
+	_, err := ts.DB.ExecContext(ctx,
+		`UPDATE invites SET used_at = CURRENT_TIMESTAMP, invitee_id = ? WHERE code = ?`,
+		inviteeID, code,
+	)
+	if err != nil {
+		t.Fatalf("Failed to mark invite: %v", err)
+	}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodGet, "/api/invites", nil, inviterID, nil)
+	ts.HandleListInvites(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var resp map[string]json.RawMessage
+	DecodeJSON(t, rec, &resp)
+
+	var invites []json.RawMessage
+	if err := json.Unmarshal(resp["invites"], &invites); err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+	if len(invites) != 1 {
+		t.Errorf("Expected 1 invite, got %d", len(invites))
+	}
+}
+
 func TestHandleAdminBoostInvites(t *testing.T) {
 	tests := []struct {
 		name          string

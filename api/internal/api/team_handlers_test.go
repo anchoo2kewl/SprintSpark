@@ -762,3 +762,172 @@ func TestHandleGetMyInvitationsEmptyResponse(t *testing.T) {
 		t.Errorf("Expected 0 invitations, got %d", len(invitations))
 	}
 }
+
+func TestHandleInviteTeamMember_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "owner@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations", "not-json", userID, nil)
+	ts.HandleInviteTeamMember(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_input")
+}
+
+func TestHandleInviteTeamMember_EmptyEmail(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "owner@example.com", "password123")
+
+	body := InviteTeamMemberRequest{Email: ""}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations", body, userID, nil)
+	ts.HandleInviteTeamMember(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "valid email is required", "invalid_input")
+}
+
+func TestHandleInviteTeamMember_InvalidEmail(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "owner@example.com", "password123")
+
+	body := InviteTeamMemberRequest{Email: "notanemail"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations", body, userID, nil)
+	ts.HandleInviteTeamMember(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "valid email is required", "invalid_input")
+}
+
+func TestHandleInviteTeamMember_NoTeam(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	// Create user without a team
+	userID := ts.CreateTestUser(t, "orphan@example.com", "password123")
+
+	body := InviteTeamMemberRequest{Email: "invitee@example.com"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations", body, userID, nil)
+	ts.HandleInviteTeamMember(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "no active team found", "not_found")
+}
+
+func TestHandleRemoveTeamMember_InvalidMemberID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "owner@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, "/api/teams/members/abc", nil, userID, map[string]string{"memberId": "abc"})
+	ts.HandleRemoveTeamMember(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid member ID", "invalid_input")
+}
+
+func TestHandleRemoveTeamMember_NoTeam(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "orphan@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, "/api/teams/members/1", nil, userID, map[string]string{"memberId": "1"})
+	ts.HandleRemoveTeamMember(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "no active team found", "not_found")
+}
+
+func TestHandleAcceptInvitation_InvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations/abc/accept", nil, userID, map[string]string{"id": "abc"})
+	ctx := context.WithValue(req.Context(), UserEmailKey, "user@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitation(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid invitation ID", "invalid_input")
+}
+
+func TestHandleRejectInvitation_InvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations/abc/reject", nil, userID, map[string]string{"id": "abc"})
+	ctx := context.WithValue(req.Context(), UserEmailKey, "user@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleRejectInvitation(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid invitation ID", "invalid_input")
+}
+
+func TestHandleRejectInvitation_NotFound(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations/99999/reject", nil, userID, map[string]string{"id": "99999"})
+	ctx := context.WithValue(req.Context(), UserEmailKey, "user@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleRejectInvitation(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "invitation not found", "not_found")
+}
+
+func TestHandleAcceptInvitation_NotFound(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations/99999/accept", nil, userID, map[string]string{"id": "99999"})
+	ctx := context.WithValue(req.Context(), UserEmailKey, "user@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitation(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "invitation not found", "not_found")
+}
+
+func TestHandleGetMyTeam_NoTeam(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "orphan@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodGet, "/api/teams/my", nil, userID, nil)
+	ts.HandleGetMyTeam(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "no active team found", "not_found")
+}
+
+func TestHandleGetTeamMembers_NoTeam(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "orphan@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodGet, "/api/teams/members", nil, userID, nil)
+	ts.HandleGetTeamMembers(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "no active team found", "not_found")
+}
+
+func TestHandleRemoveTeamMember_MemberNotFound(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	createTestTeam(t, ts, ownerID, "Test Team")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, "/api/teams/members/99999", nil, ownerID, map[string]string{"memberId": "99999"})
+	ts.HandleRemoveTeamMember(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "member not found", "not_found")
+}

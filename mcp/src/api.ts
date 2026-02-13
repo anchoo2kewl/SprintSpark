@@ -25,6 +25,17 @@ export interface Task {
   [key: string]: unknown;
 }
 
+export interface SwimLane {
+  id: number;
+  project_id: number;
+  name: string;
+  color: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
 export interface Comment {
   id: string;
   task_id: string;
@@ -95,9 +106,13 @@ export class TaskAIClient {
     return this.request(`/api/projects/${encodeURIComponent(projectId)}/tasks${suffix}`);
   }
 
+  async listSwimLanes(projectId: string): Promise<SwimLane[]> {
+    return this.request<SwimLane[]>(`/api/projects/${encodeURIComponent(projectId)}/swim-lanes`);
+  }
+
   async createTask(
     projectId: string,
-    data: { title: string; description?: string; status?: string; priority?: string; assigned_to?: string }
+    data: { title: string; description?: string; status?: string; priority?: string; assigned_to?: string; swim_lane_id?: number }
   ): Promise<Task> {
     return this.request<Task>(`/api/projects/${encodeURIComponent(projectId)}/tasks`, {
       method: "POST",
@@ -107,7 +122,7 @@ export class TaskAIClient {
 
   async updateTask(
     taskId: string,
-    data: { title?: string; description?: string; status?: string; priority?: string; assigned_to?: string }
+    data: { title?: string; description?: string; status?: string; priority?: string; assigned_to?: string; swim_lane_id?: number }
   ): Promise<Task> {
     return this.request<Task>(`/api/tasks/${encodeURIComponent(taskId)}`, {
       method: "PATCH",

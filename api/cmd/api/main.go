@@ -240,8 +240,19 @@ func main() {
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
 			r.Patch("/admin/users/{id}/admin", server.HandleUpdateUserAdmin)
 			r.Patch("/admin/users/{id}/invites", server.HandleAdminBoostInvites)
+
+			// Admin email provider routes
+			r.Get("/admin/settings/email", server.HandleGetEmailProvider)
+			r.Post("/admin/settings/email", server.HandleSaveEmailProvider)
+			r.Delete("/admin/settings/email", server.HandleDeleteEmailProvider)
+			r.Post("/admin/settings/email/test", server.HandleTestEmailProvider)
 		})
 	})
+
+	// Start background health checks
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+	server.StartBrevoHealthCheck(bgCtx)
 
 	// Create HTTP server
 	addr := fmt.Sprintf(":%s", cfg.Port)

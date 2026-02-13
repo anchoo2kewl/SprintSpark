@@ -114,7 +114,7 @@ func (s *Server) HandleListInvites(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleCreateInvite creates a new invite code
+// HandleCreateInvite creates a new invite code and optionally sends an email
 func (s *Server) HandleCreateInvite(w http.ResponseWriter, r *http.Request) {
 	userID, ok := GetUserID(r)
 	if !ok {
@@ -125,10 +125,18 @@ func (s *Server) HandleCreateInvite(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
+	// Parse optional email from request body
+	var req struct {
+		Email string `json:"email"`
+	}
+	// Body may be empty (backwards compatible)
+	_ = decodeJSON(r, &req)
+
 	// Check invite count (admins have unlimited)
 	var inviteCount int
 	var isAdmin bool
-	err := s.db.QueryRowContext(ctx, `SELECT invite_count, is_admin FROM users WHERE id = ?`, userID).Scan(&inviteCount, &isAdmin)
+	var inviterName string
+	err := s.db.QueryRowContext(ctx, `SELECT invite_count, is_admin, COALESCE(name, email) FROM users WHERE id = ?`, userID).Scan(&inviteCount, &isAdmin, &inviterName)
 	if err != nil {
 		s.logger.Error("Failed to get invite count", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to create invite", "internal_error")
@@ -191,9 +199,26 @@ func (s *Server) HandleCreateInvite(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Info("Invite created", zap.Int64("user_id", userID), zap.String("code", code[:8]+"..."))
 
+	// Send email if requested and email service is available
+	emailSent := false
+	if req.Email != "" {
+		if emailSvc := s.GetEmailService(); emailSvc != nil {
+			appURL := s.getAppURL()
+			if err := emailSvc.SendUserInvite(ctx, req.Email, inviterName, code, appURL); err != nil {
+				s.logger.Warn("Failed to send invite email",
+					zap.String("to", req.Email),
+					zap.Error(err),
+				)
+			} else {
+				emailSent = true
+			}
+		}
+	}
+
 	respondJSON(w, http.StatusCreated, map[string]interface{}{
 		"code":       code,
 		"expires_at": expiresAt.Format(time.RFC3339),
+		"email_sent": emailSent,
 	})
 }
 

@@ -77,6 +77,7 @@ export default function Settings() {
   const [inviteError, setInviteError] = useState('')
   const [inviteSuccess, setInviteSuccess] = useState('')
   const [newInviteCode, setNewInviteCode] = useState('')
+  const [inviteRecipientEmail, setInviteRecipientEmail] = useState('')
 
   useEffect(() => {
     load2FAStatus()
@@ -345,9 +346,15 @@ export default function Settings() {
     setIsCreatingInvite(true)
 
     try {
-      const result = await apiClient.createInvite()
+      const email = inviteRecipientEmail.trim() || undefined
+      const result = await apiClient.createInvite(email)
       setNewInviteCode(result.code)
-      setInviteSuccess('Invite created! Share the link below.')
+      if (result.email_sent && email) {
+        setInviteSuccess(`Invite created and email sent to ${email}!`)
+      } else {
+        setInviteSuccess('Invite created! Share the link below.')
+      }
+      setInviteRecipientEmail('')
       await loadInvites()
     } catch (error: unknown) {
       setInviteError(error instanceof Error ? error.message : 'Failed to create invite')
@@ -1405,23 +1412,34 @@ print(response.json())`}
                 {inviteError && <FormError message={inviteError} className="mb-4" />}
 
                 {/* Invite count status */}
-                <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${(isUserAdmin || myInviteCount > 0) ? 'bg-success-500' : 'bg-dark-text-tertiary'}`}></div>
-                    <div>
-                      <p className="font-medium text-dark-text-primary">Invites Available</p>
-                      <p className="text-sm text-dark-text-secondary">
-                        {isUserAdmin ? 'Unlimited (admin)' : `${myInviteCount} remaining`}
-                      </p>
+                <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${(isUserAdmin || myInviteCount > 0) ? 'bg-success-500' : 'bg-dark-text-tertiary'}`}></div>
+                      <div>
+                        <p className="font-medium text-dark-text-primary">Invites Available</p>
+                        <p className="text-sm text-dark-text-secondary">
+                          {isUserAdmin ? 'Unlimited (admin)' : `${myInviteCount} remaining`}
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      onClick={handleCreateInviteCode}
+                      disabled={isCreatingInvite || (!isUserAdmin && myInviteCount <= 0)}
+                      size="sm"
+                    >
+                      {isCreatingInvite ? 'Creating...' : 'Create Invite'}
+                    </Button>
                   </div>
-                  <Button
-                    onClick={handleCreateInviteCode}
-                    disabled={isCreatingInvite || (!isUserAdmin && myInviteCount <= 0)}
-                    size="sm"
-                  >
-                    {isCreatingInvite ? 'Creating...' : 'Create Invite'}
-                  </Button>
+                  <div>
+                    <input
+                      type="email"
+                      value={inviteRecipientEmail}
+                      onChange={(e) => setInviteRecipientEmail(e.target.value)}
+                      placeholder="Recipient email (optional — sends invite automatically)"
+                      className="w-full px-3 py-2 text-sm bg-dark-bg-secondary border border-dark-border-subtle rounded-lg text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
                 </div>
 
                 {/* Newly created invite link */}

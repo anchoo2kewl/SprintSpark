@@ -97,6 +97,7 @@ export interface UserWithStats {
   last_login_at?: string | null
   last_login_ip?: string | null
   failed_attempts: number
+  invite_count: number
 }
 
 export interface UserActivity {
@@ -213,6 +214,20 @@ export interface UpdateSwimLaneRequest {
 type SignupResponse = operations['signup']['responses']['201']['content']['application/json']
 type LoginResponse = operations['login']['responses']['200']['content']['application/json']
 type GetCurrentUserResponse = operations['getCurrentUser']['responses']['200']['content']['application/json']
+
+export interface EmailProviderResponse {
+  id: number
+  provider: string
+  api_key: string
+  sender_email: string
+  sender_name: string
+  status: 'unknown' | 'connected' | 'error' | 'suspended'
+  last_checked_at: string | null
+  last_error: string
+  consecutive_failures: number
+  created_at: string
+  updated_at: string
+}
 
 export interface CloudinaryCredentialResponse {
   id: number
@@ -712,8 +727,11 @@ class ApiClient {
     return this.request('/api/invites')
   }
 
-  async createInvite(): Promise<{ code: string; expires_at: string }> {
-    return this.request('/api/invites', { method: 'POST' })
+  async createInvite(email?: string): Promise<{ code: string; expires_at: string; email_sent: boolean }> {
+    return this.request('/api/invites', {
+      method: 'POST',
+      body: JSON.stringify(email ? { email } : {}),
+    })
   }
 
   async validateInvite(code: string): Promise<{ valid: boolean; inviter_name?: string; message?: string }> {
@@ -724,6 +742,32 @@ class ApiClient {
     return this.request(`/api/admin/users/${userId}/invites`, {
       method: 'PATCH',
       body: JSON.stringify({ invite_count: inviteCount }),
+    })
+  }
+
+  // Email provider endpoints (admin only)
+  async getEmailProvider(): Promise<EmailProviderResponse | null> {
+    const data = await this.request<EmailProviderResponse>('/api/admin/settings/email')
+    if (!data || !data.sender_email) return null
+    return data
+  }
+
+  async saveEmailProvider(data: { api_key: string; sender_email: string; sender_name: string }): Promise<EmailProviderResponse> {
+    return this.request<EmailProviderResponse>('/api/admin/settings/email', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteEmailProvider(): Promise<void> {
+    return this.request<void>('/api/admin/settings/email', {
+      method: 'DELETE',
+    })
+  }
+
+  async testEmailProvider(): Promise<EmailProviderResponse> {
+    return this.request<EmailProviderResponse>('/api/admin/settings/email/test', {
+      method: 'POST',
     })
   }
 

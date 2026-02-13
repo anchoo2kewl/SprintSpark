@@ -251,6 +251,45 @@ func (s *Server) HandleInviteTeamMember(w http.ResponseWriter, r *http.Request) 
 		zap.String("invitee_email", req.Email),
 	)
 
+	// Send email notification if email service is available
+	if emailSvc := s.GetEmailService(); emailSvc != nil {
+		// Get inviter name
+		var inviterName string
+		_ = s.db.QueryRowContext(ctx, `SELECT COALESCE(name, email) FROM users WHERE id = ?`, userID).Scan(&inviterName)
+
+		// Get team name
+		var teamName string
+		_ = s.db.QueryRowContext(ctx, `SELECT name FROM teams WHERE id = ?`, teamID).Scan(&teamName)
+
+		appURL := s.getAppURL()
+
+		if inviteeID != nil {
+			// Existing user — send project invitation
+			if err := emailSvc.SendProjectInvitation(ctx, req.Email, inviterName, teamName, appURL); err != nil {
+				s.logger.Warn("Failed to send team invitation email",
+					zap.String("to", req.Email),
+					zap.Error(err),
+				)
+			}
+		} else {
+			// New user — auto-generate invite code and send signup link
+			inviteCode, codeErr := generateTeamInviteCode()
+			if codeErr == nil {
+				// Create a platform invite for this user
+				_, _ = s.db.ExecContext(ctx,
+					`INSERT INTO invites (code, inviter_id, expires_at) VALUES (?, ?, datetime('now', '+7 days'))`,
+					inviteCode, userID,
+				)
+				if err := emailSvc.SendProjectInvitationNewUser(ctx, req.Email, inviterName, teamName, inviteCode, appURL); err != nil {
+					s.logger.Warn("Failed to send team invitation email to new user",
+						zap.String("to", req.Email),
+						zap.Error(err),
+					)
+				}
+			}
+		}
+	}
+
 	respondJSON(w, http.StatusCreated, invitation)
 }
 
@@ -576,6 +615,11 @@ func (s *Server) getInvitation(ctx context.Context, invitationID int64) (*TeamIn
 	}
 
 	return &inv, nil
+}
+
+// generateTeamInviteCode creates a random invite code (delegates to the shared generator)
+func generateTeamInviteCode() (string, error) {
+	return generateInviteCode()
 }
 
 func isValidEmail(email string) bool {

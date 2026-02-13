@@ -44,6 +44,17 @@ function createServer(client: TaskAIClient): McpServer {
     }
   );
 
+  // --- list_swim_lanes ---
+  server.tool(
+    "list_swim_lanes",
+    "List swim lanes (columns) for a project",
+    { project_id: z.string().describe("Project ID") },
+    async ({ project_id }) => {
+      const lanes = await client.listSwimLanes(project_id);
+      return { content: [{ type: "text", text: JSON.stringify(lanes, null, 2) }] };
+    }
+  );
+
   // --- list_tasks ---
   server.tool(
     "list_tasks",
@@ -72,9 +83,10 @@ function createServer(client: TaskAIClient): McpServer {
       status: z.string().optional().describe("Task status (default: todo)"),
       priority: z.string().optional().describe("Priority: low, medium, high, critical"),
       assigned_to: z.string().optional().describe("User ID to assign"),
+      swim_lane_id: z.number().optional().describe("Swim lane ID (use list_swim_lanes to get valid IDs)"),
     },
-    async ({ project_id, title, description, status, priority, assigned_to }) => {
-      const task = await client.createTask(project_id, { title, description, status, priority, assigned_to });
+    async ({ project_id, title, description, status, priority, assigned_to, swim_lane_id }) => {
+      const task = await client.createTask(project_id, { title, description, status, priority, assigned_to, swim_lane_id });
       return { content: [{ type: "text", text: JSON.stringify(task, null, 2) }] };
     }
   );
@@ -90,9 +102,10 @@ function createServer(client: TaskAIClient): McpServer {
       status: z.string().optional().describe("New status"),
       priority: z.string().optional().describe("New priority"),
       assigned_to: z.string().optional().describe("New assignee user ID"),
+      swim_lane_id: z.number().optional().describe("Swim lane ID (use list_swim_lanes to get valid IDs)"),
     },
-    async ({ task_id, title, description, status, priority, assigned_to }) => {
-      const task = await client.updateTask(task_id, { title, description, status, priority, assigned_to });
+    async ({ task_id, title, description, status, priority, assigned_to, swim_lane_id }) => {
+      const task = await client.updateTask(task_id, { title, description, status, priority, assigned_to, swim_lane_id });
       return { content: [{ type: "text", text: JSON.stringify(task, null, 2) }] };
     }
   );

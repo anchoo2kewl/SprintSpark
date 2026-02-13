@@ -3,10 +3,11 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // UserWithStats represents a user with admin and activity stats
@@ -19,6 +20,7 @@ type UserWithStats struct {
 	LastLoginAt    *string   `json:"last_login_at"`
 	LastLoginIP    *string   `json:"last_login_ip"`
 	FailedAttempts int       `json:"failed_attempts"`
+	InviteCount    int       `json:"invite_count"`
 }
 
 // UserActivity represents a user activity log entry
@@ -57,7 +59,8 @@ func (s *Server) HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			COALESCE(login_stats.login_count, 0) as login_count,
 			login_stats.last_login_at,
 			login_stats.last_login_ip,
-			COALESCE(failed_stats.failed_count, 0) as failed_attempts
+			COALESCE(failed_stats.failed_count, 0) as failed_attempts,
+			u.invite_count
 		FROM users u
 		LEFT JOIN (
 			SELECT user_id, COUNT(*) as login_count, MAX(created_at) as last_login_at,
@@ -77,7 +80,7 @@ func (s *Server) HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
-		log.Printf("Failed to query users: %v", err)
+		s.logger.Error("Failed to query users", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to get users", "internal_error")
 		return
 	}
@@ -95,9 +98,10 @@ func (s *Server) HandleGetUsers(w http.ResponseWriter, r *http.Request) {
 			&u.LastLoginAt,
 			&u.LastLoginIP,
 			&u.FailedAttempts,
+			&u.InviteCount,
 		)
 		if err != nil {
-			log.Printf("Failed to scan user row: %v", err)
+			s.logger.Error("Failed to scan user row", zap.Error(err))
 			continue
 		}
 		users = append(users, u)
@@ -146,7 +150,7 @@ func (s *Server) HandleGetUserActivity(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := s.db.QueryContext(ctx, query, targetUserID)
 	if err != nil {
-		log.Printf("Failed to query user activity: %v", err)
+		s.logger.Error("Failed to query user activity", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to get activity", "internal_error")
 		return
 	}
@@ -164,7 +168,7 @@ func (s *Server) HandleGetUserActivity(w http.ResponseWriter, r *http.Request) {
 			&a.CreatedAt,
 		)
 		if err != nil {
-			log.Printf("Failed to scan activity row: %v", err)
+			s.logger.Error("Failed to scan activity row", zap.Error(err))
 			continue
 		}
 		activities = append(activities, a)
@@ -214,14 +218,14 @@ func (s *Server) HandleUpdateUserAdmin(w http.ResponseWriter, r *http.Request) {
 	query := `UPDATE users SET is_admin = ? WHERE id = ?`
 	result, err := s.db.ExecContext(ctx, query, req.IsAdmin, targetUserID)
 	if err != nil {
-		log.Printf("Failed to update user admin status: %v", err)
+		s.logger.Error("Failed to update user admin status", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to update user", "internal_error")
 		return
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		log.Printf("Failed to get rows affected: %v", err)
+		s.logger.Error("Failed to get rows affected", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to update user", "internal_error")
 		return
 	}
@@ -243,7 +247,7 @@ func (s *Server) isAdmin(ctx context.Context, userID int64) bool {
 	query := `SELECT is_admin FROM users WHERE id = ?`
 	err := s.db.QueryRowContext(ctx, query, userID).Scan(&isAdmin)
 	if err != nil {
-		log.Printf("Failed to check admin status: %v", err)
+		s.logger.Error("Failed to check admin status", zap.Error(err))
 		return false
 	}
 	return isAdmin
@@ -264,7 +268,7 @@ func (s *Server) logUserActivity(ctx context.Context, userID int64, activityType
 
 	_, err := s.db.ExecContext(ctx, query, userID, activityType, ip, ua)
 	if err != nil {
-		log.Printf("Failed to log user activity: %v", err)
+		s.logger.Error("Failed to log user activity", zap.Error(err))
 	}
 	return err
 }
