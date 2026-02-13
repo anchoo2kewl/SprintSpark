@@ -38,6 +38,7 @@ export default function Settings() {
   const [createdKey, setCreatedKey] = useState<{ key: string; name: string } | null>(null)
   const [apiKeyError, setApiKeyError] = useState('')
   const [apiKeySuccess, setApiKeySuccess] = useState('')
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null)
   const [isCreatingKey, setIsCreatingKey] = useState(false)
   const [isDeletingKey, setIsDeletingKey] = useState<number | null>(null)
 
@@ -963,7 +964,7 @@ export default function Settings() {
           </Card>
 
           {/* API Keys Section */}
-          <Card className="shadow-md">
+          <Card className="shadow-md" id="api-keys">
             <div className="p-6 sm:p-8 flex items-start gap-4">
               <div className="flex-shrink-0 w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1108,6 +1109,267 @@ export default function Settings() {
                       <code className="block bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-border-subtle font-mono text-xs">
                         Authorization: ApiKey YOUR_API_KEY
                       </code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* API & Integrations Section */}
+          <Card className="shadow-md">
+            <div className="p-6 sm:p-8 flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-cyan-500/10 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-dark-text-primary mb-1">API & Integrations</h2>
+                <p className="text-sm text-dark-text-secondary mb-6">
+                  Connect to TaskAI via REST API or MCP (Model Context Protocol) for AI assistants
+                </p>
+
+                {copiedSnippet && (
+                  <div className="mb-4 p-3 bg-success-500/10 border-l-4 border-success-400 rounded-r-lg">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-success-300 text-sm font-medium">Copied to clipboard</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* OpenAPI Section */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-dark-text-primary mb-3">OpenAPI / REST</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-dark-bg-primary border border-dark-border-subtle rounded-lg">
+                      <div>
+                        <p className="text-xs font-medium text-dark-text-tertiary">OpenAPI Spec</p>
+                        <code className="text-sm text-dark-text-primary font-mono">{window.location.origin}/api/openapi</code>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => { copyToClipboard(`${window.location.origin}/api/openapi`); setCopiedSnippet('spec'); setTimeout(() => setCopiedSnippet(null), 2000) }}
+                          className="p-1.5 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded transition-colors"
+                          title="Copy URL"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                        <a
+                          href={`${window.location.origin}/api/openapi`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded transition-colors"
+                          title="Open in new tab"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-dark-bg-primary border border-dark-border-subtle rounded-lg">
+                      <div>
+                        <p className="text-xs font-medium text-dark-text-tertiary">API Docs</p>
+                        <code className="text-sm text-dark-text-primary font-mono">{window.location.origin}/api/docs</code>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => { copyToClipboard(`${window.location.origin}/api/docs`); setCopiedSnippet('docs'); setTimeout(() => setCopiedSnippet(null), 2000) }}
+                          className="p-1.5 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded transition-colors"
+                          title="Copy URL"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                        <a
+                          href={`${window.location.origin}/api/docs`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded transition-colors"
+                          title="Open in new tab"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* curl example */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-medium text-dark-text-tertiary">Example: curl</p>
+                      <button
+                        onClick={() => {
+                          copyToClipboard(`curl -H "Authorization: ApiKey YOUR_API_KEY" ${window.location.origin}/api/projects`)
+                          setCopiedSnippet('curl')
+                          setTimeout(() => setCopiedSnippet(null), 2000)
+                        }}
+                        className="text-xs text-dark-text-tertiary hover:text-dark-text-primary transition-colors"
+                      >
+                        {copiedSnippet === 'curl' ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <pre className="bg-dark-bg-primary border border-dark-border-subtle rounded-lg p-3 overflow-x-auto">
+                      <code className="text-xs font-mono text-dark-text-secondary">
+{`curl -H "Authorization: ApiKey YOUR_API_KEY" \\
+  ${window.location.origin}/api/projects`}
+                      </code>
+                    </pre>
+                  </div>
+
+                  {/* Python example */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-medium text-dark-text-tertiary">Example: Python</p>
+                      <button
+                        onClick={() => {
+                          copyToClipboard(`import requests\n\nheaders = {"Authorization": "ApiKey YOUR_API_KEY"}\nresponse = requests.get("${window.location.origin}/api/projects", headers=headers)\nprint(response.json())`)
+                          setCopiedSnippet('python')
+                          setTimeout(() => setCopiedSnippet(null), 2000)
+                        }}
+                        className="text-xs text-dark-text-tertiary hover:text-dark-text-primary transition-colors"
+                      >
+                        {copiedSnippet === 'python' ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <pre className="bg-dark-bg-primary border border-dark-border-subtle rounded-lg p-3 overflow-x-auto">
+                      <code className="text-xs font-mono text-dark-text-secondary">
+{`import requests
+
+headers = {"Authorization": "ApiKey YOUR_API_KEY"}
+response = requests.get(
+    "${window.location.origin}/api/projects",
+    headers=headers
+)
+print(response.json())`}
+                      </code>
+                    </pre>
+                  </div>
+                </div>
+
+                {/* MCP Section */}
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold text-dark-text-primary mb-3">MCP (Model Context Protocol)</h3>
+                  <p className="text-sm text-dark-text-secondary mb-3">
+                    Connect AI assistants like Claude to TaskAI using the MCP protocol.
+                  </p>
+
+                  <div className="flex items-center justify-between p-3 bg-dark-bg-primary border border-dark-border-subtle rounded-lg mb-3">
+                    <div>
+                      <p className="text-xs font-medium text-dark-text-tertiary">MCP Endpoint</p>
+                      <code className="text-sm text-dark-text-primary font-mono">
+                        {(() => {
+                          const hostname = window.location.hostname
+                          if (hostname === 'taskai.cc') return 'https://mcp.taskai.cc/mcp'
+                          if (hostname === 'sprintspark.biswas.me') return 'https://mcp.sprintspark.biswas.me/mcp'
+                          return `${window.location.origin}/mcp`
+                        })()}
+                      </code>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const hostname = window.location.hostname
+                        let mcpUrl = `${window.location.origin}/mcp`
+                        if (hostname === 'taskai.cc') mcpUrl = 'https://mcp.taskai.cc/mcp'
+                        if (hostname === 'sprintspark.biswas.me') mcpUrl = 'https://mcp.sprintspark.biswas.me/mcp'
+                        copyToClipboard(mcpUrl)
+                        setCopiedSnippet('mcp-url')
+                        setTimeout(() => setCopiedSnippet(null), 2000)
+                      }}
+                      className="p-1.5 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded transition-colors"
+                      title="Copy URL"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Available tools */}
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-dark-text-tertiary mb-2">Available Tools (8)</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {['get_me', 'list_projects', 'get_project', 'list_tasks', 'create_task', 'update_task', 'list_comments', 'add_comment'].map(tool => (
+                        <span key={tool} className="px-2 py-0.5 text-xs font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded">
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Claude Code config */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-medium text-dark-text-tertiary">Claude Code MCP Config</p>
+                      <button
+                        onClick={() => {
+                          const hostname = window.location.hostname
+                          let mcpUrl = `${window.location.origin}/mcp`
+                          if (hostname === 'taskai.cc') mcpUrl = 'https://mcp.taskai.cc/mcp'
+                          if (hostname === 'sprintspark.biswas.me') mcpUrl = 'https://mcp.sprintspark.biswas.me/mcp'
+                          copyToClipboard(JSON.stringify({
+                            mcpServers: {
+                              taskai: {
+                                type: "streamable-http",
+                                url: mcpUrl,
+                                headers: { "X-API-Key": "YOUR_API_KEY" }
+                              }
+                            }
+                          }, null, 2))
+                          setCopiedSnippet('mcp-config')
+                          setTimeout(() => setCopiedSnippet(null), 2000)
+                        }}
+                        className="text-xs text-dark-text-tertiary hover:text-dark-text-primary transition-colors"
+                      >
+                        {copiedSnippet === 'mcp-config' ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <pre className="bg-dark-bg-primary border border-dark-border-subtle rounded-lg p-3 overflow-x-auto">
+                      <code className="text-xs font-mono text-dark-text-secondary">
+{JSON.stringify({
+  mcpServers: {
+    taskai: {
+      type: "streamable-http",
+      url: (() => {
+        const hostname = window.location.hostname
+        if (hostname === 'taskai.cc') return 'https://mcp.taskai.cc/mcp'
+        if (hostname === 'sprintspark.biswas.me') return 'https://mcp.sprintspark.biswas.me/mcp'
+        return `${window.location.origin}/mcp`
+      })(),
+      headers: { "X-API-Key": "YOUR_API_KEY" }
+    }
+  }
+}, null, 2)}
+                      </code>
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <svg className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm text-dark-text-secondary">
+                      <p className="font-medium mb-1 text-dark-text-primary">Authentication</p>
+                      <p className="mb-2">
+                        All API requests require an API key. Create one in the{' '}
+                        <a href="#api-keys" className="text-cyan-400 underline hover:text-cyan-300">API Keys section above</a>.
+                      </p>
+                      <p>
+                        REST API: <code className="bg-dark-bg-primary px-1.5 py-0.5 rounded text-xs font-mono text-dark-text-primary">Authorization: ApiKey YOUR_API_KEY</code>
+                        <br />
+                        MCP: <code className="bg-dark-bg-primary px-1.5 py-0.5 rounded text-xs font-mono text-dark-text-primary">X-API-Key: YOUR_API_KEY</code>
+                      </p>
                     </div>
                   </div>
                 </div>

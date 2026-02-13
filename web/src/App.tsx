@@ -76,7 +76,7 @@ function TaskDetailModal() {
       onClick={handleClose}
     >
       <div
-        className="w-full max-w-5xl my-8 mx-4 bg-dark-bg-primary rounded-xl overflow-hidden shadow-2xl border border-dark-border-subtle"
+        className="w-full max-w-5xl my-0 md:my-8 mx-0 md:mx-4 bg-dark-bg-primary md:rounded-xl overflow-hidden shadow-2xl border-0 md:border border-dark-border-subtle min-h-screen md:min-h-0"
         onClick={(e) => e.stopPropagation()}
       >
         <TaskDetail isModal onClose={handleClose} />

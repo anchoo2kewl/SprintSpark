@@ -11,6 +11,7 @@ export default function Dashboard() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -30,8 +31,18 @@ export default function Dashboard() {
     <div className="min-h-screen bg-dark-bg-base flex flex-col">
       {/* Header */}
       <header className="bg-dark-bg-primary/80 backdrop-blur-lg border-b border-dark-border-subtle sticky top-0 z-10">
-        <div className="flex items-center justify-between h-14 px-6">
+        <div className="flex items-center justify-between h-14 px-4 md:px-6">
           <div className="flex items-center gap-2.5">
+            {/* Hamburger - mobile only */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-1.5 -ml-1.5 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded-md transition-colors"
+              aria-label="Open sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <img
               src="/logo.svg"
               alt="TaskAI"
@@ -40,7 +51,7 @@ export default function Dashboard() {
             <h1 className="text-sm font-semibold text-dark-text-primary tracking-tight">TaskAI</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <SyncStatus />
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 bg-primary-500/10 border border-primary-500/20 rounded-full flex items-center justify-center">
@@ -48,11 +59,12 @@ export default function Dashboard() {
                   {user?.email?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className="text-xs text-dark-text-tertiary">{user?.email}</span>
+              <span className="text-xs text-dark-text-tertiary hidden md:inline">{user?.email}</span>
             </div>
             <button
               onClick={handleLogout}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded-md transition-all duration-150"
+              title="Logout"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -67,7 +79,7 @@ export default function Dashboard() {
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              Logout
+              <span className="hidden md:inline">Logout</span>
             </button>
           </div>
         </div>
@@ -76,7 +88,11 @@ export default function Dashboard() {
       {/* Main Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <Sidebar onCreateProject={() => setIsProjectModalOpen(true)} />
+        <Sidebar
+          onCreateProject={() => setIsProjectModalOpen(true)}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto bg-dark-bg-base">

@@ -178,8 +178,8 @@ export default function ProjectDetail() {
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="h-full flex flex-col bg-dark-bg-base">
         {/* Project Header */}
-        <div className="bg-dark-bg-secondary border-b border-dark-border-subtle px-6 py-4">
-          <div className="flex items-start justify-between">
+        <div className="bg-dark-bg-secondary border-b border-dark-border-subtle px-4 md:px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-0">
             <div>
               <h1 className="text-lg font-semibold text-dark-text-primary">
                 {project?.name}
@@ -229,7 +229,7 @@ export default function ProjectDetail() {
         </div>
 
         {/* Tasks Board */}
-        <div className="flex-1 overflow-y-auto p-6 bg-dark-bg-base">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-4 md:p-6 bg-dark-bg-base">
           {tasks.length === 0 ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -253,7 +253,7 @@ export default function ProjectDetail() {
               </div>
             </div>
           ) : (
-            <div className={`grid gap-6`} style={{ gridTemplateColumns: `repeat(${swimLanes.length}, minmax(0, 1fr))` }}>
+            <div className="flex gap-4 overflow-x-auto pb-2 md:grid md:overflow-x-visible" style={{ gridTemplateColumns: `repeat(${swimLanes.length}, minmax(0, 1fr))` }}>
               {swimLanes.map((lane) => (
                 <TaskColumn
                   key={lane.id}
@@ -379,7 +379,7 @@ function TaskColumn({ id, title, count, tasks, color, projectId }: {
   const { setNodeRef, isOver } = useDroppable({ id })
 
   return (
-    <div ref={setNodeRef} className={`min-h-[200px] ${isOver ? 'bg-dark-bg-tertiary/20 ring-1 ring-primary-500/30 rounded-md' : ''}`}>
+    <div ref={setNodeRef} className={`min-h-[200px] min-w-[280px] flex-shrink-0 md:min-w-0 md:flex-shrink ${isOver ? 'bg-dark-bg-tertiary/20 ring-1 ring-primary-500/30 rounded-md' : ''}`}>
       <h3 className="text-[11px] uppercase tracking-wide font-semibold text-dark-text-quaternary mb-3 flex items-center gap-2">
         <div
           className="w-1.5 h-1.5 rounded-full"

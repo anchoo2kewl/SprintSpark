@@ -5,9 +5,11 @@ import { useAuth } from '../state/AuthContext'
 
 interface SidebarProps {
   onCreateProject: () => void
+  isOpen?: boolean
+  onClose?: () => void
 }
 
-export default function Sidebar({ onCreateProject }: SidebarProps) {
+export default function Sidebar({ onCreateProject, isOpen, onClose }: SidebarProps) {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,6 +38,7 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
   const handleProjectClick = (projectId: number | undefined) => {
     if (projectId) {
       navigate(`/app/projects/${projectId}`)
+      onClose?.()
     }
   }
 
@@ -84,7 +87,7 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
 
   if (loading) {
     return (
-      <div className="w-64 bg-dark-bg-primary border-r border-dark-border-subtle p-4">
+      <div className="hidden md:block w-64 bg-dark-bg-primary border-r border-dark-border-subtle p-4">
         <div className="animate-pulse space-y-3">
           <div className="h-9 bg-dark-bg-tertiary/40 rounded-md"></div>
           <div className="h-8 bg-dark-bg-tertiary/30 rounded-md"></div>
@@ -95,8 +98,24 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
     )
   }
 
-  return (
-    <div className="w-64 bg-dark-bg-primary border-r border-dark-border-subtle flex flex-col">
+  const sidebarContent = (
+    <div className="w-64 bg-dark-bg-primary border-r border-dark-border-subtle flex flex-col h-full">
+      {/* Close button - mobile only */}
+      {isOpen && (
+        <div className="md:hidden flex items-center justify-between px-4 pt-3 pb-1">
+          <span className="text-xs font-semibold text-dark-text-tertiary uppercase tracking-wider">Menu</span>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded-md transition-colors"
+            aria-label="Close sidebar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* New Project Button */}
       <div className="p-4 border-b border-dark-border-subtle">
         <button
@@ -119,8 +138,8 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
             return (
               <button
                 key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`w-full font-medium py-1.5 px-3 rounded-md transition-all duration-150 flex items-center gap-2.5 text-sm ${
+                onClick={() => { navigate(item.path); onClose?.() }}
+                className={`w-full font-medium py-2.5 md:py-1.5 px-3 rounded-md transition-all duration-150 flex items-center gap-2.5 text-sm ${
                   isActive
                     ? 'bg-dark-bg-tertiary text-dark-text-primary'
                     : 'text-dark-text-tertiary hover:bg-dark-bg-secondary hover:text-dark-text-primary'
@@ -135,8 +154,8 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
           {/* Admin Link */}
           {user?.is_admin && (
             <button
-              onClick={() => navigate('/app/admin')}
-              className={`w-full font-medium py-1.5 px-3 rounded-md transition-all duration-150 flex items-center gap-2.5 text-sm ${
+              onClick={() => { navigate('/app/admin'); onClose?.() }}
+              className={`w-full font-medium py-2.5 md:py-1.5 px-3 rounded-md transition-all duration-150 flex items-center gap-2.5 text-sm ${
                 location.pathname === '/app/admin'
                   ? 'bg-primary-500/15 text-primary-400'
                   : 'text-dark-text-tertiary hover:bg-dark-bg-secondary hover:text-dark-text-primary'
@@ -214,5 +233,29 @@ export default function Sidebar({ onCreateProject }: SidebarProps) {
         </div>
       </div>
     </div>
+  )
+
+  return (
+    <>
+      {/* Desktop sidebar - always visible */}
+      <div className="hidden md:flex md:flex-shrink-0">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile sidebar - overlay */}
+      {isOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          {/* Sidebar panel */}
+          <div className="fixed inset-y-0 left-0 z-50">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   )
 }

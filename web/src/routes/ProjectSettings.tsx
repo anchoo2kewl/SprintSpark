@@ -60,6 +60,10 @@ export default function ProjectSettings() {
   const [githubSuccess, setGithubSuccess] = useState('')
   const [isSavingGitHub, setIsSavingGitHub] = useState(false)
 
+  // Storage usage state
+  const [storageUsage, setStorageUsage] = useState<{ user_id: number; user_name: string; file_count: number; total_size: number }[]>([])
+  const [loadingStorage, setLoadingStorage] = useState(true)
+
   // Swim lanes state
   const [swimLanes, setSwimLanes] = useState<SwimLane[]>([])
   const [editingLane, setEditingLane] = useState<number | null>(null)
@@ -75,6 +79,7 @@ export default function ProjectSettings() {
     loadTeamMembers()
     loadGitHubSettings()
     loadSwimLanes()
+    loadStorageUsage()
   }, [projectId])
 
   const loadMembers = async () => {
@@ -111,6 +116,25 @@ export default function ProjectSettings() {
     } catch (error: any) {
       console.error('Failed to load swim lanes:', error)
     }
+  }
+
+  const loadStorageUsage = async () => {
+    try {
+      setLoadingStorage(true)
+      const data = await apiClient.getStorageUsage(projectId)
+      setStorageUsage(data || [])
+    } catch (error) {
+      console.error('Failed to load storage usage:', error)
+    } finally {
+      setLoadingStorage(false)
+    }
+  }
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`
   }
 
   const handleAddSwimLane = async () => {
@@ -623,6 +647,97 @@ export default function ProjectSettings() {
                   ))}
                 </div>
               </div>
+            </div>
+          </Card>
+
+          {/* Storage Usage Section */}
+          <Card className="shadow-md">
+            <div className="p-6 sm:p-8">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex-shrink-0 w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold text-dark-text-primary mb-1">Storage Usage</h2>
+                  <p className="text-sm text-dark-text-secondary">Track file uploads and storage per team member</p>
+                </div>
+              </div>
+
+              {loadingStorage ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-16 bg-dark-bg-tertiary/30 rounded-lg"></div>
+                  <div className="h-10 bg-dark-bg-tertiary/30 rounded-lg"></div>
+                </div>
+              ) : storageUsage.length === 0 ? (
+                <div className="text-center py-8 text-dark-text-tertiary">
+                  <svg className="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                  </svg>
+                  <p>No files uploaded yet</p>
+                </div>
+              ) : (
+                <>
+                  {/* Total project storage */}
+                  <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-dark-text-secondary">Total Project Storage</p>
+                        <p className="text-2xl font-bold text-dark-text-primary">
+                          {formatBytes(storageUsage.reduce((sum, u) => sum + u.total_size, 0))}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-dark-text-secondary">Total Files</p>
+                        <p className="text-2xl font-bold text-dark-text-primary">
+                          {storageUsage.reduce((sum, u) => sum + u.file_count, 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Per-user table */}
+                  <div>
+                    <h3 className="font-semibold text-dark-text-primary mb-3">Usage by Member</h3>
+                    <div className="space-y-2">
+                      {storageUsage.map((usage) => {
+                        const maxSize = Math.max(...storageUsage.map(u => u.total_size))
+                        const barWidth = maxSize > 0 ? (usage.total_size / maxSize) * 100 : 0
+                        return (
+                          <div
+                            key={usage.user_id}
+                            className="p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-primary-500/10 rounded-full flex items-center justify-center">
+                                  <span className="text-xs font-medium text-primary-400">
+                                    {(usage.user_name || 'U').charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="font-medium text-dark-text-primary text-sm">
+                                  {usage.user_name || `User ${usage.user_id}`}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-sm font-medium text-dark-text-primary">{formatBytes(usage.total_size)}</span>
+                                <span className="text-xs text-dark-text-tertiary ml-2">{usage.file_count} file{usage.file_count !== 1 ? 's' : ''}</span>
+                              </div>
+                            </div>
+                            <div className="h-1.5 bg-dark-bg-primary rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-primary-500 rounded-full transition-all duration-300"
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 

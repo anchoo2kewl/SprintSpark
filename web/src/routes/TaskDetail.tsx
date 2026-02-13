@@ -35,6 +35,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
   const [uploading, setUploading] = useState(false)
   const [editingAltId, setEditingAltId] = useState<number | null>(null)
   const [editingAltValue, setEditingAltValue] = useState('')
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Comments
   const [comments, setComments] = useState<any[]>([])
@@ -104,16 +106,22 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     try { setAttachments(await apiClient.getTaskAttachments(Number(taskId))) } catch { /* ignore */ }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     const allowedTypes = ['image/', 'video/', 'application/pdf']
     if (!allowedTypes.some(t => file.type.startsWith(t))) {
       setError('Only images, videos, and PDFs are allowed')
+      e.target.value = ''
       return
     }
 
+    setPendingFile(file)
+    e.target.value = ''
+  }
+
+  const handleConfirmUpload = async (file: File, altText: string) => {
     try {
       setUploading(true)
       const sig = await apiClient.getUploadSignature()
@@ -136,11 +144,9 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       if (file.type.startsWith('video/')) fileType = 'video'
       else if (file.type === 'application/pdf') fileType = 'pdf'
 
-      const altName = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
-
       await apiClient.createTaskAttachment(Number(taskId), {
         filename: file.name,
-        alt_name: altName,
+        alt_name: altText,
         file_type: fileType,
         content_type: file.type,
         file_size: file.size,
@@ -153,7 +159,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       setError(err.message || 'Failed to upload file')
     } finally {
       setUploading(false)
-      e.target.value = ''
+      setPendingFile(null)
     }
   }
 
@@ -466,7 +472,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
 
       {/* Main Content */}
       <div className={`${innerClass} py-6`}>
-        <div className="flex gap-6">
+        <div className="flex flex-col md:flex-row gap-6">
           {/* Left Column - Description & Comments */}
           <div className="flex-1 min-w-0 space-y-6">
             {/* Description */}
@@ -560,6 +566,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
                   </svg>
                   {uploading ? 'Uploading...' : 'Upload'}
                   <input
+                    ref={fileInputRef}
                     type="file"
                     className="hidden"
                     accept="image/*,video/*,.pdf"
@@ -727,7 +734,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
           </div>
 
           {/* Right Column - Sidebar */}
-          <div className="w-72 flex-shrink-0">
+          <div className="w-full md:w-72 flex-shrink-0">
             <div className="bg-dark-bg-secondary border border-dark-border-subtle rounded-lg divide-y divide-dark-border-subtle">
               {/* Swim Lane */}
               <SidebarField label="Swim Lane">
@@ -917,6 +924,16 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
         />
       )}
 
+      {/* Alt Text Modal */}
+      {pendingFile && (
+        <AltTextModal
+          file={pendingFile}
+          uploading={uploading}
+          onConfirm={(altText) => handleConfirmUpload(pendingFile, altText)}
+          onCancel={() => setPendingFile(null)}
+        />
+      )}
+
       {/* Confirm Modal */}
       {confirmAction && (
         <ConfirmModal
@@ -943,6 +960,8 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null)
+  const [uploadAltText, setUploadAltText] = useState('')
 
   useEffect(() => {
     loadImages()
@@ -968,19 +987,27 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
     }, 300)
   }
 
-  const handleUploadAndInsert = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !file.type.startsWith('image/')) {
       setError('Only images can be inserted')
       return
     }
+    const defaultAlt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+    setPendingUploadFile(file)
+    setUploadAltText(defaultAlt)
+    e.target.value = ''
+  }
+
+  const handleConfirmUploadAndInsert = async () => {
+    if (!pendingUploadFile || uploadAltText.trim().length < 3) return
 
     try {
       setUploading(true)
       const sig = await apiClient.getUploadSignature()
 
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', pendingUploadFile)
       formData.append('api_key', sig.api_key)
       formData.append('timestamp', String(sig.timestamp))
       formData.append('signature', sig.signature)
@@ -993,14 +1020,14 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
       if (!uploadRes.ok) throw new Error('Upload to Cloudinary failed')
       const uploadData = await uploadRes.json()
 
-      const altName = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+      const altName = uploadAltText.trim()
 
       await apiClient.createTaskAttachment(taskId, {
-        filename: file.name,
+        filename: pendingUploadFile.name,
         alt_name: altName,
         file_type: 'image',
-        content_type: file.type,
-        file_size: file.size,
+        content_type: pendingUploadFile.type,
+        file_size: pendingUploadFile.size,
         cloudinary_url: uploadData.secure_url,
         cloudinary_public_id: uploadData.public_id,
       })
@@ -1011,7 +1038,8 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
       setError(err.message || 'Failed to upload')
     } finally {
       setUploading(false)
-      e.target.value = ''
+      setPendingUploadFile(null)
+      setUploadAltText('')
     }
   }
 
@@ -1065,11 +1093,58 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
               type="file"
               className="hidden"
               accept="image/*"
-              onChange={handleUploadAndInsert}
+              onChange={handleSelectFile}
               disabled={uploading}
             />
           </label>
         </div>
+
+        {/* Alt text form for pending upload */}
+        {pendingUploadFile && (
+          <div className="px-5 py-3 border-b border-dark-border-subtle bg-dark-bg-primary/50">
+            <div className="flex items-start gap-3">
+              <img
+                src={URL.createObjectURL(pendingUploadFile)}
+                alt="Preview"
+                className="w-16 h-16 rounded-lg border border-dark-border-subtle object-cover flex-shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-dark-text-tertiary truncate mb-1">{pendingUploadFile.name}</p>
+                <input
+                  type="text"
+                  value={uploadAltText}
+                  onChange={(e) => setUploadAltText(e.target.value)}
+                  placeholder="Describe this image..."
+                  className="w-full px-2.5 py-1.5 text-sm bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && uploadAltText.trim().length >= 3 && !uploading) handleConfirmUploadAndInsert()
+                    if (e.key === 'Escape') { setPendingUploadFile(null); setUploadAltText('') }
+                  }}
+                />
+                {uploadAltText.trim().length > 0 && uploadAltText.trim().length < 3 && (
+                  <p className="text-xs text-danger-400 mt-0.5">At least 3 characters</p>
+                )}
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => { setPendingUploadFile(null); setUploadAltText('') }}
+                  disabled={uploading}
+                  className="px-2.5 py-1.5 text-xs font-medium text-dark-text-secondary bg-dark-bg-tertiary hover:bg-dark-bg-tertiary/80 rounded-md transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmUploadAndInsert}
+                  disabled={uploadAltText.trim().length < 3 || uploading}
+                  className="px-2.5 py-1.5 text-xs font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'Uploading...' : 'Insert'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Image Grid */}
         <div className="px-5 py-4 max-h-80 overflow-y-auto">
@@ -1117,6 +1192,98 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* Alt Text Modal */
+
+function AltTextModal({ file, uploading, onConfirm, onCancel }: {
+  file: File
+  uploading: boolean
+  onConfirm: (altText: string) => void
+  onCancel: () => void
+}) {
+  const defaultAlt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+  const [altText, setAltText] = useState(defaultAlt)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file)
+      setPreviewUrl(url)
+      return () => URL.revokeObjectURL(url)
+    }
+  }, [file])
+
+  const isValid = altText.trim().length >= 3
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-md mx-4 bg-dark-bg-secondary rounded-xl border border-dark-border-subtle shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 pt-6 pb-4">
+          <h3 className="text-sm font-semibold text-dark-text-primary mb-4">Add Description for Upload</h3>
+
+          {/* Preview */}
+          {previewUrl && (
+            <div className="mb-4 flex justify-center">
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className="max-h-40 rounded-lg border border-dark-border-subtle object-contain"
+              />
+            </div>
+          )}
+
+          <p className="text-xs text-dark-text-tertiary mb-3 truncate">
+            File: {file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)
+          </p>
+
+          <div>
+            <label className="block text-sm font-medium text-dark-text-primary mb-1">
+              Alt text / description <span className="text-danger-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={altText}
+              onChange={(e) => setAltText(e.target.value)}
+              className="w-full px-3 py-2 text-sm bg-dark-bg-primary border border-dark-border-subtle text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
+              placeholder="Describe this file..."
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && isValid && !uploading) onConfirm(altText.trim())
+                if (e.key === 'Escape') onCancel()
+              }}
+            />
+            {altText.trim().length > 0 && altText.trim().length < 3 && (
+              <p className="text-xs text-danger-400 mt-1">At least 3 characters required</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-dark-border-subtle bg-dark-bg-primary/50">
+          <button
+            onClick={onCancel}
+            disabled={uploading}
+            className="px-4 py-2 text-sm font-medium text-dark-text-secondary bg-dark-bg-tertiary hover:bg-dark-bg-tertiary/80 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(altText.trim())}
+            disabled={!isValid || uploading}
+            className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {uploading ? 'Uploading...' : 'Upload'}
+          </button>
         </div>
       </div>
     </div>
