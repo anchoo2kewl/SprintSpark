@@ -284,9 +284,7 @@ jobs:
 
       - name: Build API binary
         working-directory: ./api
-        run: |
-          go build -v -o bin/sprintspark cmd/api/main.go
-          ./bin/sprintspark --version || echo "Binary built successfully"
+        run: go build -o bin/sprintspark cmd/api/main.go
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -297,7 +295,9 @@ jobs:
 
       - name: Install Web dependencies
         working-directory: ./web
-        run: npm ci
+        run: |
+          npm ci
+          npx rollup --version || npm install @rollup/rollup-linux-x64-gnu
 
       - name: Build Web application
         working-directory: ./web
