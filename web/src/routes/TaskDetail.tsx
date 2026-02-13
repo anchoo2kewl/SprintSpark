@@ -44,6 +44,9 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
   // Image picker
   const [imagePickerTarget, setImagePickerTarget] = useState<'description' | 'comment' | null>(null)
 
+  // Confirm modal
+  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void } | null>(null)
+
   useEffect(() => {
     loadTask()
     loadSprints()
@@ -154,14 +157,19 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     }
   }
 
-  const handleDeleteAttachment = async (attachmentId: number) => {
-    if (!confirm('Delete this attachment?')) return
-    try {
-      await apiClient.deleteTaskAttachment(Number(taskId), attachmentId)
-      await loadAttachments()
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete attachment')
-    }
+  const handleDeleteAttachment = (attachmentId: number) => {
+    setConfirmAction({
+      message: 'Are you sure you want to delete this attachment? This cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await apiClient.deleteTaskAttachment(Number(taskId), attachmentId)
+          await loadAttachments()
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete attachment')
+        }
+        setConfirmAction(null)
+      },
+    })
   }
 
   const handleSaveAltName = async (attachmentId: number) => {
@@ -293,14 +301,21 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     }
   }
 
-  const handleDelete = async () => {
-    if (!task || !confirm('Are you sure you want to delete this task?')) return
-    try {
-      await apiClient.deleteTask(task.id!)
-      handleClose()
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete task')
-    }
+  const handleDelete = () => {
+    if (!task) return
+    setConfirmAction({
+      message: 'Are you sure you want to delete this task? This action cannot be undone.',
+      onConfirm: async () => {
+        try {
+          await apiClient.deleteTask(task.id!)
+          setConfirmAction(null)
+          handleClose()
+        } catch (err: any) {
+          setError(err.message || 'Failed to delete task')
+          setConfirmAction(null)
+        }
+      },
+    })
   }
 
   const handleClose = () => {
@@ -389,9 +404,12 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
             </button>
             <button
               onClick={handleDelete}
-              className="px-3 py-1.5 text-sm text-danger-400 hover:bg-danger-500/10 rounded-lg transition-colors"
+              className="p-2 text-dark-text-tertiary hover:text-danger-400 hover:bg-danger-500/10 rounded-lg transition-colors"
+              title="Delete task"
             >
-              Delete
+              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </button>
           </div>
 
@@ -898,6 +916,15 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
           onUploadComplete={loadAttachments}
         />
       )}
+
+      {/* Confirm Modal */}
+      {confirmAction && (
+        <ConfirmModal
+          message={confirmAction.message}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </div>
   )
 }
@@ -1090,6 +1117,63 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* Confirm Modal */
+
+function ConfirmModal({ message, onConfirm, onCancel }: {
+  message: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const [loading, setLoading] = useState(false)
+
+  const handleConfirm = async () => {
+    setLoading(true)
+    await onConfirm()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm mx-4 bg-dark-bg-secondary rounded-xl border border-dark-border-subtle shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 pt-6 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-danger-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-danger-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-dark-text-primary mb-1">Confirm Delete</h3>
+              <p className="text-sm text-dark-text-secondary">{message}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-dark-border-subtle bg-dark-bg-primary/50">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="px-4 py-2 text-sm font-medium text-dark-text-secondary bg-dark-bg-tertiary hover:bg-dark-bg-tertiary/80 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            className="px-4 py-2 text-sm font-medium text-white bg-danger-500 hover:bg-danger-600 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Deleting...' : 'Delete'}
+          </button>
         </div>
       </div>
     </div>

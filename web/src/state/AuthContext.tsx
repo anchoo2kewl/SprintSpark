@@ -6,7 +6,7 @@ interface AuthContextType {
   loading: boolean
   error: string | null
   login: (data: LoginRequest) => Promise<void>
-  signup: (data: SignupRequest) => Promise<void>
+  signup: (data: SignupRequest & { invite_code?: string }) => Promise<void>
   logout: () => void
   clearError: () => void
 }
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signup = async (data: SignupRequest) => {
+  const signup = async (data: SignupRequest & { invite_code?: string }) => {
     try {
       setError(null)
       setLoading(true)

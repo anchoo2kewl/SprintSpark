@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+
 	"net/http"
 	"strings"
 	"time"
@@ -16,8 +16,9 @@ import (
 
 // SignupRequest represents the signup request payload
 type SignupRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email      string `json:"email"`
+	Password   string `json:"password"`
+	InviteCode string `json:"invite_code"`
 }
 
 // LoginRequest represents the login request payload
@@ -55,17 +56,53 @@ func (s *Server) HandleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hash password
-	hashedPassword, err := auth.HashPassword(req.Password)
-	if err != nil {
-		log.Printf("Failed to hash password: %v", err)
-		respondError(w, http.StatusInternalServerError, "failed to create user", "internal_error")
+	// Validate invite code
+	if req.InviteCode == "" {
+		respondError(w, http.StatusBadRequest, "invite code is required — you need a referral to create an account", "invite_required")
 		return
 	}
 
-	// Create user and team in a transaction
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
+
+	// Verify invite code is valid
+	var inviteID int64
+	var usedAt sql.NullString
+	var expiresAt sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, used_at, expires_at FROM invites WHERE code = ?`, req.InviteCode,
+	).Scan(&inviteID, &usedAt, &expiresAt)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusBadRequest, "invalid invite code", "invalid_invite")
+		return
+	}
+	if err != nil {
+		s.logger.Error("Failed to validate invite code", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to create user", "internal_error")
+		return
+	}
+	if usedAt.Valid {
+		respondError(w, http.StatusBadRequest, "this invite has already been used", "invite_used")
+		return
+	}
+	if expiresAt.Valid {
+		t, parseErr := time.Parse(time.RFC3339, expiresAt.String)
+		if parseErr != nil {
+			t, parseErr = time.Parse("2006-01-02 15:04:05-07:00", expiresAt.String)
+		}
+		if parseErr == nil && time.Now().After(t) {
+			respondError(w, http.StatusBadRequest, "this invite has expired", "invite_expired")
+			return
+		}
+	}
+
+	// Hash password
+	hashedPassword, err := auth.HashPassword(req.Password)
+	if err != nil {
+		s.logger.Error("Failed to hash password", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to create user", "internal_error")
+		return
+	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -137,6 +174,17 @@ func (s *Server) HandleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Mark invite as used
+	_, err = tx.ExecContext(ctx,
+		`UPDATE invites SET invitee_id = ?, used_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		user.ID, inviteID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to mark invite as used", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to create user", "internal_error")
+		return
+	}
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		s.logger.Error("Failed to commit transaction", zap.Error(err))
@@ -200,7 +248,7 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusUnauthorized, "invalid email or password", "invalid_credentials")
 			return
 		}
-		log.Printf("Failed to query user: %v", err)
+		s.logger.Error("Failed to query user", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to authenticate", "internal_error")
 		return
 	}
@@ -219,7 +267,7 @@ func (s *Server) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Generate JWT token
 	token, err := auth.GenerateToken(user.ID, user.Email, s.config.JWTSecret, s.config.JWTExpiry())
 	if err != nil {
-		log.Printf("Failed to generate token: %v", err)
+		s.logger.Error("Failed to generate token", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to generate token", "internal_error")
 		return
 	}
@@ -258,7 +306,7 @@ func (s *Server) HandleMe(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusNotFound, "user not found", "not_found")
 			return
 		}
-		log.Printf("Failed to query user: %v", err)
+		s.logger.Error("Failed to query user", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to get user", "internal_error")
 		return
 	}
@@ -298,7 +346,7 @@ func (s *Server) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	query := `UPDATE users SET name = ? WHERE id = ?`
 	_, err := s.db.ExecContext(ctx, query, req.Name, userID)
 	if err != nil {
-		log.Printf("Failed to update user profile: %v", err)
+		s.logger.Error("Failed to update user profile", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to update profile", "internal_error")
 		return
 	}
@@ -315,7 +363,7 @@ func (s *Server) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.Printf("Failed to query user: %v", err)
+		s.logger.Error("Failed to query user", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to get user", "internal_error")
 		return
 	}

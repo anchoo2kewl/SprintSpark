@@ -157,7 +157,7 @@ class ApiClient {
   }
 
   // Auth endpoints
-  async signup(data: SignupRequest): Promise<SignupResponse> {
+  async signup(data: SignupRequest & { invite_code?: string }): Promise<SignupResponse> {
     const response = await this.request<SignupResponse>('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -508,6 +508,26 @@ class ApiClient {
     return this.request<any>(`/api/attachments/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    })
+  }
+
+  // Invite endpoints
+  async getInvites(): Promise<{ invites: any[]; invite_count: number; is_admin: boolean }> {
+    return this.request('/api/invites')
+  }
+
+  async createInvite(): Promise<{ code: string; expires_at: string }> {
+    return this.request('/api/invites', { method: 'POST' })
+  }
+
+  async validateInvite(code: string): Promise<{ valid: boolean; inviter_name?: string; message?: string }> {
+    return this.request(`/api/invites/validate?code=${encodeURIComponent(code)}`)
+  }
+
+  async adminBoostInvites(userId: number, inviteCount: number): Promise<any> {
+    return this.request(`/api/admin/users/${userId}/invites`, {
+      method: 'PATCH',
+      body: JSON.stringify({ invite_count: inviteCount }),
     })
   }
 

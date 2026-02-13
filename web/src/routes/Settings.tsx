@@ -63,11 +63,21 @@ export default function Settings() {
   const [isRemovingMember, setIsRemovingMember] = useState<number | null>(null)
   const [isRespondingToInvitation, setIsRespondingToInvitation] = useState<number | null>(null)
 
+  // Invite system state
+  const [myInvites, setMyInvites] = useState<any[]>([])
+  const [myInviteCount, setMyInviteCount] = useState(0)
+  const [isUserAdmin, setIsUserAdmin] = useState(false)
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false)
+  const [inviteError, setInviteError] = useState('')
+  const [inviteSuccess, setInviteSuccess] = useState('')
+  const [newInviteCode, setNewInviteCode] = useState('')
+
   useEffect(() => {
     load2FAStatus()
     loadAPIKeys()
     loadTeamData()
     loadCloudinaryCredentials()
+    loadInvites()
   }, [])
 
   const load2FAStatus = async () => {
@@ -259,6 +269,41 @@ export default function Settings() {
     } finally {
       setIsDeletingCloudinary(false)
     }
+  }
+
+  const loadInvites = async () => {
+    try {
+      const data = await apiClient.getInvites()
+      setMyInvites(data.invites || [])
+      setMyInviteCount(data.invite_count)
+      setIsUserAdmin(data.is_admin)
+    } catch (error) {
+      console.error('Failed to load invites:', error)
+    }
+  }
+
+  const handleCreateInviteCode = async () => {
+    setInviteError('')
+    setInviteSuccess('')
+    setNewInviteCode('')
+    setIsCreatingInvite(true)
+
+    try {
+      const result = await apiClient.createInvite()
+      setNewInviteCode(result.code)
+      setInviteSuccess('Invite created! Share the link below.')
+      await loadInvites()
+    } catch (error: any) {
+      setInviteError(error.message || 'Failed to create invite')
+    } finally {
+      setIsCreatingInvite(false)
+    }
+  }
+
+  const copyInviteLink = (code: string) => {
+    const url = `${window.location.origin}/signup?code=${code}`
+    navigator.clipboard.writeText(url)
+    setInviteSuccess('Invite link copied to clipboard')
   }
 
   const loadAPIKeys = async () => {
@@ -967,6 +1012,158 @@ export default function Settings() {
                       <code className="block bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-border-subtle font-mono text-xs">
                         Authorization: ApiKey YOUR_API_KEY
                       </code>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Invites Section */}
+          <Card className="shadow-md">
+            <div className="p-6 sm:p-8 flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-dark-text-primary mb-1">Invite Friends</h2>
+                <p className="text-sm text-dark-text-secondary mb-6">
+                  TaskAI is invite-only. Share invite links with friends to let them join.
+                </p>
+
+                {inviteSuccess && (
+                  <div className="mb-4 p-4 bg-success-500/10 border-l-4 border-success-400 rounded-r-lg">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-success-300 font-medium">{inviteSuccess}</span>
+                    </div>
+                  </div>
+                )}
+
+                {inviteError && <FormError message={inviteError} className="mb-4" />}
+
+                {/* Invite count status */}
+                <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${(isUserAdmin || myInviteCount > 0) ? 'bg-success-500' : 'bg-dark-text-tertiary'}`}></div>
+                    <div>
+                      <p className="font-medium text-dark-text-primary">Invites Available</p>
+                      <p className="text-sm text-dark-text-secondary">
+                        {isUserAdmin ? 'Unlimited (admin)' : `${myInviteCount} remaining`}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleCreateInviteCode}
+                    disabled={isCreatingInvite || (!isUserAdmin && myInviteCount <= 0)}
+                    size="sm"
+                  >
+                    {isCreatingInvite ? 'Creating...' : 'Create Invite'}
+                  </Button>
+                </div>
+
+                {/* Newly created invite link */}
+                {newInviteCode && (
+                  <div className="mb-6 border-2 border-indigo-500/30 bg-indigo-500/10 rounded-xl p-6">
+                    <div className="flex items-start gap-3 mb-4">
+                      <svg className="w-6 h-6 text-indigo-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                      </svg>
+                      <div>
+                        <h3 className="font-bold text-indigo-300 mb-1">Share This Link</h3>
+                        <p className="text-sm text-indigo-400/90">
+                          Send this link to your friend. It expires in 7 days.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-dark-bg-primary p-4 rounded-lg border-2 border-indigo-500/30 mb-4">
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 text-sm font-mono bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-border-subtle break-all">
+                          {window.location.origin}/signup?code={newInviteCode}
+                        </code>
+                        <Button size="sm" variant="secondary" onClick={() => copyInviteLink(newInviteCode)}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button onClick={() => setNewInviteCode('')} variant="secondary" className="w-full">
+                      Done
+                    </Button>
+                  </div>
+                )}
+
+                {/* Existing invites list */}
+                <div>
+                  <h3 className="text-sm font-semibold text-dark-text-primary mb-3">Your Invites</h3>
+                  {myInvites.length === 0 ? (
+                    <div className="text-center py-8 text-dark-text-tertiary">
+                      <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-sm">No invites created yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {myInvites.map((inv: any) => (
+                        <div key={inv.id} className="p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <code className="text-xs font-mono bg-dark-bg-primary text-dark-text-secondary px-2 py-1 rounded border border-dark-border-subtle">
+                                  {inv.code.substring(0, 12)}...
+                                </code>
+                                {inv.used_at ? (
+                                  <span className="px-2 py-0.5 text-xs font-medium bg-success-500/10 text-success-400 rounded">
+                                    Used
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 text-xs font-medium bg-primary-500/10 text-primary-400 rounded">
+                                    Available
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-1 flex items-center gap-4 text-xs text-dark-text-tertiary">
+                                <span>Created: {formatDate(inv.created_at)}</span>
+                                {inv.used_at && inv.invitee_name && (
+                                  <span>Used by: {inv.invitee_name}</span>
+                                )}
+                                {inv.expires_at && !inv.used_at && (
+                                  <span>Expires: {formatDate(inv.expires_at)}</span>
+                                )}
+                              </div>
+                            </div>
+                            {!inv.used_at && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => copyInviteLink(inv.code)}
+                              >
+                                Copy Link
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <svg className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm text-dark-text-secondary">
+                      <p className="font-medium mb-1 text-dark-text-primary">About invites</p>
+                      <p>Each invite link can be used once and expires after 7 days. You start with 3 invites. Share them wisely!</p>
                     </div>
                   </div>
                 </div>

@@ -122,6 +122,12 @@ func main() {
 			r.Post("/login", server.HandleLogin)
 		})
 
+		// Invite validation (public, rate limited)
+		r.Group(func(r chi.Router) {
+			r.Use(api.RateLimitMiddleware(30))
+			r.Get("/invites/validate", server.HandleValidateInvite)
+		})
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(server.JWTAuth)
@@ -220,10 +226,15 @@ func main() {
 			// Attachment update
 			r.Patch("/attachments/{id}", server.HandleUpdateAttachment)
 
+			// Invite routes
+			r.Get("/invites", server.HandleListInvites)
+			r.Post("/invites", server.HandleCreateInvite)
+
 			// Admin routes (requires admin role)
 			r.Get("/admin/users", server.HandleGetUsers)
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
 			r.Patch("/admin/users/{id}/admin", server.HandleUpdateUserAdmin)
+			r.Patch("/admin/users/{id}/invites", server.HandleAdminBoostInvites)
 		})
 	})
 
