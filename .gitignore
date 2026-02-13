@@ -61,3 +61,7 @@ webhook/config.yaml
 
 # Deployment secrets
 deployment/inventory.yml
+
+# Session logs (may contain secrets)
+.entire/
+f1/
