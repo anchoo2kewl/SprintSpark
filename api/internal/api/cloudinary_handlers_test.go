@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -739,6 +740,954 @@ func TestHandleListAssetsOwnerFlag(t *testing.T) {
 		if a.UserID == user2ID && a.IsOwner {
 			t.Error("Expected is_owner=false for user2's asset (viewed by user1)")
 		}
+	}
+}
+
+// createTestCloudinaryCredential inserts a cloudinary_credentials row for the given user
+func createTestCloudinaryCredential(t *testing.T, ts *TestServer, userID int64, cloudName, apiKey, apiSecret string) {
+	t.Helper()
+
+	ctx := context.Background()
+	_, err := ts.DB.ExecContext(ctx,
+		`INSERT INTO cloudinary_credentials (user_id, cloud_name, api_key, api_secret, max_file_size_mb, status)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		userID, cloudName, apiKey, apiSecret, 10, "unknown",
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test cloudinary credential: %v", err)
+	}
+}
+
+func TestHandleGetCloudinaryCredential(t *testing.T) {
+	tests := []struct {
+		name           string
+		wantStatus     int
+		wantEmpty      bool
+		wantCloudName  string
+		setupFunc      func(t *testing.T, ts *TestServer) int64
+	}{
+		{
+			name:       "returns empty object when no credentials exist",
+			wantStatus: http.StatusOK,
+			wantEmpty:  true,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:          "returns stored credentials",
+			wantStatus:    http.StatusOK,
+			wantCloudName: "my-cloud",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				createTestCloudinaryCredential(t, ts, userID, "my-cloud", "key123", "secret456")
+				return userID
+			},
+		},
+		{
+			name:          "returns only own credentials not other users",
+			wantStatus:    http.StatusOK,
+			wantEmpty:     true,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				otherID := ts.CreateTestUser(t, "other@example.com", "password123")
+				createTestCloudinaryCredential(t, ts, otherID, "other-cloud", "otherkey", "othersecret")
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:          "returns credential fields correctly",
+			wantStatus:    http.StatusOK,
+			wantCloudName: "test-cloud",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				createTestCloudinaryCredential(t, ts, userID, "test-cloud", "api-key-123", "api-secret-456")
+				return userID
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			userID := tt.setupFunc(t, ts)
+
+			rec, req := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/credentials", nil, userID, nil)
+			ts.HandleGetCloudinaryCredential(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantEmpty {
+				var resp map[string]interface{}
+				DecodeJSON(t, rec, &resp)
+				if len(resp) != 0 {
+					t.Errorf("Expected empty object, got %v", resp)
+				}
+			} else if tt.wantCloudName != "" {
+				var cred CloudinaryCredential
+				DecodeJSON(t, rec, &cred)
+				if cred.CloudName != tt.wantCloudName {
+					t.Errorf("Expected cloud_name %q, got %q", tt.wantCloudName, cred.CloudName)
+				}
+				if cred.UserID != userID {
+					t.Errorf("Expected user_id %d, got %d", userID, cred.UserID)
+				}
+				if cred.ID == 0 {
+					t.Error("Expected non-zero credential ID")
+				}
+				if cred.MaxFileSizeMB == 0 {
+					t.Error("Expected non-zero max_file_size_mb")
+				}
+			}
+		})
+	}
+}
+
+func TestHandleSaveCloudinaryCredential(t *testing.T) {
+	tests := []struct {
+		name          string
+		body          interface{}
+		wantStatus    int
+		wantError     string
+		wantErrorCode string
+		checkResp     func(t *testing.T, cred CloudinaryCredential)
+		setupFunc     func(t *testing.T, ts *TestServer) int64
+	}{
+		{
+			name: "saves new credentials successfully",
+			body: SaveCloudinaryCredentialRequest{
+				CloudName: "my-cloud",
+				APIKey:    "my-key",
+				APISecret: "my-secret",
+			},
+			wantStatus: http.StatusOK,
+			checkResp: func(t *testing.T, cred CloudinaryCredential) {
+				if cred.CloudName != "my-cloud" {
+					t.Errorf("Expected cloud_name 'my-cloud', got %q", cred.CloudName)
+				}
+				if cred.APIKey != "my-key" {
+					t.Errorf("Expected api_key 'my-key', got %q", cred.APIKey)
+				}
+				if cred.MaxFileSizeMB != 10 {
+					t.Errorf("Expected default max_file_size_mb 10, got %d", cred.MaxFileSizeMB)
+				}
+			},
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name: "saves credentials with custom max file size",
+			body: SaveCloudinaryCredentialRequest{
+				CloudName:     "my-cloud",
+				APIKey:        "my-key",
+				APISecret:     "my-secret",
+				MaxFileSizeMB: intPtr(25),
+			},
+			wantStatus: http.StatusOK,
+			checkResp: func(t *testing.T, cred CloudinaryCredential) {
+				if cred.MaxFileSizeMB != 25 {
+					t.Errorf("Expected max_file_size_mb 25, got %d", cred.MaxFileSizeMB)
+				}
+			},
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name: "updates existing credentials via upsert",
+			body: SaveCloudinaryCredentialRequest{
+				CloudName: "updated-cloud",
+				APIKey:    "updated-key",
+				APISecret: "updated-secret",
+			},
+			wantStatus: http.StatusOK,
+			checkResp: func(t *testing.T, cred CloudinaryCredential) {
+				if cred.CloudName != "updated-cloud" {
+					t.Errorf("Expected cloud_name 'updated-cloud', got %q", cred.CloudName)
+				}
+				if cred.APIKey != "updated-key" {
+					t.Errorf("Expected api_key 'updated-key', got %q", cred.APIKey)
+				}
+			},
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				createTestCloudinaryCredential(t, ts, userID, "old-cloud", "old-key", "old-secret")
+				return userID
+			},
+		},
+		{
+			name:          "missing cloud_name returns validation error",
+			body:          SaveCloudinaryCredentialRequest{APIKey: "key", APISecret: "secret"},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "cloud_name, api_key, and api_secret are required",
+			wantErrorCode: "validation_error",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:          "missing api_key returns validation error",
+			body:          SaveCloudinaryCredentialRequest{CloudName: "cloud", APISecret: "secret"},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "cloud_name, api_key, and api_secret are required",
+			wantErrorCode: "validation_error",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:          "missing api_secret returns validation error",
+			body:          SaveCloudinaryCredentialRequest{CloudName: "cloud", APIKey: "key"},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "cloud_name, api_key, and api_secret are required",
+			wantErrorCode: "validation_error",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:          "empty body returns bad request",
+			body:          "not json",
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invalid request body",
+			wantErrorCode: "bad_request",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:          "all fields empty returns validation error",
+			body:          SaveCloudinaryCredentialRequest{},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "cloud_name, api_key, and api_secret are required",
+			wantErrorCode: "validation_error",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			userID := tt.setupFunc(t, ts)
+
+			rec, req := makeAuthRequest(t, http.MethodPost, "/api/cloudinary/credentials", tt.body, userID, nil)
+			ts.HandleSaveCloudinaryCredential(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantError != "" {
+				AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+			}
+
+			if tt.checkResp != nil && tt.wantStatus == http.StatusOK {
+				var cred CloudinaryCredential
+				DecodeJSON(t, rec, &cred)
+				tt.checkResp(t, cred)
+				if cred.UserID != userID {
+					t.Errorf("Expected user_id %d, got %d", userID, cred.UserID)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleSaveCloudinaryCredentialPersistence(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	// Save credentials
+	body := SaveCloudinaryCredentialRequest{
+		CloudName: "persist-cloud",
+		APIKey:    "persist-key",
+		APISecret: "persist-secret",
+	}
+	rec, req := makeAuthRequest(t, http.MethodPost, "/api/cloudinary/credentials", body, userID, nil)
+	ts.HandleSaveCloudinaryCredential(rec, req)
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	// Verify by fetching via GET
+	rec2, req2 := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/credentials", nil, userID, nil)
+	ts.HandleGetCloudinaryCredential(rec2, req2)
+	AssertStatusCode(t, rec2.Code, http.StatusOK)
+
+	var cred CloudinaryCredential
+	DecodeJSON(t, rec2, &cred)
+	if cred.CloudName != "persist-cloud" {
+		t.Errorf("Expected cloud_name 'persist-cloud', got %q", cred.CloudName)
+	}
+	if cred.APIKey != "persist-key" {
+		t.Errorf("Expected api_key 'persist-key', got %q", cred.APIKey)
+	}
+}
+
+func TestHandleDeleteCloudinaryCredential(t *testing.T) {
+	tests := []struct {
+		name       string
+		wantStatus int
+		setupFunc  func(t *testing.T, ts *TestServer) int64
+	}{
+		{
+			name:       "deletes existing credentials",
+			wantStatus: http.StatusOK,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				createTestCloudinaryCredential(t, ts, userID, "my-cloud", "my-key", "my-secret")
+				return userID
+			},
+		},
+		{
+			name:       "succeeds even when no credentials exist",
+			wantStatus: http.StatusOK,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:       "does not delete other users credentials",
+			wantStatus: http.StatusOK,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				otherID := ts.CreateTestUser(t, "other@example.com", "password123")
+				createTestCloudinaryCredential(t, ts, otherID, "other-cloud", "other-key", "other-secret")
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			userID := tt.setupFunc(t, ts)
+
+			rec, req := makeAuthRequest(t, http.MethodDelete, "/api/cloudinary/credentials", nil, userID, nil)
+			ts.HandleDeleteCloudinaryCredential(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			var resp map[string]string
+			DecodeJSON(t, rec, &resp)
+			if resp["message"] != "Cloudinary credentials deleted" {
+				t.Errorf("Expected deletion message, got %q", resp["message"])
+			}
+		})
+	}
+}
+
+func TestHandleDeleteCloudinaryCredentialVerifyRemoval(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	createTestCloudinaryCredential(t, ts, userID, "my-cloud", "my-key", "my-secret")
+
+	// Verify credentials exist via GET
+	rec1, req1 := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/credentials", nil, userID, nil)
+	ts.HandleGetCloudinaryCredential(rec1, req1)
+	AssertStatusCode(t, rec1.Code, http.StatusOK)
+
+	var credBefore CloudinaryCredential
+	DecodeJSON(t, rec1, &credBefore)
+	if credBefore.CloudName != "my-cloud" {
+		t.Fatalf("Expected credentials to exist before deletion")
+	}
+
+	// Delete credentials
+	rec2, req2 := makeAuthRequest(t, http.MethodDelete, "/api/cloudinary/credentials", nil, userID, nil)
+	ts.HandleDeleteCloudinaryCredential(rec2, req2)
+	AssertStatusCode(t, rec2.Code, http.StatusOK)
+
+	// Verify credentials are gone via GET (should return empty object)
+	rec3, req3 := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/credentials", nil, userID, nil)
+	ts.HandleGetCloudinaryCredential(rec3, req3)
+	AssertStatusCode(t, rec3.Code, http.StatusOK)
+
+	var credAfter map[string]interface{}
+	DecodeJSON(t, rec3, &credAfter)
+	if len(credAfter) != 0 {
+		t.Errorf("Expected empty object after deletion, got %v", credAfter)
+	}
+}
+
+func TestHandleDeleteCloudinaryCredentialDoesNotAffectOthers(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	user1ID := ts.CreateTestUser(t, "user1@example.com", "password123")
+	user2ID := ts.CreateTestUser(t, "user2@example.com", "password123")
+	createTestCloudinaryCredential(t, ts, user1ID, "cloud-1", "key-1", "secret-1")
+	createTestCloudinaryCredential(t, ts, user2ID, "cloud-2", "key-2", "secret-2")
+
+	// User1 deletes their credentials
+	rec, req := makeAuthRequest(t, http.MethodDelete, "/api/cloudinary/credentials", nil, user1ID, nil)
+	ts.HandleDeleteCloudinaryCredential(rec, req)
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	// Verify user2's credentials are still there
+	rec2, req2 := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/credentials", nil, user2ID, nil)
+	ts.HandleGetCloudinaryCredential(rec2, req2)
+	AssertStatusCode(t, rec2.Code, http.StatusOK)
+
+	var cred CloudinaryCredential
+	DecodeJSON(t, rec2, &cred)
+	if cred.CloudName != "cloud-2" {
+		t.Errorf("Expected user2's cloud_name 'cloud-2', got %q", cred.CloudName)
+	}
+}
+
+func TestHandleListTaskAttachments(t *testing.T) {
+	tests := []struct {
+		name       string
+		wantStatus int
+		wantCount  int
+		taskID     string
+		setupFunc  func(t *testing.T, ts *TestServer) int64
+	}{
+		{
+			name:       "returns attachments for a task",
+			wantStatus: http.StatusOK,
+			wantCount:  2,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				createTestAttachment(t, ts, taskID, userID, projectID, "image", "photo.jpg", "Photo")
+				createTestAttachment(t, ts, taskID, userID, projectID, "pdf", "doc.pdf", "Document")
+				return userID
+			},
+		},
+		{
+			name:       "returns empty list when no attachments",
+			wantStatus: http.StatusOK,
+			wantCount:  0,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				createTestTaskForCloudinary(t, ts, projectID) // task with no attachments
+				return userID
+			},
+		},
+		{
+			name:       "returns only attachments for the specified task",
+			wantStatus: http.StatusOK,
+			wantCount:  1,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				task1ID := createTestTaskForCloudinary(t, ts, projectID)
+				task2ID := createTestTaskForCloudinary(t, ts, projectID)
+				createTestAttachment(t, ts, task1ID, userID, projectID, "image", "task1_photo.jpg", "Task 1 photo")
+				createTestAttachment(t, ts, task2ID, userID, projectID, "image", "task2_photo.jpg", "Task 2 photo")
+				return userID
+			},
+		},
+		{
+			name:       "invalid task ID returns 400",
+			taskID:     "abc",
+			wantStatus: http.StatusBadRequest,
+			wantCount:  0,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:       "returns attachments from multiple users on same task",
+			wantStatus: http.StatusOK,
+			wantCount:  3,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				user1ID := ts.CreateTestUser(t, "user1@example.com", "password123")
+				user2ID := ts.CreateTestUser(t, "user2@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, user1ID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				createTestAttachment(t, ts, taskID, user1ID, projectID, "image", "u1_photo.jpg", "U1 photo")
+				createTestAttachment(t, ts, taskID, user1ID, projectID, "pdf", "u1_doc.pdf", "U1 doc")
+				createTestAttachment(t, ts, taskID, user2ID, projectID, "image", "u2_photo.jpg", "U2 photo")
+				return user1ID
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			userID := tt.setupFunc(t, ts)
+
+			taskID := tt.taskID
+			if taskID == "" {
+				taskID = "1" // first auto-increment task
+			}
+
+			rec, req := makeAuthRequest(t, http.MethodGet, "/api/tasks/"+taskID+"/attachments", nil, userID,
+				map[string]string{"taskId": taskID})
+			ts.HandleListTaskAttachments(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantStatus == http.StatusOK {
+				var attachments []TaskAttachment
+				DecodeJSON(t, rec, &attachments)
+				if len(attachments) != tt.wantCount {
+					t.Errorf("Expected %d attachments, got %d", tt.wantCount, len(attachments))
+				}
+
+				// Verify ordering is by created_at DESC (latest first)
+				for i := 1; i < len(attachments); i++ {
+					if attachments[i].CreatedAt.After(attachments[i-1].CreatedAt) {
+						t.Errorf("Attachments not ordered by created_at DESC: index %d (%v) is after index %d (%v)",
+							i, attachments[i].CreatedAt, i-1, attachments[i-1].CreatedAt)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestHandleListTaskAttachmentsFieldValues(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	projectID := createTestProjectForCloudinary(t, ts, userID)
+	taskID := createTestTaskForCloudinary(t, ts, projectID)
+	createTestAttachment(t, ts, taskID, userID, projectID, "image", "photo.jpg", "My photo")
+
+	taskIDStr := fmt.Sprintf("%d", taskID)
+	rec, req := makeAuthRequest(t, http.MethodGet, "/api/tasks/"+taskIDStr+"/attachments", nil, userID,
+		map[string]string{"taskId": taskIDStr})
+	ts.HandleListTaskAttachments(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var attachments []TaskAttachment
+	DecodeJSON(t, rec, &attachments)
+
+	if len(attachments) != 1 {
+		t.Fatalf("Expected 1 attachment, got %d", len(attachments))
+	}
+
+	a := attachments[0]
+	if a.TaskID != taskID {
+		t.Errorf("Expected task_id %d, got %d", taskID, a.TaskID)
+	}
+	if a.ProjectID != projectID {
+		t.Errorf("Expected project_id %d, got %d", projectID, a.ProjectID)
+	}
+	if a.UserID != userID {
+		t.Errorf("Expected user_id %d, got %d", userID, a.UserID)
+	}
+	if a.Filename != "photo.jpg" {
+		t.Errorf("Expected filename 'photo.jpg', got %q", a.Filename)
+	}
+	if a.AltName != "My photo" {
+		t.Errorf("Expected alt_name 'My photo', got %q", a.AltName)
+	}
+	if a.FileType != "image" {
+		t.Errorf("Expected file_type 'image', got %q", a.FileType)
+	}
+	if a.CloudinaryURL == "" {
+		t.Error("Expected non-empty cloudinary_url")
+	}
+	if a.CloudinaryPublicID == "" {
+		t.Error("Expected non-empty cloudinary_public_id")
+	}
+}
+
+func TestHandleCreateTaskAttachment(t *testing.T) {
+	tests := []struct {
+		name          string
+		body          interface{}
+		taskID        string
+		wantStatus    int
+		wantError     string
+		wantErrorCode string
+		checkResp     func(t *testing.T, a TaskAttachment, userID, taskID, projectID int64)
+		setupFunc     func(t *testing.T, ts *TestServer) (userID int64, taskID string, projectID int64)
+	}{
+		{
+			name: "creates attachment successfully",
+			body: CreateAttachmentRequest{
+				Filename:           "screenshot.png",
+				AltName:            "Login page screenshot",
+				FileType:           "image",
+				ContentType:        "image/png",
+				FileSize:           2048,
+				CloudinaryURL:      "https://res.cloudinary.com/test/image/upload/screenshot.png",
+				CloudinaryPublicID: "test/screenshot",
+			},
+			wantStatus: http.StatusCreated,
+			checkResp: func(t *testing.T, a TaskAttachment, userID, taskID, projectID int64) {
+				if a.Filename != "screenshot.png" {
+					t.Errorf("Expected filename 'screenshot.png', got %q", a.Filename)
+				}
+				if a.AltName != "Login page screenshot" {
+					t.Errorf("Expected alt_name 'Login page screenshot', got %q", a.AltName)
+				}
+				if a.FileType != "image" {
+					t.Errorf("Expected file_type 'image', got %q", a.FileType)
+				}
+				if a.ContentType != "image/png" {
+					t.Errorf("Expected content_type 'image/png', got %q", a.ContentType)
+				}
+				if a.FileSize != 2048 {
+					t.Errorf("Expected file_size 2048, got %d", a.FileSize)
+				}
+				if a.CloudinaryURL != "https://res.cloudinary.com/test/image/upload/screenshot.png" {
+					t.Errorf("Expected cloudinary_url, got %q", a.CloudinaryURL)
+				}
+				if a.CloudinaryPublicID != "test/screenshot" {
+					t.Errorf("Expected cloudinary_public_id 'test/screenshot', got %q", a.CloudinaryPublicID)
+				}
+				if a.UserID != userID {
+					t.Errorf("Expected user_id %d, got %d", userID, a.UserID)
+				}
+			},
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				return userID, fmt.Sprintf("%d", taskID), projectID
+			},
+		},
+		{
+			name: "creates attachment with minimal fields",
+			body: CreateAttachmentRequest{
+				Filename:           "file.bin",
+				CloudinaryURL:      "https://res.cloudinary.com/test/raw/upload/file.bin",
+				CloudinaryPublicID: "test/file",
+			},
+			wantStatus: http.StatusCreated,
+			checkResp: func(t *testing.T, a TaskAttachment, userID, taskID, projectID int64) {
+				if a.Filename != "file.bin" {
+					t.Errorf("Expected filename 'file.bin', got %q", a.Filename)
+				}
+				if a.ID == 0 {
+					t.Error("Expected non-zero attachment ID")
+				}
+			},
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				return userID, fmt.Sprintf("%d", taskID), projectID
+			},
+		},
+		{
+			name:          "missing filename returns validation error",
+			body:          CreateAttachmentRequest{CloudinaryURL: "https://example.com", CloudinaryPublicID: "test/id"},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "filename, cloudinary_url, and cloudinary_public_id are required",
+			wantErrorCode: "validation_error",
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				return userID, fmt.Sprintf("%d", taskID), projectID
+			},
+		},
+		{
+			name:          "missing cloudinary_url returns validation error",
+			body:          CreateAttachmentRequest{Filename: "file.jpg", CloudinaryPublicID: "test/id"},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "filename, cloudinary_url, and cloudinary_public_id are required",
+			wantErrorCode: "validation_error",
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				return userID, fmt.Sprintf("%d", taskID), projectID
+			},
+		},
+		{
+			name:          "missing cloudinary_public_id returns validation error",
+			body:          CreateAttachmentRequest{Filename: "file.jpg", CloudinaryURL: "https://example.com"},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "filename, cloudinary_url, and cloudinary_public_id are required",
+			wantErrorCode: "validation_error",
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				return userID, fmt.Sprintf("%d", taskID), projectID
+			},
+		},
+		{
+			name:          "invalid task ID returns 400",
+			taskID:        "abc",
+			body:          CreateAttachmentRequest{Filename: "f.jpg", CloudinaryURL: "url", CloudinaryPublicID: "id"},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invalid task ID",
+			wantErrorCode: "bad_request",
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				return userID, "abc", 0
+			},
+		},
+		{
+			name:          "non-existent task returns 404",
+			taskID:        "99999",
+			body:          CreateAttachmentRequest{Filename: "f.jpg", CloudinaryURL: "url", CloudinaryPublicID: "id"},
+			wantStatus:    http.StatusNotFound,
+			wantError:     "task not found",
+			wantErrorCode: "not_found",
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				return userID, "99999", 0
+			},
+		},
+		{
+			name:          "invalid request body returns bad request",
+			body:          "not json",
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invalid request body",
+			wantErrorCode: "bad_request",
+			setupFunc: func(t *testing.T, ts *TestServer) (int64, string, int64) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				return userID, fmt.Sprintf("%d", taskID), projectID
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			userID, taskIDStr, projectID := tt.setupFunc(t, ts)
+
+			if tt.taskID != "" {
+				taskIDStr = tt.taskID
+			}
+
+			rec, req := makeAuthRequest(t, http.MethodPost, "/api/tasks/"+taskIDStr+"/attachments", tt.body, userID,
+				map[string]string{"taskId": taskIDStr})
+			ts.HandleCreateTaskAttachment(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantError != "" {
+				AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+			}
+
+			if tt.checkResp != nil && tt.wantStatus == http.StatusCreated {
+				var a TaskAttachment
+				DecodeJSON(t, rec, &a)
+				taskIDInt, _ := strconv.ParseInt(taskIDStr, 10, 64)
+				tt.checkResp(t, a, userID, taskIDInt, projectID)
+			}
+		})
+	}
+}
+
+func TestHandleCreateTaskAttachmentSetsProjectID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	projectID := createTestProjectForCloudinary(t, ts, userID)
+	taskID := createTestTaskForCloudinary(t, ts, projectID)
+
+	body := CreateAttachmentRequest{
+		Filename:           "test.jpg",
+		CloudinaryURL:      "https://res.cloudinary.com/test/test.jpg",
+		CloudinaryPublicID: "test/test",
+	}
+
+	taskIDStr := fmt.Sprintf("%d", taskID)
+	rec, req := makeAuthRequest(t, http.MethodPost, "/api/tasks/"+taskIDStr+"/attachments", body, userID,
+		map[string]string{"taskId": taskIDStr})
+	ts.HandleCreateTaskAttachment(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusCreated)
+
+	var a TaskAttachment
+	DecodeJSON(t, rec, &a)
+
+	// project_id should be automatically set from the task's project
+	if a.ProjectID != projectID {
+		t.Errorf("Expected project_id %d (from task), got %d", projectID, a.ProjectID)
+	}
+	if a.TaskID != taskID {
+		t.Errorf("Expected task_id %d, got %d", taskID, a.TaskID)
+	}
+}
+
+func TestHandleDeleteTaskAttachment(t *testing.T) {
+	tests := []struct {
+		name          string
+		attachmentID  string
+		wantStatus    int
+		wantError     string
+		wantErrorCode string
+		setupFunc     func(t *testing.T, ts *TestServer) int64
+	}{
+		{
+			name:       "owner can delete own attachment",
+			wantStatus: http.StatusOK,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, userID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				createTestAttachment(t, ts, taskID, userID, projectID, "image", "photo.jpg", "Photo")
+				return userID
+			},
+		},
+		{
+			name:          "non-owner cannot delete others attachment",
+			wantStatus:    http.StatusForbidden,
+			wantError:     "you can only delete your own attachments",
+			wantErrorCode: "forbidden",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+				otherID := ts.CreateTestUser(t, "other@example.com", "password123")
+				projectID := createTestProjectForCloudinary(t, ts, ownerID)
+				taskID := createTestTaskForCloudinary(t, ts, projectID)
+				createTestAttachment(t, ts, taskID, ownerID, projectID, "image", "photo.jpg", "Photo")
+				return otherID
+			},
+		},
+		{
+			name:          "invalid attachment ID returns 400",
+			attachmentID:  "xyz",
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invalid attachment ID",
+			wantErrorCode: "bad_request",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+		{
+			name:          "non-existent attachment returns 404",
+			attachmentID:  "99999",
+			wantStatus:    http.StatusNotFound,
+			wantError:     "attachment not found",
+			wantErrorCode: "not_found",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			userID := tt.setupFunc(t, ts)
+
+			attachmentID := tt.attachmentID
+			if attachmentID == "" {
+				attachmentID = "1" // first auto-increment attachment
+			}
+
+			rec, req := makeAuthRequest(t, http.MethodDelete, "/api/tasks/1/attachments/"+attachmentID, nil, userID,
+				map[string]string{"attachmentId": attachmentID})
+			ts.HandleDeleteTaskAttachment(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantError != "" {
+				AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+			}
+
+			if tt.wantStatus == http.StatusOK {
+				var resp map[string]string
+				DecodeJSON(t, rec, &resp)
+				if resp["message"] != "Attachment deleted" {
+					t.Errorf("Expected deletion message, got %q", resp["message"])
+				}
+			}
+		})
+	}
+}
+
+func TestHandleDeleteTaskAttachmentVerifyRemoval(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	projectID := createTestProjectForCloudinary(t, ts, userID)
+	taskID := createTestTaskForCloudinary(t, ts, projectID)
+	attachID := createTestAttachment(t, ts, taskID, userID, projectID, "image", "photo.jpg", "Photo")
+
+	attachmentIDStr := fmt.Sprintf("%d", attachID)
+
+	// Delete via HandleDeleteTaskAttachment
+	rec, req := makeAuthRequest(t, http.MethodDelete, "/api/tasks/1/attachments/"+attachmentIDStr, nil, userID,
+		map[string]string{"attachmentId": attachmentIDStr})
+	ts.HandleDeleteTaskAttachment(rec, req)
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	// Verify it is gone: querying task attachments should return empty
+	taskIDStr := fmt.Sprintf("%d", taskID)
+	rec2, req2 := makeAuthRequest(t, http.MethodGet, "/api/tasks/"+taskIDStr+"/attachments", nil, userID,
+		map[string]string{"taskId": taskIDStr})
+	ts.HandleListTaskAttachments(rec2, req2)
+	AssertStatusCode(t, rec2.Code, http.StatusOK)
+
+	var attachments []TaskAttachment
+	DecodeJSON(t, rec2, &attachments)
+	if len(attachments) != 0 {
+		t.Errorf("Expected 0 attachments after deletion, got %d", len(attachments))
+	}
+}
+
+func TestHandleCreateTaskAttachmentPersistence(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	projectID := createTestProjectForCloudinary(t, ts, userID)
+	taskID := createTestTaskForCloudinary(t, ts, projectID)
+
+	body := CreateAttachmentRequest{
+		Filename:           "report.pdf",
+		AltName:            "Q4 Report",
+		FileType:           "pdf",
+		ContentType:        "application/pdf",
+		FileSize:           5120,
+		CloudinaryURL:      "https://res.cloudinary.com/test/raw/upload/report.pdf",
+		CloudinaryPublicID: "test/report",
+	}
+
+	taskIDStr := fmt.Sprintf("%d", taskID)
+	rec, req := makeAuthRequest(t, http.MethodPost, "/api/tasks/"+taskIDStr+"/attachments", body, userID,
+		map[string]string{"taskId": taskIDStr})
+	ts.HandleCreateTaskAttachment(rec, req)
+	AssertStatusCode(t, rec.Code, http.StatusCreated)
+
+	// Verify the attachment appears in list
+	rec2, req2 := makeAuthRequest(t, http.MethodGet, "/api/tasks/"+taskIDStr+"/attachments", nil, userID,
+		map[string]string{"taskId": taskIDStr})
+	ts.HandleListTaskAttachments(rec2, req2)
+	AssertStatusCode(t, rec2.Code, http.StatusOK)
+
+	var attachments []TaskAttachment
+	DecodeJSON(t, rec2, &attachments)
+	if len(attachments) != 1 {
+		t.Fatalf("Expected 1 attachment, got %d", len(attachments))
+	}
+
+	a := attachments[0]
+	if a.Filename != "report.pdf" {
+		t.Errorf("Expected filename 'report.pdf', got %q", a.Filename)
+	}
+	if a.AltName != "Q4 Report" {
+		t.Errorf("Expected alt_name 'Q4 Report', got %q", a.AltName)
+	}
+	if a.FileSize != 5120 {
+		t.Errorf("Expected file_size 5120, got %d", a.FileSize)
 	}
 }
 

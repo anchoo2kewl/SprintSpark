@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -133,6 +134,114 @@ func TestGenerateAPIKey(t *testing.T) {
 	expectedHash := db.HashAPIKey(key)
 	if keyHash != expectedHash {
 		t.Error("Key hash does not match expected hash")
+	}
+}
+
+func TestHandleDeleteAPIKey(t *testing.T) {
+	tests := []struct {
+		name          string
+		setupFunc     func(*TestServer) (userID int64, keyID string)
+		wantStatus    int
+		wantError     string
+		wantErrorCode string
+		noAuth        bool
+	}{
+		{
+			name: "delete own API key successfully",
+			setupFunc: func(ts *TestServer) (int64, string) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				apiKey, err := ts.DB.CreateAPIKey(context.Background(), userID, "My Key", nil)
+				if err != nil {
+					t.Fatalf("Failed to create API key: %v", err)
+				}
+				return userID, fmt.Sprintf("%d", apiKey.ID)
+			},
+			wantStatus: http.StatusNoContent,
+		},
+		{
+			name: "delete non-existent key returns not found",
+			setupFunc: func(ts *TestServer) (int64, string) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				return userID, "99999"
+			},
+			wantStatus:    http.StatusNotFound,
+			wantError:     "API key not found",
+			wantErrorCode: "not_found",
+		},
+		{
+			name: "cannot delete another user's key",
+			setupFunc: func(ts *TestServer) (int64, string) {
+				ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+				apiKey, err := ts.DB.CreateAPIKey(context.Background(), ownerID, "Owner Key", nil)
+				if err != nil {
+					t.Fatalf("Failed to create API key: %v", err)
+				}
+				// Return a different user as the requester
+				otherUserID := ts.CreateTestUser(t, "other@example.com", "password123")
+				return otherUserID, fmt.Sprintf("%d", apiKey.ID)
+			},
+			wantStatus:    http.StatusNotFound,
+			wantError:     "API key not found",
+			wantErrorCode: "not_found",
+		},
+		{
+			name: "invalid key ID format",
+			setupFunc: func(ts *TestServer) (int64, string) {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				return userID, "not-a-number"
+			},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invalid API key ID",
+			wantErrorCode: "invalid_request",
+		},
+		{
+			name:          "unauthenticated request",
+			noAuth:        true,
+			wantStatus:    http.StatusUnauthorized,
+			wantError:     "unauthorized",
+			wantErrorCode: "unauthorized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			if tt.noAuth {
+				rec, req := MakeRequest(t, http.MethodDelete, "/api/api-keys/1", nil, nil)
+				ts.HandleDeleteAPIKey(rec, req)
+
+				AssertStatusCode(t, rec.Code, tt.wantStatus)
+				if tt.wantError != "" {
+					AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+				}
+				return
+			}
+
+			userID, keyIDStr := tt.setupFunc(ts)
+
+			urlParams := map[string]string{"id": keyIDStr}
+			rec, req := ts.MakeAuthRequest(t, http.MethodDelete, "/api/api-keys/"+keyIDStr, nil, userID, urlParams)
+			ts.HandleDeleteAPIKey(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantError != "" {
+				AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+			}
+
+			// For successful delete, verify the key is actually gone
+			if tt.wantStatus == http.StatusNoContent {
+				keys, err := ts.DB.GetAPIKeysByUserID(context.Background(), userID)
+				if err != nil {
+					t.Fatalf("Failed to list API keys: %v", err)
+				}
+				if len(keys) != 0 {
+					t.Errorf("Expected 0 API keys after delete, got %d", len(keys))
+				}
+			}
+		})
 	}
 }
 

@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -317,6 +318,120 @@ func TestHandleMe(t *testing.T) {
 					t.Errorf("User email mismatch: got %s, want user@example.com", user.Email)
 				}
 
+				if user.ID == 0 {
+					t.Error("Expected user ID to be set")
+				}
+			}
+		})
+	}
+}
+
+func TestHandleUpdateProfile(t *testing.T) {
+	tests := []struct {
+		name          string
+		body          interface{}
+		setupFunc     func(*TestServer) int64 // returns userID
+		wantStatus    int
+		wantError     string
+		wantErrorCode string
+		wantName      string
+		noAuth        bool
+	}{
+		{
+			name: "update name successfully",
+			body: UpdateProfileRequest{Name: "John Doe"},
+			setupFunc: func(ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+			wantStatus: http.StatusOK,
+			wantName:   "John Doe",
+		},
+		{
+			name: "set empty name",
+			body: UpdateProfileRequest{Name: ""},
+			setupFunc: func(ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+			wantStatus: http.StatusOK,
+			wantName:   "",
+		},
+		{
+			name: "name at 100 char limit",
+			body: UpdateProfileRequest{Name: strings.Repeat("a", 100)},
+			setupFunc: func(ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+			wantStatus: http.StatusOK,
+			wantName:   strings.Repeat("a", 100),
+		},
+		{
+			name: "name exceeds 100 chars",
+			body: UpdateProfileRequest{Name: strings.Repeat("a", 101)},
+			setupFunc: func(ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "name must be 100 characters or less",
+			wantErrorCode: "validation_error",
+		},
+		{
+			name:          "unauthenticated request",
+			body:          UpdateProfileRequest{Name: "Test"},
+			noAuth:        true,
+			wantStatus:    http.StatusUnauthorized,
+			wantError:     "user not authenticated",
+			wantErrorCode: "unauthorized",
+		},
+		{
+			name: "invalid request body",
+			body: "not-json",
+			setupFunc: func(ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invalid request body",
+			wantErrorCode: "invalid_request",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			var userID int64
+			if tt.setupFunc != nil {
+				userID = tt.setupFunc(ts)
+			}
+
+			if tt.noAuth {
+				rec, req := MakeRequest(t, http.MethodPatch, "/api/me/profile", tt.body, nil)
+				ts.HandleUpdateProfile(rec, req)
+
+				AssertStatusCode(t, rec.Code, tt.wantStatus)
+				if tt.wantError != "" {
+					AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+				}
+				return
+			}
+
+			rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/me/profile", tt.body, userID, nil)
+			ts.HandleUpdateProfile(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantError != "" {
+				AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+			} else {
+				var user User
+				DecodeJSON(t, rec, &user)
+
+				if user.Name != tt.wantName {
+					t.Errorf("User name = %q, want %q", user.Name, tt.wantName)
+				}
+				if user.Email != "user@example.com" {
+					t.Errorf("User email = %q, want %q", user.Email, "user@example.com")
+				}
 				if user.ID == 0 {
 					t.Error("Expected user ID to be set")
 				}
