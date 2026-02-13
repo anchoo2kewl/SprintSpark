@@ -1,0 +1,78 @@
+---
+# Setup SSL certificates with Let's Encrypt
+
+- name: Wait for DNS propagation
+  pause:
+    seconds: 30
+    prompt: "Waiting for DNS propagation..."
+
+- name: Obtain SSL certificate for primary domain
+  command: >
+    certbot --nginx -d {{ primary_domain }}
+    --non-interactive --agree-tos
+    --email anshuman@biswas.me
+    --redirect
+  args:
+    creates: "/etc/letsencrypt/live/{{ primary_domain }}/fullchain.pem"
+  register: certbot_primary
+
+- name: Obtain SSL certificate for secondary domain
+  command: >
+    certbot --nginx -d {{ secondary_domain }}
+    --non-interactive --agree-tos
+    --email anshuman@biswas.me
+    --redirect
+  args:
+    creates: "/etc/letsencrypt/live/{{ secondary_domain }}/fullchain.pem"
+  register: certbot_secondary
+
+- name: Check if primary SSL cert exists
+  stat:
+    path: "/etc/letsencrypt/live/{{ primary_domain }}/fullchain.pem"
+  register: primary_ssl_cert
+
+- name: Check if secondary SSL cert exists
+  stat:
+    path: "/etc/letsencrypt/live/{{ secondary_domain }}/fullchain.pem"
+  register: secondary_ssl_cert
+
+- name: Create Nginx configuration for primary domain (with SSL)
+  template:
+    src: ../templates/nginx-ssl.conf.j2
+    dest: "/etc/nginx/sites-available/{{ primary_domain }}"
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    domain: "{{ primary_domain }}"
+  when: primary_ssl_cert.stat.exists
+
+- name: Create Nginx configuration for secondary domain (with SSL)
+  template:
+    src: ../templates/nginx-ssl.conf.j2
+    dest: "/etc/nginx/sites-available/{{ secondary_domain }}"
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    domain: "{{ secondary_domain }}"
+  when: secondary_ssl_cert.stat.exists
+
+- name: Test Nginx configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Reload Nginx
+  systemd:
+    name: nginx
+    state: reloaded
+  when: nginx_test.rc == 0
+
+- name: Setup automatic certificate renewal
+  cron:
+    name: "Renew Let's Encrypt certificates"
+    minute: "0"
+    hour: "3"
+    job: "certbot renew --quiet && systemctl reload nginx"
+    user: root

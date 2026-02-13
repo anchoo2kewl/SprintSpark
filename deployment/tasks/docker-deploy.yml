@@ -1,0 +1,50 @@
+---
+# Deploy application using Docker Compose
+
+- name: Copy application files to server
+  synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: "{{ app_dir }}/source/"
+    delete: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=node_modules"
+      - "--exclude=api/tmp"
+      - "--exclude=api/data"
+      - "--exclude=web/dist"
+      - "--exclude=deployment"
+      - "--exclude=.claude"
+      - "--exclude=.entire"
+  become_user: "{{ app_user }}"
+
+- name: Build and start Docker containers
+  command: docker compose up -d --build
+  args:
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+
+- name: Wait for API to be healthy
+  uri:
+    url: "http://127.0.0.1:8081/api/health"
+    status_code: 200
+  register: health_result
+  until: health_result.status == 200
+  retries: 30
+  delay: 10
+
+- name: Display deployment status
+  debug:
+    msg: |
+      ==========================================
+      Deployment completed successfully!
+
+      Application URLs:
+      - https://{{ primary_domain }}
+      - https://{{ secondary_domain }}
+
+      API Health:
+      - https://{{ primary_domain }}/api/health
+
+      Check logs:
+      cd {{ app_dir }} && docker compose logs -f
+      ==========================================

@@ -15,9 +15,10 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Remote production settings
-REMOTE_SERVER="ubuntu@biswas.me"
-REMOTE_DEPLOY_PATH="/home/ubuntu/projects/sprintspark"
-REMOTE_DOMAIN="sprintspark.biswas.me"
+REMOTE_SERVER="ubuntu@31.97.102.48"
+REMOTE_DEPLOY_PATH="/home/ubuntu/sprintspark"
+REMOTE_DOMAIN="taskai.cc"
+REMOTE_DOMAIN_SECONDARY="sprintspark.biswas.me"
 
 # Local development settings
 LOCAL_WEB_PORT=8084
@@ -174,6 +175,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>" || {
                 echo ""
                 echo -e "${CYAN}Production URLs:${NC}"
                 echo "  Web:    https://$REMOTE_DOMAIN"
+                echo "  Web:    https://$REMOTE_DOMAIN_SECONDARY"
                 echo "  API:    https://$REMOTE_DOMAIN/api/health"
                 echo "  Docs:   https://$REMOTE_DOMAIN/api/openapi"
                 echo ""

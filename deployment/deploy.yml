@@ -1,0 +1,99 @@
+---
+# Full deployment playbook with Cloudflare DNS setup
+# Usage: ansible-playbook -i inventory.yml deploy.yml
+
+- name: Deploy SprintSpark Application
+  hosts: production
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required system packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - git
+          - python3-pip
+          - python3-setuptools
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker GPG key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        chmod a+r /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Ensure Docker service is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Ensure Nginx is running
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Configure Cloudflare DNS
+      import_tasks: tasks/cloudflare-dns.yml
+      tags: [cloudflare]
+
+    - name: Setup application directory
+      import_tasks: tasks/app-setup.yml
+
+    - name: Configure Nginx
+      import_tasks: tasks/nginx-config.yml
+
+    - name: Setup SSL with Let's Encrypt
+      import_tasks: tasks/ssl-setup.yml
+
+    - name: Setup Git deployment
+      import_tasks: tasks/git-deployment.yml
+
+    - name: Deploy application
+      import_tasks: tasks/docker-deploy.yml

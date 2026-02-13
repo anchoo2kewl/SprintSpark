@@ -1,0 +1,35 @@
+---
+# Setup application directory and configuration
+
+- name: Create application directory
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+
+- name: Create required subdirectories
+  file:
+    path: "{{ app_dir }}/{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  loop:
+    - data
+    - logs
+    - source
+
+- name: Generate strong JWT secret if not provided
+  set_fact:
+    jwt_secret: "{{ lookup('password', '/dev/null length=64 chars=ascii_letters,digits') | b64encode }}"
+  when: jwt_secret == "CHANGE_ME_STRONG_JWT_SECRET_AT_LEAST_32_CHARS"
+
+- name: Create production docker-compose.yml
+  template:
+    src: ../templates/docker-compose.prod.yml.j2
+    dest: "{{ app_dir }}/docker-compose.yml"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0644'

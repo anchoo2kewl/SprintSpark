@@ -1,0 +1,36 @@
+# Ansible Inventory Example
+# Copy this file to inventory.yml and update with your server details
+# DO NOT commit inventory.yml (it's in .gitignore)
+
+all:
+  hosts:
+    production:
+      ansible_host: YOUR_SERVER_IP
+      ansible_user: ubuntu
+      ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+      ansible_python_interpreter: /usr/bin/python3
+
+  vars:
+    # Domain configuration
+    primary_domain: taskai.cc
+    secondary_domain: sprintspark.biswas.me
+
+    # Cloudflare configuration
+    cloudflare_email: "YOUR_CLOUDFLARE_EMAIL"
+    cloudflare_api_key: "YOUR_CLOUDFLARE_GLOBAL_API_KEY"
+    cloudflare_zone_id_primary: "YOUR_TASKAI_CC_ZONE_ID"
+    cloudflare_zone_id_secondary: "YOUR_BISWAS_ME_ZONE_ID"
+
+    # Application configuration
+    app_name: sprintspark
+    app_user: "{{ ansible_user }}"
+    app_dir: /home/{{ app_user }}/{{ app_name }}
+
+    # GitHub repository
+    github_repo: https://github.com/anchoo2kewl/SprintSpark.git
+
+    # JWT configuration
+    jwt_secret: "CHANGE_ME_STRONG_JWT_SECRET_AT_LEAST_32_CHARS"
+
+    # Logging
+    log_level: info

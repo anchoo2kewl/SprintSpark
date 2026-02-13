@@ -1,0 +1,104 @@
+---
+# Configure Cloudflare DNS records for both domains
+
+- name: Get existing DNS records for primary domain
+  uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id_primary }}/dns_records?name={{ primary_domain }}&type=A"
+    method: GET
+    headers:
+      X-Auth-Email: "{{ cloudflare_email }}"
+      X-Auth-Key: "{{ cloudflare_api_key }}"
+      Content-Type: "application/json"
+  register: primary_dns_records
+  delegate_to: localhost
+  become: no
+
+- name: Create A record for primary domain
+  uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id_primary }}/dns_records"
+    method: POST
+    headers:
+      X-Auth-Email: "{{ cloudflare_email }}"
+      X-Auth-Key: "{{ cloudflare_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      type: A
+      name: "@"
+      content: "{{ ansible_host }}"
+      ttl: 1
+      proxied: false
+    status_code: [200, 409]
+  delegate_to: localhost
+  become: no
+  when: primary_dns_records.json.result | length == 0
+
+- name: Update A record for primary domain
+  uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id_primary }}/dns_records/{{ primary_dns_records.json.result[0].id }}"
+    method: PUT
+    headers:
+      X-Auth-Email: "{{ cloudflare_email }}"
+      X-Auth-Key: "{{ cloudflare_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      type: A
+      name: "@"
+      content: "{{ ansible_host }}"
+      ttl: 1
+      proxied: false
+  delegate_to: localhost
+  become: no
+  when: primary_dns_records.json.result | length > 0
+
+- name: Get existing DNS records for secondary domain
+  uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id_secondary }}/dns_records?name={{ secondary_domain }}&type=A"
+    method: GET
+    headers:
+      X-Auth-Email: "{{ cloudflare_email }}"
+      X-Auth-Key: "{{ cloudflare_api_key }}"
+      Content-Type: "application/json"
+  register: secondary_dns_records
+  delegate_to: localhost
+  become: no
+
+- name: Create A record for secondary domain
+  uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id_secondary }}/dns_records"
+    method: POST
+    headers:
+      X-Auth-Email: "{{ cloudflare_email }}"
+      X-Auth-Key: "{{ cloudflare_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      type: A
+      name: "sprintspark"
+      content: "{{ ansible_host }}"
+      ttl: 1
+      proxied: false
+    status_code: [200, 409]
+  delegate_to: localhost
+  become: no
+  when: secondary_dns_records.json.result | length == 0
+
+- name: Update A record for secondary domain
+  uri:
+    url: "https://api.cloudflare.com/client/v4/zones/{{ cloudflare_zone_id_secondary }}/dns_records/{{ secondary_dns_records.json.result[0].id }}"
+    method: PUT
+    headers:
+      X-Auth-Email: "{{ cloudflare_email }}"
+      X-Auth-Key: "{{ cloudflare_api_key }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      type: A
+      name: "sprintspark"
+      content: "{{ ansible_host }}"
+      ttl: 1
+      proxied: false
+  delegate_to: localhost
+  become: no
+  when: secondary_dns_records.json.result | length > 0

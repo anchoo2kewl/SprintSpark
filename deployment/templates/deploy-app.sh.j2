@@ -1,0 +1,64 @@
+#!/bin/bash
+# Deployment script for SprintSpark application
+# This script rebuilds and restarts the Docker containers
+
+set -e
+
+APP_DIR="{{ app_dir }}"
+cd "$APP_DIR"
+
+echo "=== Deploying SprintSpark ==="
+
+echo "-> Building Docker images..."
+docker compose build --no-cache
+
+echo "-> Stopping old containers..."
+docker compose down
+
+echo "-> Starting new containers..."
+docker compose up -d
+
+echo "-> Waiting for services to be healthy..."
+sleep 10
+
+# Check API health
+echo "-> Checking API health..."
+for i in {1..30}; do
+    if curl -sf http://127.0.0.1:8081/api/health > /dev/null 2>&1; then
+        echo "OK: API is healthy"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "FAIL: API health check failed"
+        docker compose logs api | tail -20
+        exit 1
+    fi
+    sleep 2
+done
+
+# Check web health
+echo "-> Checking web health..."
+for i in {1..30}; do
+    if curl -sf http://127.0.0.1:8085/health > /dev/null 2>&1; then
+        echo "OK: Web is healthy"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo "FAIL: Web health check failed"
+        docker compose logs web | tail -20
+        exit 1
+    fi
+    sleep 2
+done
+
+echo "-> Cleaning up old Docker images..."
+docker image prune -f
+
+echo ""
+echo "=== Deployment completed successfully! ==="
+echo ""
+echo "Services:"
+echo "  - https://{{ primary_domain }}"
+echo "  - https://{{ secondary_domain }}"
+echo ""
+echo "Check logs: docker compose logs -f"

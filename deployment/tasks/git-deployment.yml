@@ -1,0 +1,51 @@
+---
+# Setup Git repository and deployment script
+
+- name: Check if source directory exists
+  stat:
+    path: "{{ app_dir }}/source/.git"
+  register: source_git
+
+- name: Clone repository from GitHub
+  git:
+    repo: "{{ github_repo }}"
+    dest: "{{ app_dir }}/source"
+    version: main
+    force: yes
+  become_user: "{{ app_user }}"
+  when: not source_git.stat.exists
+
+- name: Pull latest code from GitHub
+  git:
+    repo: "{{ github_repo }}"
+    dest: "{{ app_dir }}/source"
+    version: main
+    force: yes
+  become_user: "{{ app_user }}"
+  when: source_git.stat.exists
+
+- name: Create deployment script
+  template:
+    src: ../templates/deploy-app.sh.j2
+    dest: "{{ app_dir }}/deploy-app.sh"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+
+- name: Display deployment instructions
+  debug:
+    msg: |
+      ==========================================
+      GitHub deployment setup complete!
+
+      Code is cloned from: {{ github_repo }}
+
+      Deployment is triggered automatically via GitHub Actions
+      when you push to the main branch:
+        git push origin main
+
+      You can also deploy manually:
+        ssh {{ app_user }}@{{ ansible_host }}
+        cd {{ app_dir }}/source && git pull origin main
+        cd {{ app_dir }} && ./deploy-app.sh
+      ==========================================

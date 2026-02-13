@@ -10,7 +10,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
       - PORT=8080
       - ENV=${ENV:-production}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://sprintspark.biswas.me}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://taskai.cc,https://sprintspark.biswas.me}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
       # Mount SQLite database for persistence

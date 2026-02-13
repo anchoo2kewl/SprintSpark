@@ -58,3 +58,6 @@ tmp/
 
 # Webhook
 webhook/config.yaml
+
+# Deployment secrets
+deployment/inventory.yml
