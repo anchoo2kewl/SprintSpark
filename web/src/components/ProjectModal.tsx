@@ -67,9 +67,9 @@ export default function ProjectModal({
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-dark-bg-secondary rounded-lg shadow-xl max-w-md w-full border border-dark-bg-tertiary/30">
+        <div className="relative bg-dark-bg-secondary rounded-lg shadow-xl max-w-md w-full border border-dark-border-subtle">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-dark-bg-tertiary/30">
+          <div className="flex items-center justify-between p-6 border-b border-dark-border-subtle">
             <h3 className="text-xl font-semibold text-dark-text-primary">
               Create New Project
             </h3>
@@ -136,13 +136,13 @@ export default function ProjectModal({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What is this project about?"
                   disabled={loading}
-                  className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                  className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
                 />
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-dark-bg-tertiary/30 bg-dark-bg-primary rounded-b-lg">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-dark-border-subtle bg-dark-bg-primary rounded-b-lg">
               <Button
                 type="button"
                 variant="outline"

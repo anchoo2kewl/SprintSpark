@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Legacy Health Check
+         * @description Legacy health endpoint (use /healthz instead)
+         */
+        get: operations["legacyHealthCheck"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/openapi": {
         parameters: {
             query?: never;
@@ -64,6 +84,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/docs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Swagger UI
+         * @description Interactive API documentation
+         */
+        get: operations["getSwaggerUI"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/signup": {
         parameters: {
             query?: never;
@@ -75,7 +115,7 @@ export interface paths {
         put?: never;
         /**
          * Sign Up
-         * @description Create a new user account
+         * @description Create a new user account. Password must be at least 8 characters and contain both a letter and a digit.
          */
         post: operations["signup"];
         delete?: never;
@@ -121,7 +161,715 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Update Profile
+         * @description Update the current user's profile (e.g. display name)
+         */
+        patch: operations["updateProfile"];
+        trace?: never;
+    };
+    "/api/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Projects
+         * @description List all projects accessible to the current user
+         */
+        get: operations["listProjects"];
+        put?: never;
+        /**
+         * Create Project
+         * @description Create a new project
+         */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Project
+         * @description Get a project by ID
+         */
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Project
+         * @description Delete a project (owner only)
+         */
+        delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Project
+         * @description Update a project (owner only)
+         */
+        patch: operations["updateProject"];
+        trace?: never;
+    };
+    "/api/projects/{projectId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tasks
+         * @description List all tasks for a project
+         */
+        get: operations["listTasks"];
+        put?: never;
+        /**
+         * Create Task
+         * @description Create a new task in a project
+         */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Task
+         * @description Delete a task by ID
+         */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Task
+         * @description Update a task by ID
+         */
+        patch: operations["updateTask"];
+        trace?: never;
+    };
+    "/api/projects/{projectId}/swim-lanes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Swim Lanes
+         * @description List all swim lanes for a project
+         */
+        get: operations["listSwimLanes"];
+        put?: never;
+        /**
+         * Create Swim Lane
+         * @description Create a new swim lane in a project (max 6 per project)
+         */
+        post: operations["createSwimLane"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/swim-lanes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Swim Lane
+         * @description Delete a swim lane (minimum 2 required per project)
+         */
+        delete: operations["deleteSwimLane"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Swim Lane
+         * @description Update a swim lane by ID
+         */
+        patch: operations["updateSwimLane"];
+        trace?: never;
+    };
+    "/api/tasks/{taskId}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Task Comments
+         * @description List all comments for a task
+         */
+        get: operations["listTaskComments"];
+        put?: never;
+        /**
+         * Create Task Comment
+         * @description Add a comment to a task
+         */
+        post: operations["createTaskComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sprints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sprints
+         * @description List all sprints for the current user
+         */
+        get: operations["listSprints"];
+        put?: never;
+        /**
+         * Create Sprint
+         * @description Create a new sprint
+         */
+        post: operations["createSprint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sprints/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Sprint
+         * @description Delete a sprint by ID
+         */
+        delete: operations["deleteSprint"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Sprint
+         * @description Update a sprint by ID
+         */
+        patch: operations["updateSprint"];
+        trace?: never;
+    };
+    "/api/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tags
+         * @description List all tags for the current user
+         */
+        get: operations["listTags"];
+        put?: never;
+        /**
+         * Create Tag
+         * @description Create a new tag
+         */
+        post: operations["createTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tags/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Tag
+         * @description Delete a tag by ID
+         */
+        delete: operations["deleteTag"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Tag
+         * @description Update a tag by ID
+         */
+        patch: operations["updateTag"];
+        trace?: never;
+    };
+    "/api/projects/{id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Project Members
+         * @description List all members of a project
+         */
+        get: operations["listProjectMembers"];
+        put?: never;
+        /**
+         * Add Project Member
+         * @description Add a user to a project by email
+         */
+        post: operations["addProjectMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{id}/members/{memberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Project Member
+         * @description Remove a member from a project
+         */
+        delete: operations["removeProjectMember"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Project Member Role
+         * @description Update the role of a project member
+         */
+        patch: operations["updateProjectMember"];
+        trace?: never;
+    };
+    "/api/projects/{id}/github": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get GitHub Settings
+         * @description Get GitHub integration settings for a project
+         */
+        get: operations["getProjectGitHubSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update GitHub Settings
+         * @description Update GitHub integration settings for a project
+         */
+        patch: operations["updateProjectGitHubSettings"];
+        trace?: never;
+    };
+    "/api/settings/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description Change the current user's password
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/2fa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get 2FA Status
+         * @description Check whether 2FA is enabled for the current user
+         */
+        get: operations["get2FAStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/2fa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Setup 2FA
+         * @description Generate a TOTP secret and QR code for 2FA setup
+         */
+        post: operations["setup2FA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/2fa/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable 2FA
+         * @description Verify TOTP code and enable 2FA, returns backup codes
+         */
+        post: operations["enable2FA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/2fa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable 2FA
+         * @description Disable 2FA (requires password confirmation)
+         */
+        post: operations["disable2FA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List API Keys
+         * @description List all API keys for the current user
+         */
+        get: operations["listAPIKeys"];
+        put?: never;
+        /**
+         * Create API Key
+         * @description Create a new API key. The full key is only returned once at creation time.
+         */
+        post: operations["createAPIKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete API Key
+         * @description Delete an API key by ID
+         */
+        delete: operations["deleteAPIKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/openapi.yaml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download OpenAPI YAML
+         * @description Download the OpenAPI specification as a YAML file (authenticated)
+         */
+        get: operations["downloadOpenAPIYAML"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Team
+         * @description Get the team the current user owns or belongs to
+         */
+        get: operations["getMyTeam"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Team Members
+         * @description List all members of the current user's team
+         */
+        get: operations["listTeamMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invite Team Member
+         * @description Send a team invitation by email
+         */
+        post: operations["inviteTeamMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/members/{memberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Team Member
+         * @description Remove a member from the team
+         */
+        delete: operations["removeTeamMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Invitations
+         * @description List pending team invitations for the current user
+         */
+        get: operations["listMyInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/invitations/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invitation
+         * @description Accept a team invitation
+         */
+        post: operations["acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/team/invitations/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Invitation
+         * @description Reject a team invitation
+         */
+        post: operations["rejectInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List All Users
+         * @description List all users with stats (admin only)
+         */
+        get: operations["adminListUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Activity
+         * @description Get activity log for a specific user (admin only)
+         */
+        get: operations["adminGetUserActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{id}/admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Admin Status
+         * @description Grant or revoke admin privileges for a user (admin only)
+         */
+        patch: operations["adminUpdateUserAdmin"];
         trace?: never;
     };
 }
@@ -131,30 +879,214 @@ export interface components {
         SignupRequest: {
             /**
              * Format: email
-             * @description User's email address (must be unique)
              * @example user@example.com
              */
             email: string;
             /**
              * Format: password
-             * @description User's password (minimum 8 characters)
-             * @example securepassword123
+             * @description Must contain at least one letter and one digit
+             * @example securepass123
              */
             password: string;
         };
         LoginRequest: {
             /**
              * Format: email
-             * @description User's email address
              * @example user@example.com
              */
             email: string;
             /**
              * Format: password
-             * @description User's password
-             * @example securepassword123
+             * @example securepass123
              */
             password: string;
+        };
+        UpdateProfileRequest: {
+            /** @example Anshuman Biswas */
+            name?: string;
+        };
+        CreateProjectRequest: {
+            /** @example My Project */
+            name: string;
+            /** @example Project description */
+            description?: string;
+        };
+        UpdateProjectRequest: {
+            /** @example Updated Project Name */
+            name?: string;
+            /** @example Updated description */
+            description?: string;
+        };
+        CreateTaskRequest: {
+            /** @example Implement feature */
+            title: string;
+            /** @example Task description in markdown */
+            description?: string;
+            /**
+             * @default todo
+             * @enum {string}
+             */
+            status: "todo" | "in_progress" | "done";
+            /** Format: int64 */
+            swim_lane_id?: number;
+            /** Format: date-time */
+            due_date?: string;
+            /** Format: int64 */
+            sprint_id?: number;
+            /**
+             * @default medium
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high" | "urgent";
+            /** Format: int64 */
+            assignee_id?: number;
+            /** Format: float */
+            estimated_hours?: number;
+            /** Format: float */
+            actual_hours?: number;
+            tag_ids?: number[];
+        };
+        UpdateTaskRequest: {
+            title?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "todo" | "in_progress" | "done";
+            /** Format: int64 */
+            swim_lane_id?: number;
+            /** Format: date-time */
+            due_date?: string;
+            /** Format: int64 */
+            sprint_id?: number;
+            /** @enum {string} */
+            priority?: "low" | "medium" | "high" | "urgent";
+            /** Format: int64 */
+            assignee_id?: number;
+            /** Format: float */
+            estimated_hours?: number;
+            /** Format: float */
+            actual_hours?: number;
+            tag_ids?: number[];
+        };
+        CreateSwimLaneRequest: {
+            /** @example Testing */
+            name: string;
+            /**
+             * @default #6B7280
+             * @example #6B7280
+             */
+            color: string;
+            /** @default 0 */
+            position: number;
+        };
+        UpdateSwimLaneRequest: {
+            name?: string;
+            color?: string;
+            position?: number;
+        };
+        CreateCommentRequest: {
+            /** @example This looks good, but needs testing. */
+            comment: string;
+        };
+        CreateSprintRequest: {
+            /** @example Sprint 1 */
+            name: string;
+            /** @example Complete authentication module */
+            goal?: string;
+            /** Format: date-time */
+            start_date?: string;
+            /** Format: date-time */
+            end_date?: string;
+            /**
+             * @default planned
+             * @enum {string}
+             */
+            status: "planned" | "active" | "completed";
+        };
+        UpdateSprintRequest: {
+            name?: string;
+            goal?: string;
+            /** Format: date-time */
+            start_date?: string;
+            /** Format: date-time */
+            end_date?: string;
+            /** @enum {string} */
+            status?: "planned" | "active" | "completed";
+        };
+        CreateTagRequest: {
+            /** @example bug */
+            name: string;
+            /**
+             * @default #3B82F6
+             * @example #FF0000
+             */
+            color: string;
+        };
+        UpdateTagRequest: {
+            name?: string;
+            color?: string;
+        };
+        AddProjectMemberRequest: {
+            /**
+             * Format: email
+             * @example member@example.com
+             */
+            email: string;
+            /**
+             * @example member
+             * @enum {string}
+             */
+            role: "viewer" | "member" | "editor" | "owner";
+        };
+        UpdateProjectMemberRequest: {
+            /**
+             * @example editor
+             * @enum {string}
+             */
+            role: "viewer" | "member" | "editor" | "owner";
+        };
+        UpdateGitHubSettingsRequest: {
+            /** @example https://github.com/user/repo */
+            github_repo_url?: string;
+            /** @example user */
+            github_owner?: string;
+            /** @example repo */
+            github_repo_name?: string;
+            /** @example main */
+            github_branch?: string;
+            github_sync_enabled?: boolean;
+        };
+        ChangePasswordRequest: {
+            /** Format: password */
+            current_password: string;
+            /** Format: password */
+            new_password: string;
+        };
+        Enable2FARequest: {
+            /**
+             * @description TOTP verification code
+             * @example 123456
+             */
+            code: string;
+        };
+        Disable2FARequest: {
+            /** Format: password */
+            password: string;
+        };
+        CreateAPIKeyRequest: {
+            /** @example CI/CD Key */
+            name: string;
+            /** @description Expiration in days (optional) */
+            expires_in?: number;
+        };
+        InviteTeamMemberRequest: {
+            /**
+             * Format: email
+             * @example teammate@example.com
+             */
+            email: string;
+        };
+        UpdateAdminStatusRequest: {
+            is_admin: boolean;
         };
         AuthResponse: {
             /**
@@ -167,29 +1099,21 @@ export interface components {
         User: {
             /**
              * Format: int64
-             * @description Unique user identifier
              * @example 1
              */
             id?: number;
             /**
              * Format: email
-             * @description User's email address
              * @example user@example.com
              */
             email?: string;
-            /**
-             * @description Whether the user has admin privileges
-             * @example false
-             */
+            /** @example Anshuman Biswas */
+            name?: string | null;
+            /** @example false */
             is_admin?: boolean;
-            /**
-             * Format: date-time
-             * @description Account creation timestamp
-             * @example 2025-10-17T22:59:13Z
-             */
+            /** Format: date-time */
             created_at?: string;
         };
-        /** @description Project entity (coming soon) */
         Project: {
             /**
              * Format: int64
@@ -205,18 +1129,11 @@ export interface components {
             name?: string;
             /** @example Project description */
             description?: string | null;
-            /**
-             * Format: date-time
-             * @example 2025-10-17T22:59:13Z
-             */
+            /** Format: date-time */
             created_at?: string;
-            /**
-             * Format: date-time
-             * @example 2025-10-17T22:59:13Z
-             */
+            /** Format: date-time */
             updated_at?: string;
         };
-        /** @description Task entity with enhanced fields */
         Task: {
             /**
              * Format: int64
@@ -237,77 +1154,111 @@ export interface components {
              * @enum {string}
              */
             status?: "todo" | "in_progress" | "done";
-            /**
-             * Format: int64
-             * @description Optional swim lane assignment
-             * @example 1
-             */
+            /** Format: int64 */
             swim_lane_id?: number | null;
-            /**
-             * @description Name of the assigned swim lane (populated from join)
-             * @example Testing
-             */
+            /** @example Testing */
             swim_lane_name?: string | null;
-            /**
-             * Format: date-time
-             * @description Optional due date for the task
-             * @example 2025-10-25T00:00:00Z
-             */
+            /** Format: date-time */
             due_date?: string | null;
-            /**
-             * Format: int64
-             * @description Optional sprint assignment
-             * @example 1
-             */
+            /** Format: int64 */
             sprint_id?: number | null;
-            /**
-             * @description Name of the assigned sprint (populated from join)
-             * @example Sprint 1
-             */
+            /** @example Sprint 1 */
             sprint_name?: string | null;
             /**
-             * @description Task priority level
              * @example medium
              * @enum {string}
              */
             priority?: "low" | "medium" | "high" | "urgent";
-            /**
-             * Format: int64
-             * @description Optional user assigned to task
-             * @example 1
-             */
+            /** Format: int64 */
             assignee_id?: number | null;
-            /**
-             * @description Name of the assigned user (populated from join)
-             * @example Anshuman Biswas
-             */
+            /** @example Anshuman Biswas */
             assignee_name?: string | null;
-            /**
-             * Format: float
-             * @description Estimated hours to complete
-             * @example 8.5
-             */
+            /** Format: float */
             estimated_hours?: number | null;
-            /**
-             * Format: float
-             * @description Actual hours spent
-             * @example 10
-             */
+            /** Format: float */
             actual_hours?: number | null;
-            /** @description Tags associated with this task */
             tags?: components["schemas"]["Tag"][];
-            /**
-             * Format: date-time
-             * @example 2025-10-17T22:59:13Z
-             */
+            /** Format: date-time */
             created_at?: string;
-            /**
-             * Format: date-time
-             * @example 2025-10-17T22:59:13Z
-             */
+            /** Format: date-time */
             updated_at?: string;
         };
-        /** @description Tag entity for categorizing tasks */
+        SwimLane: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            project_id?: number;
+            /** @example Testing */
+            name?: string;
+            /** @example #6B7280 */
+            color?: string;
+            /** @example 0 */
+            position?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        TaskComment: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            task_id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            user_id?: number;
+            /** @example Anshuman Biswas */
+            user_name?: string | null;
+            /** @example This looks good, but needs testing. */
+            comment?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        Sprint: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            user_id?: number;
+            /** @example Sprint 1 */
+            name?: string;
+            /** @example Complete authentication module */
+            goal?: string | null;
+            /** Format: date-time */
+            start_date?: string | null;
+            /** Format: date-time */
+            end_date?: string | null;
+            /**
+             * @example planned
+             * @enum {string}
+             */
+            status?: "planned" | "active" | "completed";
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
         Tag: {
             /**
              * Format: int64
@@ -321,16 +1272,247 @@ export interface components {
             user_id?: number;
             /** @example bug */
             name?: string;
-            /**
-             * @description Hex color code
-             * @example #FF0000
-             */
+            /** @example #FF0000 */
             color?: string;
-            /**
-             * Format: date-time
-             * @example 2025-10-17T22:59:13Z
-             */
+            /** Format: date-time */
             created_at?: string;
+        };
+        ProjectMember: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            project_id?: number;
+            /**
+             * Format: int64
+             * @example 2
+             */
+            user_id?: number;
+            /**
+             * Format: email
+             * @example member@example.com
+             */
+            email?: string;
+            /** @example Team Member */
+            name?: string | null;
+            /**
+             * @example member
+             * @enum {string}
+             */
+            role?: "viewer" | "member" | "editor" | "owner";
+            /**
+             * Format: int64
+             * @example 1
+             */
+            granted_by?: number;
+            /** Format: date-time */
+            granted_at?: string;
+        };
+        ProjectGitHubSettings: {
+            /** @example https://github.com/user/repo */
+            github_repo_url?: string;
+            /** @example user */
+            github_owner?: string;
+            /** @example repo */
+            github_repo_name?: string;
+            /** @example main */
+            github_branch?: string;
+            /** @example false */
+            github_sync_enabled?: boolean;
+            /** Format: date-time */
+            github_last_sync?: string | null;
+        };
+        TwoFactorSetupResponse: {
+            /** @description TOTP secret key */
+            secret?: string;
+            /** @description Base64-encoded QR code PNG data URL */
+            qr_code_url?: string;
+            /** @description TOTP provisioning URL */
+            qr_code_svg?: string;
+        };
+        TwoFactorEnableResponse: {
+            /** @description One-time backup codes for account recovery */
+            backup_codes?: string[];
+        };
+        APIKey: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /** @example CI/CD Key */
+            name?: string;
+            /** @example sk_abc1 */
+            key_prefix?: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        CreateAPIKeyResponse: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /** @example CI/CD Key */
+            name?: string;
+            /**
+             * @description Full API key (only returned at creation time)
+             * @example sk_abc123def456...
+             */
+            key?: string;
+            /** @example sk_abc1 */
+            key_prefix?: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        Team: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /** @example Engineering Team */
+            name?: string;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            owner_id?: number;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        TeamMember: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            team_id?: number;
+            /**
+             * Format: int64
+             * @example 2
+             */
+            user_id?: number;
+            /** @example Team Member */
+            user_name?: string | null;
+            /**
+             * Format: email
+             * @example member@example.com
+             */
+            email?: string;
+            /**
+             * @example member
+             * @enum {string}
+             */
+            role?: "owner" | "admin" | "member";
+            /**
+             * @example active
+             * @enum {string}
+             */
+            status?: "active" | "inactive";
+            /** Format: date-time */
+            joined_at?: string;
+        };
+        TeamInvitation: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            team_id?: number;
+            /** @example Engineering Team */
+            team_name?: string;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            inviter_id?: number;
+            /** @example Anshuman Biswas */
+            inviter_name?: string | null;
+            /**
+             * Format: email
+             * @example invitee@example.com
+             */
+            invitee_email?: string;
+            /** Format: int64 */
+            invitee_id?: number | null;
+            /**
+             * @example pending
+             * @enum {string}
+             */
+            status?: "pending" | "accepted" | "rejected";
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            responded_at?: string | null;
+        };
+        UserWithStats: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /** Format: email */
+            email?: string;
+            is_admin?: boolean;
+            /** Format: date-time */
+            created_at?: string;
+            /** @example 42 */
+            login_count?: number;
+            /** Format: date-time */
+            last_login_at?: string | null;
+            /** @example 192.168.1.1 */
+            last_login_ip?: string | null;
+            /** @example 0 */
+            failed_attempts?: number;
+        };
+        UserActivity: {
+            /**
+             * Format: int64
+             * @example 1
+             */
+            id?: number;
+            /**
+             * Format: int64
+             * @example 1
+             */
+            user_id?: number;
+            /**
+             * @example login
+             * @enum {string}
+             */
+            activity_type?: "login" | "logout" | "failed_login";
+            /** @example 192.168.1.1 */
+            ip_address?: string | null;
+            /** @example Mozilla/5.0... */
+            user_agent?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        MessageResponse: {
+            /** @example Operation successful */
+            message?: string;
         };
         Error: {
             /**
@@ -341,13 +1523,74 @@ export interface components {
             /**
              * @description Machine-readable error code
              * @example invalid_request
-             * @enum {string}
              */
-            code?: "invalid_request" | "validation_error" | "unauthorized" | "not_found" | "email_exists" | "invalid_credentials" | "internal_error";
+            code?: string;
         };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Unauthorized - missing or invalid authentication */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Forbidden - insufficient permissions */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Resource not found */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Internal server error */
+        InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
+    parameters: {
+        /** @description Project ID */
+        ProjectId: number;
+        /** @description Project ID */
+        ProjectIdPath: number;
+        /** @description Task ID */
+        TaskId: number;
+        /** @description Task ID */
+        TaskIdPath: number;
+        /** @description Swim lane ID */
+        SwimLaneId: number;
+        /** @description Sprint ID */
+        SprintId: number;
+        /** @description Tag ID */
+        TagId: number;
+        /** @description Member ID */
+        MemberId: number;
+        /** @description Team member ID */
+        TeamMemberId: number;
+        /** @description Invitation ID */
+        InvitationId: number;
+        /** @description API key ID */
+        ApiKeyId: number;
+        /** @description User ID */
+        UserId: number;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -408,13 +1651,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "error": "database unavailable",
-                     *       "code": "internal_error"
-                     *     }
-                     */
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    legacyHealthCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Service is healthy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example ok */
+                        status?: string;
+                    };
                 };
             };
         };
@@ -435,6 +1695,26 @@ export interface operations {
                 };
                 content: {
                     "application/yaml": string;
+                };
+            };
+        };
+    };
+    getSwaggerUI: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Swagger UI HTML page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
                 };
             };
         };
@@ -461,7 +1741,7 @@ export interface operations {
                     "application/json": components["schemas"]["AuthResponse"];
                 };
             };
-            /** @description Invalid request */
+            /** @description Invalid request or validation error */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -476,24 +1756,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "error": "email already exists",
-                     *       "code": "email_exists"
-                     *     }
-                     */
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            500: components["responses"]["InternalError"];
         };
     };
     login: {
@@ -533,24 +1799,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "error": "invalid email or password",
-                     *       "code": "invalid_credentials"
-                     *     }
-                     */
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
+            500: components["responses"]["InternalError"];
         };
     };
     getCurrentUser: {
@@ -571,8 +1823,35 @@ export interface operations {
                     "application/json": components["schemas"]["User"];
                 };
             };
-            /** @description Unauthorized */
-            401: {
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated user profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -580,8 +1859,56 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description User not found */
-            404: {
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listProjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of projects */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Project created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -589,8 +1916,33 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Internal server error */
-            500: {
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Invalid project ID */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -598,6 +1950,1578 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid project ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated project */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of tasks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"][];
+                };
+            };
+            /** @description Invalid project ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Task created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Task ID */
+                id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid task ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Task ID */
+                id: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated task */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listSwimLanes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of swim lanes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwimLane"][];
+                };
+            };
+            /** @description Invalid project ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createSwimLane: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSwimLaneRequest"];
+            };
+        };
+        responses: {
+            /** @description Swim lane created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwimLane"];
+                };
+            };
+            /** @description Invalid request or max swim lanes reached */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteSwimLane: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Swim lane ID */
+                id: components["parameters"]["SwimLaneId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Swim lane deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid ID or minimum swim lanes required */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateSwimLane: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Swim lane ID */
+                id: components["parameters"]["SwimLaneId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSwimLaneRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated swim lane */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwimLane"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTaskComments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of comments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskComment"][];
+                };
+            };
+            /** @description Invalid task ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createTaskComment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCommentRequest"];
+            };
+        };
+        responses: {
+            /** @description Comment created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskComment"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listSprints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of sprints */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sprint"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createSprint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSprintRequest"];
+            };
+        };
+        responses: {
+            /** @description Sprint created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sprint"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteSprint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Sprint ID */
+                id: components["parameters"]["SprintId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sprint deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid sprint ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateSprint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Sprint ID */
+                id: components["parameters"]["SprintId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSprintRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated sprint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sprint"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of tags */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tag"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Tag created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tag"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Tag name already exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tag ID */
+                id: components["parameters"]["TagId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tag deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid tag ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tag ID */
+                id: components["parameters"]["TagId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTagRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated tag */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tag"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listProjectMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of project members */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMember"][];
+                };
+            };
+            /** @description Invalid project ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    addProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddProjectMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Member added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example Member added successfully */
+                        message?: string;
+                        /** Format: int64 */
+                        member_id?: number;
+                    };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description User already a member */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    removeProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+                /** @description Member ID */
+                memberId: components["parameters"]["MemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid IDs */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateProjectMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+                /** @description Member ID */
+                memberId: components["parameters"]["MemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Member role updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getProjectGitHubSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description GitHub settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectGitHubSettings"];
+                };
+            };
+            /** @description Invalid project ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateProjectGitHubSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                id: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateGitHubSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Settings updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid request or weak password */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    get2FAStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 2FA status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        enabled?: boolean;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    setup2FA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 2FA setup data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorSetupResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    enable2FA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Enable2FARequest"];
+            };
+        };
+        responses: {
+            /** @description 2FA enabled with backup codes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorEnableResponse"];
+                };
+            };
+            /** @description Invalid TOTP code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    disable2FA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Disable2FARequest"];
+            };
+        };
+        responses: {
+            /** @description 2FA disabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid password */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAPIKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of API keys (without full key values) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIKey"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAPIKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description API key created (includes full key) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateAPIKeyResponse"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description API key ID */
+                id: components["parameters"]["ApiKeyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API key deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid API key ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadOpenAPIYAML: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI YAML file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/yaml": string;
+                };
+            };
+        };
+    };
+    getMyTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Team details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTeamMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of team members */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMember"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    inviteTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteTeamMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Invitation sent */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamInvitation"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Invitation already exists or user is already a member */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    removeTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team member ID */
+                memberId: components["parameters"]["TeamMemberId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid member ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listMyInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of invitations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamInvitation"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Invitation ID */
+                id: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitation accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid invitation ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Invitation already responded to */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    rejectInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Invitation ID */
+                id: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitation rejected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Invalid invitation ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Invitation already responded to */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            500: components["responses"]["InternalError"];
+        };
+    };
+    adminListUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of users with stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserWithStats"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    adminGetUserActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User activity log */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserActivity"][];
+                };
+            };
+            /** @description Invalid user ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    adminUpdateUserAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAdminStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Admin status updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        id?: number;
+                        is_admin?: boolean;
+                    };
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
         };
     };
 }

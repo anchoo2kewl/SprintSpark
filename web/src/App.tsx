@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './state/AuthContext'
 import { SyncProvider } from './state/SyncContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import Landing from './routes/Landing'
 import Login from './routes/Login'
 import Signup from './routes/Signup'
 import Dashboard from './routes/Dashboard'
@@ -21,6 +22,7 @@ function App() {
         <BrowserRouter>
         <Routes>
           {/* Public routes */}
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
 
@@ -43,11 +45,8 @@ function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
 
-          {/* Redirect root to login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* Catch-all redirect to landing */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
       </SyncProvider>

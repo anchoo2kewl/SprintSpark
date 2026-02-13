@@ -107,13 +107,13 @@ export default function Sprints() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800 border-green-200'
+        return 'bg-success-500/10 text-success-400 border-success-500/30'
       case 'planned':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
+        return 'bg-primary-500/10 text-primary-400 border-primary-500/30'
       case 'completed':
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-dark-bg-tertiary text-dark-text-tertiary border-dark-border-subtle'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-dark-bg-tertiary text-dark-text-tertiary border-dark-border-subtle'
     }
   }
 
@@ -191,7 +191,7 @@ export default function Sprints() {
                       onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
                       placeholder="What do you want to achieve?"
                       rows={2}
-                      className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                     />
                   </div>
 
@@ -216,7 +216,7 @@ export default function Sprints() {
                     <select
                       value={formData.status}
                       onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                      className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                     >
                       <option value="planned">Planned</option>
                       <option value="active">Active</option>
@@ -257,7 +257,7 @@ export default function Sprints() {
                 sprints.map((sprint) => (
                   <div
                     key={sprint.id}
-                    className="p-4 bg-dark-bg-primary border border-dark-bg-tertiary/30 rounded-lg hover:border-dark-bg-tertiary/50 transition-colors"
+                    className="p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg hover:border-dark-border-medium transition-colors"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">

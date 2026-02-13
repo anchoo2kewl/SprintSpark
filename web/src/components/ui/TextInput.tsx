@@ -10,19 +10,19 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
   ({ label, error, helpText, className = '', ...props }, ref) => {
     return (
       <div className="w-full">
-        <label htmlFor={props.id} className="block text-xs font-medium text-dark-text-primary mb-1">
+        <label htmlFor={props.id} className="block text-xs font-medium text-dark-text-tertiary mb-1.5">
           {label}
           {props.required && <span className="text-danger-400 ml-1">*</span>}
         </label>
         <input
           ref={ref}
           className={`
-            appearance-none block w-full px-3 py-2 border rounded-md shadow-sm
-            placeholder-dark-text-tertiary focus:outline-none text-sm
-            bg-dark-bg-primary text-dark-text-primary
+            appearance-none block w-full px-3 py-2 border rounded-md
+            placeholder-dark-text-quaternary focus:outline-none text-sm
+            bg-dark-bg-secondary text-dark-text-primary transition-colors duration-150
             ${error
               ? 'border-danger-500/50 focus:ring-1 focus:ring-danger-500 focus:border-danger-500'
-              : 'border-dark-bg-tertiary/30 focus:ring-1 focus:ring-primary-500 focus:border-primary-500'
+              : 'border-dark-border-subtle focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong'
             }
             ${props.disabled ? 'bg-dark-bg-tertiary/20 cursor-not-allowed opacity-50' : ''}
             ${className}
@@ -32,7 +32,7 @@ const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
           {...props}
         />
         {helpText && !error && (
-          <p id={`${props.id}-help`} className="mt-1 text-xs text-dark-text-secondary">
+          <p id={`${props.id}-help`} className="mt-1 text-xs text-dark-text-quaternary">
             {helpText}
           </p>
         )}

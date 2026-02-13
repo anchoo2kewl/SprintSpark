@@ -106,7 +106,7 @@ export default function Admin() {
       case 'failed_login':
         return 'text-danger-300 bg-danger-500/10 border-danger-500/30'
       case 'logout':
-        return 'text-dark-text-secondary bg-dark-bg-tertiary/30 border-dark-bg-tertiary/30'
+        return 'text-dark-text-secondary bg-dark-bg-secondary border-dark-border-subtle'
       default:
         return 'text-primary-300 bg-primary-500/10 border-primary-500/30'
     }
@@ -136,7 +136,7 @@ export default function Admin() {
   return (
     <div className="h-full flex flex-col bg-dark-bg-primary">
       {/* Header */}
-      <div className="bg-dark-bg-secondary border-b border-dark-bg-tertiary/30 px-8 py-6">
+      <div className="bg-dark-bg-secondary border-b border-dark-border-subtle px-8 py-6">
         <h1 className="text-2xl font-bold text-dark-text-primary">Admin Dashboard</h1>
         <p className="mt-1 text-sm text-dark-text-secondary">Manage users and monitor activity</p>
       </div>
@@ -144,12 +144,12 @@ export default function Admin() {
       <div className="flex-1 overflow-y-auto p-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Users Table */}
-          <div className="bg-dark-bg-secondary rounded-lg shadow-md border border-dark-bg-tertiary/30">
-            <div className="px-6 py-4 border-b border-dark-bg-tertiary/30">
+          <div className="bg-dark-bg-secondary rounded-lg shadow-md border border-dark-border-subtle">
+            <div className="px-6 py-4 border-b border-dark-border-subtle">
               <h2 className="text-lg font-semibold text-dark-text-primary">Users ({users.length})</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-dark-bg-tertiary/30">
+              <table className="min-w-full divide-y divide-dark-border-subtle">
                 <thead className="bg-dark-bg-tertiary/20">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Email</th>
@@ -160,13 +160,13 @@ export default function Admin() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-dark-text-secondary uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-dark-bg-secondary divide-y divide-dark-bg-tertiary/30">
+                <tbody className="bg-dark-bg-secondary divide-y divide-dark-border-subtle">
                   {users.map((u) => (
                     <tr key={u.id} className="hover:bg-dark-bg-tertiary/20 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-dark-text-primary">{u.email}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          u.is_admin ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-dark-bg-tertiary/30 text-dark-text-secondary border border-dark-bg-tertiary/30'
+                          u.is_admin ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' : 'bg-dark-bg-secondary text-dark-text-secondary border border-dark-border-subtle'
                         }`}>
                           {u.is_admin ? 'Admin' : 'User'}
                         </span>
@@ -202,8 +202,8 @@ export default function Admin() {
           </div>
 
           {/* Activity Log */}
-          <div className="bg-dark-bg-secondary rounded-lg shadow-md border border-dark-bg-tertiary/30">
-            <div className="px-6 py-4 border-b border-dark-bg-tertiary/30">
+          <div className="bg-dark-bg-secondary rounded-lg shadow-md border border-dark-border-subtle">
+            <div className="px-6 py-4 border-b border-dark-border-subtle">
               <h2 className="text-lg font-semibold text-dark-text-primary">
                 Activity Log {selectedUser && `- ${selectedUser.email}`}
               </h2>
@@ -238,7 +238,7 @@ export default function Admin() {
               ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {activities.map((activity) => (
-                    <div key={activity.id} className="border border-dark-bg-tertiary/30 rounded-lg p-4 bg-dark-bg-primary hover:bg-dark-bg-tertiary/10 transition-colors">
+                    <div key={activity.id} className="border border-dark-border-subtle rounded-lg p-4 bg-dark-bg-primary hover:bg-dark-bg-tertiary/10 transition-colors">
                       <div className="flex items-center justify-between">
                         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${getActivityTypeColor(activity.activity_type)}`}>
                           {activity.activity_type.replace('_', ' ').toUpperCase()}

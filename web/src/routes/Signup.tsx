@@ -55,20 +55,31 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-bg-primary px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-dark-bg-base to-dark-bg-primary px-4 relative">
+      {/* Back to home */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 text-sm text-dark-text-tertiary hover:text-dark-text-primary flex items-center gap-2 transition-colors duration-150"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back
+      </Link>
+
       <Card className="max-w-md w-full">
         <CardHeader>
           <div className="text-center">
             <img
               src="/logo.svg"
               alt="SprintSpark"
-              className="mx-auto h-16 w-16 mb-3"
+              className="mx-auto h-16 w-16 mb-4"
             />
-            <h2 className="text-2xl font-bold text-dark-text-primary">
-              SprintSpark
-            </h2>
-            <p className="mt-2 text-xs text-dark-text-secondary">
+            <h2 className="text-xl font-semibold text-dark-text-primary tracking-tight">
               Create your account
+            </h2>
+            <p className="mt-2 text-xs text-dark-text-tertiary">
+              Get started with SprintSpark
             </p>
           </div>
         </CardHeader>
@@ -127,7 +138,7 @@ export default function Signup() {
 
             <Button
               type="submit"
-              variant="secondary"
+              variant="primary"
               fullWidth
               loading={loading}
             >
@@ -135,8 +146,8 @@ export default function Signup() {
             </Button>
 
             <div className="text-sm text-center">
-              <span className="text-gray-600">Already have an account? </span>
-              <Link to="/login" className="font-medium text-secondary-600 hover:text-secondary-500">
+              <span className="text-dark-text-quaternary">Already have an account? </span>
+              <Link to="/login" className="font-medium text-primary-400 hover:text-primary-300 transition-colors">
                 Sign in
               </Link>
             </div>

@@ -163,13 +163,13 @@ export default function Tags() {
                         type="color"
                         value={formData.color}
                         onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                        className="h-10 w-20 rounded border border-dark-bg-tertiary/30 bg-dark-bg-primary cursor-pointer"
+                        className="h-10 w-20 rounded border border-dark-border-subtle bg-dark-bg-primary cursor-pointer"
                       />
                       <input
                         type="text"
                         value={formData.color}
                         onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                        className="flex-1 px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm"
+                        className="flex-1 px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary placeholder-dark-text-tertiary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm"
                         placeholder="#3B82F6"
                       />
                     </div>
@@ -209,7 +209,7 @@ export default function Tags() {
                   {tags.map((tag) => (
                     <div
                       key={tag.id}
-                      className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-dark-bg-tertiary/30 hover:border-dark-bg-tertiary/50 transition-colors"
+                      className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-dark-border-subtle hover:border-dark-bg-tertiary/50 transition-colors"
                       style={{ backgroundColor: tag.color + '20' }}
                     >
                       <div

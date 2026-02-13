@@ -340,7 +340,7 @@ export default function ProjectSettings() {
               {memberError && <FormError message={memberError} className="mb-4" />}
 
               {/* Add Member Form */}
-              <form onSubmit={handleAddMember} className="mb-6 p-4 bg-dark-bg-tertiary/30 border border-dark-bg-tertiary/30 rounded-lg">
+              <form onSubmit={handleAddMember} className="mb-6 p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                 <h3 className="font-semibold text-dark-text-primary mb-4">Grant Project Access</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2">
@@ -351,7 +351,7 @@ export default function ProjectSettings() {
                       value={selectedUserId}
                       onChange={(e) => setSelectedUserId(e.target.value)}
                       required
-                      className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                      className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
                     >
                       <option value="">Select a team member...</option>
                       {availableTeamMembers.map(member => (
@@ -368,7 +368,7 @@ export default function ProjectSettings() {
                     <select
                       value={newMemberRole}
                       onChange={(e) => setNewMemberRole(e.target.value)}
-                      className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                      className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
                     >
                       <option value="viewer">Viewer</option>
                       <option value="member">Member</option>
@@ -403,7 +403,7 @@ export default function ProjectSettings() {
                     {members.map((member) => (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg hover:border-dark-bg-tertiary/30 transition-colors"
+                        className="flex items-center justify-between p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg hover:border-dark-border-subtle transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -418,7 +418,7 @@ export default function ProjectSettings() {
                           <select
                             value={member.role}
                             onChange={(e) => handleUpdateMemberRole(member.id, e.target.value)}
-                            className="px-3 py-1.5 text-sm bg-dark-bg-secondary text-dark-text-primary border border-dark-bg-tertiary/30 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                            className="px-3 py-1.5 text-sm bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                           >
                             <option value="viewer">Viewer</option>
                             <option value="member">Member</option>
@@ -483,7 +483,7 @@ export default function ProjectSettings() {
 
               {/* Add Swim Lane Form */}
               {swimLanes.length < 6 && (
-                <div className="mb-6 p-4 bg-dark-bg-tertiary/30 border border-dark-bg-tertiary/30 rounded-lg">
+                <div className="mb-6 p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                   <h3 className="font-semibold text-dark-text-primary mb-4">Add New Swim Lane</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="md:col-span-2">
@@ -495,7 +495,7 @@ export default function ProjectSettings() {
                         value={newLaneName}
                         onChange={(e) => setNewLaneName(e.target.value)}
                         placeholder="e.g., In Review, Testing"
-                        className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                        className="w-full px-3 py-2 bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
                         maxLength={50}
                       />
                     </div>
@@ -507,7 +507,7 @@ export default function ProjectSettings() {
                         type="color"
                         value={newLaneColor}
                         onChange={(e) => setNewLaneColor(e.target.value)}
-                        className="w-full h-[42px] px-2 py-1 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors cursor-pointer"
+                        className="w-full h-[42px] px-2 py-1 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors cursor-pointer"
                       />
                     </div>
                   </div>
@@ -526,7 +526,7 @@ export default function ProjectSettings() {
                   {swimLanes.map((lane, index) => (
                     <div
                       key={lane.id}
-                      className="flex items-center gap-3 p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg hover:border-dark-bg-tertiary/30 transition-colors"
+                      className="flex items-center gap-3 p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg hover:border-dark-border-subtle transition-colors"
                     >
                       {/* Color indicator */}
                       <div
@@ -540,14 +540,14 @@ export default function ProjectSettings() {
                             type="text"
                             value={editLaneName}
                             onChange={(e) => setEditLaneName(e.target.value)}
-                            className="flex-1 px-3 py-1 bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                            className="flex-1 px-3 py-1 bg-dark-bg-primary border border-dark-border-subtle text-dark-text-primary rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
                             maxLength={50}
                           />
                           <input
                             type="color"
                             value={editLaneColor}
                             onChange={(e) => setEditLaneColor(e.target.value)}
-                            className="w-12 h-8 px-1 bg-dark-bg-primary border border-dark-bg-tertiary/30 rounded-md cursor-pointer"
+                            className="w-12 h-8 px-1 bg-dark-bg-primary border border-dark-border-subtle rounded-md cursor-pointer"
                           />
                           <button
                             onClick={() => handleUpdateSwimLane(lane.id)}
@@ -557,7 +557,7 @@ export default function ProjectSettings() {
                           </button>
                           <button
                             onClick={() => setEditingLane(null)}
-                            className="px-3 py-1 bg-dark-bg-tertiary/30 hover:bg-dark-bg-tertiary/50 text-dark-text-secondary text-sm rounded-md transition-colors"
+                            className="px-3 py-1 bg-dark-bg-secondary hover:bg-dark-bg-tertiary text-dark-text-secondary text-sm rounded-md transition-colors"
                           >
                             Cancel
                           </button>
@@ -573,7 +573,7 @@ export default function ProjectSettings() {
                             <button
                               onClick={() => handleMoveSwimLane(lane.id, 'up')}
                               disabled={index === 0}
-                              className="p-1.5 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-tertiary/30 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              className="p-1.5 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-secondary rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                               title="Move up"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -584,7 +584,7 @@ export default function ProjectSettings() {
                             <button
                               onClick={() => handleMoveSwimLane(lane.id, 'down')}
                               disabled={index === swimLanes.length - 1}
-                              className="p-1.5 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-tertiary/30 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              className="p-1.5 text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-secondary rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                               title="Move down"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -691,13 +691,13 @@ export default function ProjectSettings() {
                   helpText="The default branch to track (e.g., main, master, develop)"
                 />
 
-                <div className="flex items-center gap-3 p-4 bg-dark-bg-tertiary/30 border border-dark-bg-tertiary/30 rounded-lg">
+                <div className="flex items-center gap-3 p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                   <input
                     type="checkbox"
                     id="sync-enabled"
                     checked={githubSettings.github_sync_enabled}
                     onChange={(e) => setGithubSettings({ ...githubSettings, github_sync_enabled: e.target.checked })}
-                    className="w-4 h-4 text-primary-600 border-dark-bg-tertiary/30 rounded focus:ring-2 focus:ring-primary-500"
+                    className="w-4 h-4 text-primary-600 border-dark-border-subtle rounded focus:ring-2 focus:ring-primary-500"
                   />
                   <label htmlFor="sync-enabled" className="flex-1">
                     <span className="font-medium text-dark-text-primary">Enable GitHub Sync</span>

@@ -27,32 +27,32 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg-primary flex flex-col">
-      {/* Header - Linear style */}
-      <header className="bg-dark-bg-secondary border-b border-dark-bg-tertiary/20">
-        <div className="flex items-center justify-between h-12 px-4">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-dark-bg-base flex flex-col">
+      {/* Header */}
+      <header className="bg-dark-bg-primary/80 backdrop-blur-lg border-b border-dark-border-subtle sticky top-0 z-10">
+        <div className="flex items-center justify-between h-14 px-6">
+          <div className="flex items-center gap-2.5">
             <img
               src="/logo.svg"
               alt="SprintSpark"
-              className="w-6 h-6"
+              className="w-5 h-5"
             />
-            <h1 className="text-sm font-semibold text-dark-text-primary">SprintSpark</h1>
+            <h1 className="text-sm font-semibold text-dark-text-primary tracking-tight">SprintSpark</h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <SyncStatus />
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-primary-500/10 rounded-full flex items-center justify-center">
+              <div className="w-7 h-7 bg-primary-500/10 border border-primary-500/20 rounded-full flex items-center justify-center">
                 <span className="text-xs font-medium text-primary-400">
                   {user?.email?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className="text-xs text-dark-text-secondary">{user?.email}</span>
+              <span className="text-xs text-dark-text-tertiary">{user?.email}</span>
             </div>
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-dark-text-secondary hover:text-dark-text-primary hover:bg-dark-bg-tertiary/30 rounded-md transition-colors duration-150"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-dark-text-tertiary hover:text-dark-text-primary hover:bg-dark-bg-tertiary rounded-md transition-all duration-150"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -79,7 +79,7 @@ export default function Dashboard() {
         <Sidebar onCreateProject={() => setIsProjectModalOpen(true)} />
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-dark-bg-primary">
+        <main className="flex-1 overflow-y-auto bg-dark-bg-base">
           <Outlet />
         </main>
       </div>

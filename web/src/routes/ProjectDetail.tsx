@@ -195,14 +195,14 @@ export default function ProjectDetail() {
 
   if (loadingProject || loadingTasks || loadingSwimLanes) {
     return (
-      <div className="p-6 bg-dark-bg-primary">
+      <div className="p-6 bg-dark-bg-base">
         <div className="animate-pulse space-y-3">
-          <div className="h-6 bg-dark-bg-tertiary/40 rounded w-1/3"></div>
-          <div className="h-3 bg-dark-bg-tertiary/30 rounded w-1/2"></div>
+          <div className="h-6 bg-dark-bg-tertiary rounded w-1/3"></div>
+          <div className="h-3 bg-dark-bg-secondary rounded w-1/2"></div>
           <div className="space-y-2 mt-6">
-            <div className="h-16 bg-dark-bg-tertiary/30 rounded"></div>
-            <div className="h-16 bg-dark-bg-tertiary/30 rounded"></div>
-            <div className="h-16 bg-dark-bg-tertiary/30 rounded"></div>
+            <div className="h-16 bg-dark-bg-secondary rounded"></div>
+            <div className="h-16 bg-dark-bg-secondary rounded"></div>
+            <div className="h-16 bg-dark-bg-secondary rounded"></div>
           </div>
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function ProjectDetail() {
 
   if (projectError || tasksError) {
     return (
-      <div className="p-6 bg-dark-bg-primary">
+      <div className="p-6 bg-dark-bg-base">
         <div className="bg-danger-500/10 border border-danger-500/20 text-danger-400 px-4 py-3 rounded text-sm">
           {projectError || tasksError}
         </div>
@@ -227,9 +227,9 @@ export default function ProjectDetail() {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="h-full flex flex-col bg-dark-bg-primary">
+      <div className="h-full flex flex-col bg-dark-bg-base">
         {/* Project Header */}
-        <div className="bg-dark-bg-secondary border-b border-dark-bg-tertiary/20 px-6 py-4">
+        <div className="bg-dark-bg-secondary border-b border-dark-border-subtle px-6 py-4">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-lg font-semibold text-dark-text-primary">
@@ -242,7 +242,7 @@ export default function ProjectDetail() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate(`/app/projects/${projectId}/settings`)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-bg-tertiary/30 hover:bg-dark-bg-tertiary/50 text-dark-text-secondary hover:text-dark-text-primary text-xs font-medium rounded-md transition-colors duration-150"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-dark-bg-secondary hover:bg-dark-bg-tertiary text-dark-text-secondary hover:text-dark-text-primary text-xs font-medium rounded-md transition-colors duration-150"
                 title="Project Settings"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,7 +280,7 @@ export default function ProjectDetail() {
         </div>
 
         {/* Tasks Board */}
-        <div className="flex-1 overflow-y-auto p-6 bg-dark-bg-primary">
+        <div className="flex-1 overflow-y-auto p-6 bg-dark-bg-base">
           {tasks.length === 0 ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -335,7 +335,7 @@ export default function ProjectDetail() {
         {/* New Task Modal */}
         {showNewTaskModal && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-dark-bg-secondary rounded-lg shadow-linear-lg max-w-md w-full p-5 border border-dark-bg-tertiary/30">
+            <div className="bg-dark-bg-elevated rounded-xl shadow-linear-xl max-w-md w-full p-5 border border-dark-border-subtle">
               <h2 className="text-base font-semibold text-dark-text-primary mb-4">Create New Task</h2>
 
               <div className="space-y-3">
@@ -348,7 +348,7 @@ export default function ProjectDetail() {
                     type="text"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 text-sm bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Enter task title"
                     autoFocus
                     onKeyDown={(e) => {
@@ -368,7 +368,7 @@ export default function ProjectDetail() {
                     value={newTaskDescription}
                     onChange={(e) => setNewTaskDescription(e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 text-sm bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                    className="w-full px-3 py-2 text-sm bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 resize-none"
                     placeholder="Enter task description (optional)"
                   />
                 </div>
@@ -382,7 +382,7 @@ export default function ProjectDetail() {
                     type="date"
                     value={newTaskDueDate}
                     onChange={(e) => setNewTaskDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm bg-dark-bg-primary border border-dark-bg-tertiary/30 text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full px-3 py-2 text-sm bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-md focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
               </div>
@@ -395,7 +395,7 @@ export default function ProjectDetail() {
                     setNewTaskDescription('')
                     setNewTaskDueDate('')
                   }}
-                  className="flex-1 px-3 py-1.5 text-sm border border-dark-bg-tertiary/30 text-dark-text-secondary rounded-md hover:bg-dark-bg-tertiary/30 transition-colors duration-150"
+                  className="flex-1 px-3 py-1.5 text-sm border border-dark-border-subtle text-dark-text-secondary rounded-md hover:bg-dark-bg-secondary transition-colors duration-150"
                   disabled={creating}
                 >
                   Cancel
@@ -415,12 +415,12 @@ export default function ProjectDetail() {
         {/* Task Detail Modal */}
         {selectedTask && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-dark-bg-secondary rounded-lg shadow-linear-lg max-w-md w-full p-5 border border-dark-bg-tertiary/30">
+            <div className="bg-dark-bg-elevated rounded-xl shadow-linear-xl max-w-md w-full p-5 border border-dark-border-subtle">
               <h2 className="text-base font-semibold text-dark-text-primary mb-4">Edit Task</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-title" className="block text-sm font-medium text-dark-text-tertiary mb-1">
                     Title *
                   </label>
                   <input
@@ -428,12 +428,12 @@ export default function ProjectDetail() {
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-description" className="block text-sm font-medium text-dark-text-tertiary mb-1">
                     Description
                   </label>
                   <textarea
@@ -441,19 +441,19 @@ export default function ProjectDetail() {
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm resize-none"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="edit-swim-lane" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-swim-lane" className="block text-sm font-medium text-dark-text-tertiary mb-1">
                     Swim Lane
                   </label>
                   <select
                     id="edit-swim-lane"
                     value={editSwimLaneId ?? ''}
                     onChange={(e) => setEditSwimLaneId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm"
                   >
                     {swimLanes.map((lane) => (
                       <option key={lane.id} value={lane.id}>
@@ -464,7 +464,7 @@ export default function ProjectDetail() {
                 </div>
 
                 <div>
-                  <label htmlFor="edit-due-date" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="edit-due-date" className="block text-sm font-medium text-dark-text-tertiary mb-1">
                     Due Date
                   </label>
                   <input
@@ -472,7 +472,7 @@ export default function ProjectDetail() {
                     type="date"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm"
                   />
                 </div>
               </div>
@@ -480,7 +480,7 @@ export default function ProjectDetail() {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => setSelectedTask(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                  className="flex-1 px-4 py-2 border border-dark-border-subtle text-dark-text-secondary rounded-md hover:bg-dark-bg-tertiary transition-colors duration-150"
                   disabled={updating}
                 >
                   Cancel
@@ -488,7 +488,7 @@ export default function ProjectDetail() {
                 <button
                   onClick={handleUpdateTask}
                   disabled={!editTitle.trim() || updating}
-                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                  className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 text-sm"
                 >
                   {updating ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -518,7 +518,7 @@ function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: 
 
   return (
     <div ref={setNodeRef} className={`min-h-[200px] ${isOver ? 'bg-dark-bg-tertiary/20 ring-1 ring-primary-500/30 rounded-md' : ''}`}>
-      <h3 className="text-xs font-semibold text-dark-text-secondary mb-2 flex items-center gap-1.5">
+      <h3 className="text-[11px] uppercase tracking-wide font-semibold text-dark-text-quaternary mb-3 flex items-center gap-2">
         <div
           className="w-1.5 h-1.5 rounded-full"
           style={{ backgroundColor: color }}
@@ -580,7 +580,7 @@ function TaskCard({ task, projectId, isDragging }: {
   return (
     <div
       onClick={() => navigate(`/app/projects/${projectId}/tasks/${task.id}`)}
-      className={`bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-md p-3 hover:border-dark-bg-tertiary/50 transition-all duration-150 cursor-pointer ${
+      className={`bg-dark-bg-primary border border-dark-border-subtle rounded-lg p-3 hover:border-dark-border-medium hover:shadow-linear-sm transition-all duration-150 cursor-pointer ${
         isDragging ? 'shadow-linear-lg rotate-1' : ''
       } ${task.status === 'done' ? 'opacity-60' : ''}`}
     >

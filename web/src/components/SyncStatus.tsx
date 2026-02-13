@@ -12,7 +12,7 @@ export default function SyncStatus() {
     switch (syncState.status) {
       case 'syncing':
         return (
-          <svg className="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24">
+          <svg className="animate-spin h-4 w-4 text-primary-400" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path
               className="opacity-75"
@@ -23,13 +23,13 @@ export default function SyncStatus() {
         )
       case 'synced':
         return (
-          <svg className="h-4 w-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4 text-success-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         )
       case 'error':
         return (
-          <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4 text-danger-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -40,7 +40,7 @@ export default function SyncStatus() {
         )
       case 'offline':
         return (
-          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4 text-dark-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -51,7 +51,7 @@ export default function SyncStatus() {
         )
       default:
         return (
-          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4 text-dark-text-quaternary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -81,15 +81,15 @@ export default function SyncStatus() {
   const getStatusColor = () => {
     switch (syncState.status) {
       case 'syncing':
-        return 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+        return 'text-primary-400 bg-primary-500/10 hover:bg-primary-500/20'
       case 'synced':
-        return 'text-green-600 bg-green-50 hover:bg-green-100'
+        return 'text-success-400 bg-success-500/10 hover:bg-success-500/20'
       case 'error':
-        return 'text-red-600 bg-red-50 hover:bg-red-100'
+        return 'text-danger-400 bg-danger-500/10 hover:bg-danger-500/20'
       case 'offline':
-        return 'text-gray-600 bg-gray-50 hover:bg-gray-100'
+        return 'text-dark-text-tertiary bg-dark-bg-tertiary hover:bg-dark-bg-elevated'
       default:
-        return 'text-gray-600 bg-gray-50 hover:bg-gray-100'
+        return 'text-dark-text-tertiary bg-dark-bg-tertiary hover:bg-dark-bg-elevated'
     }
   }
 
@@ -127,12 +127,12 @@ export default function SyncStatus() {
       {getStatusIcon()}
       <span>{getStatusText()}</span>
       {syncState.pendingOperations > 0 && (
-        <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
+        <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-primary-500 rounded-full">
           {syncState.pendingOperations}
         </span>
       )}
       {syncState.lastSyncTime && syncState.status === 'synced' && (
-        <span className="text-gray-500">{formatLastSync()}</span>
+        <span className="text-dark-text-quaternary">{formatLastSync()}</span>
       )}
     </button>
   )

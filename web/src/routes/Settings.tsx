@@ -444,7 +444,7 @@ export default function Settings() {
                 <p className="text-sm text-dark-text-secondary mb-6">Add an extra layer of security to your account</p>
 
                 {/* Status Badge */}
-                <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-bg-tertiary/30 rounded-lg flex items-center justify-between">
+                <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-3 h-3 rounded-full ${twoFAEnabled ? 'bg-success-500' : 'bg-dark-text-tertiary'}`}></div>
                     <div>
@@ -455,7 +455,7 @@ export default function Settings() {
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                     twoFAEnabled
                       ? 'bg-success-500/10 text-success-400'
-                      : 'bg-dark-bg-tertiary/30 text-dark-text-tertiary'
+                      : 'bg-dark-bg-secondary text-dark-text-tertiary'
                   }`}>
                     {twoFAEnabled ? '✓ Enabled' : 'Disabled'}
                   </span>
@@ -497,7 +497,7 @@ export default function Settings() {
                 {/* QR Code Display */}
                 {qrCodeURL && !twoFAEnabled && (
                   <div className="space-y-4">
-                    <div className="bg-dark-bg-primary border-2 border-dark-bg-tertiary/30 rounded-xl p-6">
+                    <div className="bg-dark-bg-primary border-2 border-dark-border-subtle rounded-xl p-6">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center text-purple-400 font-bold">1</div>
                         <h3 className="font-semibold text-dark-text-primary">Scan QR Code</h3>
@@ -506,14 +506,14 @@ export default function Settings() {
                         Open your authenticator app (Google Authenticator, Authy, 1Password, etc.) and scan this code
                       </p>
                       <div className="flex flex-col items-center gap-4">
-                        <div className="bg-white p-4 rounded-lg border-2 border-dark-bg-tertiary/30 shadow-sm">
+                        <div className="bg-white p-4 rounded-lg border-2 border-dark-border-subtle shadow-sm">
                           <img src={qrCodeURL} alt="2FA QR Code" className="w-48 h-48" />
                         </div>
 
-                        <div className="w-full bg-dark-bg-secondary p-4 rounded-lg border border-dark-bg-tertiary/30">
+                        <div className="w-full bg-dark-bg-secondary p-4 rounded-lg border border-dark-border-subtle">
                           <p className="text-xs font-medium text-dark-text-secondary mb-2">Manual Entry Key:</p>
                           <div className="flex items-center gap-2">
-                            <code className="flex-1 text-sm font-mono bg-dark-bg-primary text-dark-text-primary px-3 py-2 rounded border border-dark-bg-tertiary/30 break-all">
+                            <code className="flex-1 text-sm font-mono bg-dark-bg-primary text-dark-text-primary px-3 py-2 rounded border border-dark-border-subtle break-all">
                               {twoFASecret}
                             </code>
                             <Button size="sm" variant="secondary" onClick={copySecret}>
@@ -526,7 +526,7 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    <form onSubmit={handleEnable2FA} className="bg-dark-bg-primary border-2 border-dark-bg-tertiary/30 rounded-xl p-6">
+                    <form onSubmit={handleEnable2FA} className="bg-dark-bg-primary border-2 border-dark-border-subtle rounded-xl p-6">
                       <div className="flex items-center gap-2 mb-4">
                         <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center text-purple-400 font-bold">2</div>
                         <h3 className="font-semibold text-dark-text-primary">Enter Verification Code</h3>
@@ -543,7 +543,7 @@ export default function Settings() {
                           maxLength={6}
                           pattern="\d{6}"
                           required
-                          className="flex-1 text-center text-3xl font-mono tracking-widest px-4 py-3 border-2 border-dark-bg-tertiary/30 bg-dark-bg-secondary text-dark-text-primary rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors placeholder-dark-text-tertiary"
+                          className="flex-1 text-center text-3xl font-mono tracking-widest px-4 py-3 border-2 border-dark-border-subtle bg-dark-bg-secondary text-dark-text-primary rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors placeholder-dark-text-tertiary"
                         />
                         <Button type="submit" disabled={isEnabling2FA || verificationCode.length !== 6}>
                           {isEnabling2FA ? 'Verifying...' : 'Verify & Enable'}
@@ -571,7 +571,7 @@ export default function Settings() {
                     <div className="bg-dark-bg-primary p-5 rounded-lg border-2 border-yellow-500/30 mb-4">
                       <div className="grid grid-cols-2 gap-3">
                         {backupCodes.map((code, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-dark-bg-secondary rounded-lg border border-dark-bg-tertiary/30">
+                          <div key={index} className="flex items-center justify-between p-3 bg-dark-bg-secondary rounded-lg border border-dark-border-subtle">
                             <span className="font-mono text-sm font-medium text-dark-text-primary">{code}</span>
                             <button
                               onClick={() => {
@@ -679,7 +679,7 @@ export default function Settings() {
                     <div className="bg-dark-bg-primary p-5 rounded-lg border-2 border-yellow-500/30 mb-4">
                       <p className="text-xs font-medium text-dark-text-secondary mb-2">Key Name: {createdKey.name}</p>
                       <div className="flex items-center gap-2">
-                        <code className="flex-1 text-sm font-mono bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-bg-tertiary/30 break-all">
+                        <code className="flex-1 text-sm font-mono bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-border-subtle break-all">
                           {createdKey.key}
                         </code>
                         <Button size="sm" variant="secondary" onClick={() => copyAPIKey(createdKey.key)}>
@@ -713,7 +713,7 @@ export default function Settings() {
                     <select
                       value={newKeyExpires || ''}
                       onChange={(e) => setNewKeyExpires(e.target.value ? parseInt(e.target.value) : undefined)}
-                      className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-secondary text-dark-text-primary rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors"
+                      className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-secondary text-dark-text-primary rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors"
                     >
                       <option value="30">30 days</option>
                       <option value="90">90 days</option>
@@ -741,12 +741,12 @@ export default function Settings() {
                   ) : (
                     <div className="space-y-3">
                       {apiKeys.map((key) => (
-                        <div key={key.id} className="p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg">
+                        <div key={key.id} className="p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3">
                                 <h4 className="font-medium text-dark-text-primary">{key.name}</h4>
-                                <code className="text-xs font-mono bg-dark-bg-primary text-dark-text-secondary px-2 py-1 rounded border border-dark-bg-tertiary/30">
+                                <code className="text-xs font-mono bg-dark-bg-primary text-dark-text-secondary px-2 py-1 rounded border border-dark-border-subtle">
                                   {key.key_prefix}...
                                 </code>
                               </div>
@@ -779,7 +779,7 @@ export default function Settings() {
                     <div className="text-sm text-dark-text-secondary">
                       <p className="font-medium mb-1 text-dark-text-primary">Using API keys</p>
                       <p className="mb-2">Include your API key in the Authorization header:</p>
-                      <code className="block bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-bg-tertiary/30 font-mono text-xs">
+                      <code className="block bg-dark-bg-secondary text-dark-text-primary px-3 py-2 rounded border border-dark-border-subtle font-mono text-xs">
                         Authorization: ApiKey YOUR_API_KEY
                       </code>
                     </div>
@@ -816,7 +816,7 @@ export default function Settings() {
 
                 {/* Team Info */}
                 {team && (
-                  <div className="mb-6 p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg">
+                  <div className="mb-6 p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-dark-text-secondary">Your Team</p>
@@ -904,7 +904,7 @@ export default function Settings() {
                   ) : (
                     <div className="space-y-3">
                       {teamMembers.map((member: any) => (
-                        <div key={member.id} className="p-4 bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg">
+                        <div key={member.id} className="p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3">

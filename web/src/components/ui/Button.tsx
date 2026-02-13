@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes, ReactNode } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
-  variant?: 'primary' | 'secondary' | 'danger' | 'outline'
+  variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
   fullWidth?: boolean
@@ -18,13 +18,14 @@ export default function Button({
   className = '',
   ...props
 }: ButtonProps) {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md focus:outline-none focus:ring-1 transition-colors'
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md focus:outline-none focus:ring-1 transition-all duration-150'
 
   const variantClasses = {
-    primary: 'bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500 disabled:bg-primary-500/50',
-    secondary: 'bg-dark-bg-tertiary/50 text-dark-text-primary hover:bg-dark-bg-tertiary/70 focus:ring-dark-bg-tertiary disabled:bg-dark-bg-tertiary/30',
-    danger: 'bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500 disabled:bg-danger-500/50',
-    outline: 'bg-transparent text-dark-text-secondary border border-dark-bg-tertiary/30 hover:bg-dark-bg-tertiary/20 hover:text-dark-text-primary focus:ring-primary-500 disabled:bg-dark-bg-tertiary/10',
+    primary: 'bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500/50 disabled:bg-primary-500/50 shadow-linear-sm',
+    secondary: 'bg-dark-bg-tertiary text-dark-text-primary hover:bg-dark-bg-elevated focus:ring-dark-border-strong disabled:bg-dark-bg-tertiary/30',
+    danger: 'bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500/50 disabled:bg-danger-500/50 shadow-linear-sm',
+    outline: 'bg-transparent text-dark-text-secondary border border-dark-border-medium hover:bg-dark-bg-tertiary hover:text-dark-text-primary hover:border-dark-border-strong focus:ring-primary-500/30 disabled:opacity-30',
+    ghost: 'bg-transparent text-dark-text-tertiary hover:bg-dark-bg-tertiary hover:text-dark-text-primary disabled:opacity-30',
   }
 
   const sizeClasses = {
@@ -50,7 +51,7 @@ export default function Button({
     >
       {loading && (
         <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+          className="animate-spin -ml-1 mr-2 h-4 w-4"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"

@@ -166,28 +166,28 @@ export default function TaskDetail() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent':
-        return 'bg-red-100 text-red-800 border-red-200'
+        return 'bg-danger-500/10 text-danger-400 border-danger-500/30'
       case 'high':
-        return 'bg-orange-100 text-orange-800 border-orange-200'
+        return 'bg-warning-500/10 text-warning-400 border-warning-500/30'
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+        return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
       case 'low':
-        return 'bg-green-100 text-green-800 border-green-200'
+        return 'bg-success-500/10 text-success-400 border-success-500/30'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-dark-bg-tertiary text-dark-text-tertiary border-dark-border-subtle'
     }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'done':
-        return 'bg-green-100 text-green-800 border-green-200'
+        return 'bg-success-500/10 text-success-400 border-success-500/30'
       case 'in_progress':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
+        return 'bg-primary-500/10 text-primary-400 border-primary-500/30'
       case 'todo':
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-dark-bg-tertiary text-dark-text-tertiary border-dark-border-subtle'
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+        return 'bg-dark-bg-tertiary text-dark-text-tertiary border-dark-border-subtle'
     }
   }
 
@@ -216,7 +216,7 @@ export default function TaskDetail() {
     return (
       <div className="min-h-screen bg-dark-bg-primary py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg p-8 text-center">
+          <div className="bg-dark-bg-secondary border border-dark-border-subtle rounded-lg p-8 text-center">
             <p className="text-danger-400 mb-4">{error}</p>
             <Button onClick={() => navigate(`/app/projects/${projectId}`)}>
               Back to Project
@@ -232,7 +232,7 @@ export default function TaskDetail() {
   return (
     <div className="min-h-screen bg-dark-bg-primary">
       {/* Header */}
-      <div className="border-b border-dark-bg-tertiary/20 bg-dark-bg-secondary">
+      <div className="border-b border-dark-border-subtle bg-dark-bg-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between mb-4">
             <button
@@ -294,7 +294,7 @@ export default function TaskDetail() {
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full text-3xl font-bold mb-2 px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                className="w-full text-3xl font-bold mb-2 px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                 placeholder="Task title"
               />
             ) : (
@@ -316,7 +316,7 @@ export default function TaskDetail() {
               {task.tags && task.tags.length > 0 && task.tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="px-2.5 py-1 text-xs font-semibold rounded-full border border-dark-bg-tertiary/30"
+                  className="px-2.5 py-1 text-xs font-semibold rounded-full border border-dark-border-subtle"
                   style={{ backgroundColor: tag.color + '20', color: tag.color }}
                 >
                   {tag.name}
@@ -333,7 +333,7 @@ export default function TaskDetail() {
           {/* Left Column - Main Content */}
           <div className="flex-1 space-y-6">
             {/* Description */}
-            <div className="bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg p-6">
+            <div className="bg-dark-bg-secondary border border-dark-border-subtle rounded-lg p-6">
               <h2 className="text-sm font-semibold text-dark-text-primary mb-3">Description</h2>
               {isEditing ? (
                 <div>
@@ -341,7 +341,7 @@ export default function TaskDetail() {
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     rows={15}
-                    className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm placeholder-dark-text-tertiary"
+                    className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono text-sm placeholder-dark-text-tertiary"
                     placeholder="Add a description in markdown format...
 
 ## Example
@@ -357,7 +357,7 @@ export default function TaskDetail() {
               ) : (
                 <>
                   {task.description ? (
-                    <div className="prose prose-sm max-w-none prose-headings:text-dark-text-primary prose-p:text-dark-text-secondary prose-a:text-primary-400 prose-code:text-primary-400 prose-code:bg-primary-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-dark-bg-primary prose-pre:border prose-pre:border-dark-bg-tertiary/30">
+                    <div className="prose prose-sm max-w-none prose-headings:text-dark-text-primary prose-p:text-dark-text-secondary prose-a:text-primary-400 prose-code:text-primary-400 prose-code:bg-primary-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-dark-bg-primary prose-pre:border prose-pre:border-dark-border-subtle">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {task.description}
                       </ReactMarkdown>
@@ -370,7 +370,7 @@ export default function TaskDetail() {
             </div>
 
             {/* Comments Section */}
-            <div className="bg-dark-bg-secondary border border-dark-bg-tertiary/30 rounded-lg p-6">
+            <div className="bg-dark-bg-secondary border border-dark-border-subtle rounded-lg p-6">
               <h2 className="text-sm font-semibold text-dark-text-primary mb-4">Comments</h2>
 
               {/* Comment input */}
@@ -379,7 +379,7 @@ export default function TaskDetail() {
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm placeholder-dark-text-tertiary"
+                  className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm placeholder-dark-text-tertiary"
                   placeholder="Add a comment..."
                 />
                 <div className="flex justify-end mt-2">
@@ -399,7 +399,7 @@ export default function TaskDetail() {
                   <p className="text-sm text-dark-text-tertiary italic">No comments yet</p>
                 ) : (
                   comments.map((comment) => (
-                    <div key={comment.id} className="border-t border-dark-bg-tertiary/20 pt-4 first:border-t-0 first:pt-0">
+                    <div key={comment.id} className="border-t border-dark-border-subtle pt-4 first:border-t-0 first:pt-0">
                       <div className="flex items-start gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary-500/10 flex items-center justify-center flex-shrink-0">
                           <svg className="w-4 h-4 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -435,7 +435,7 @@ export default function TaskDetail() {
                   <select
                     value={editSwimLaneId ?? ''}
                     onChange={(e) => setEditSwimLaneId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   >
                     {swimLanes.map((lane) => (
                       <option key={lane.id} value={lane.id}>
@@ -457,7 +457,7 @@ export default function TaskDetail() {
                   <select
                     value={editPriority}
                     onChange={(e) => setEditPriority(e.target.value as 'low' | 'medium' | 'high' | 'urgent')}
-                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -478,7 +478,7 @@ export default function TaskDetail() {
                   <select
                     value={editSprintId}
                     onChange={(e) => setEditSprintId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   >
                     <option value="">No Sprint</option>
                     {sprints.map((sprint) => (
@@ -502,7 +502,7 @@ export default function TaskDetail() {
                     type="number"
                     value={editAssigneeId}
                     onChange={(e) => setEditAssigneeId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
+                    className="w-full px-3 py-2 text-sm border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
                     placeholder="User ID (leave empty to unassign)"
                   />
                 ) : (
@@ -527,7 +527,7 @@ export default function TaskDetail() {
                     type="date"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   />
                 ) : (
                   <p className="text-sm text-dark-text-primary">
@@ -545,7 +545,7 @@ export default function TaskDetail() {
                     step="0.5"
                     value={editEstimatedHours}
                     onChange={(e) => setEditEstimatedHours(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
+                    className="w-full px-3 py-2 text-sm border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
                     placeholder="0"
                   />
                 ) : (
@@ -564,7 +564,7 @@ export default function TaskDetail() {
                     step="0.5"
                     value={editActualHours}
                     onChange={(e) => setEditActualHours(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-dark-bg-tertiary/30 bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
+                    className="w-full px-3 py-2 text-sm border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
                     placeholder="0"
                   />
                 ) : (
@@ -582,7 +582,7 @@ export default function TaskDetail() {
                     {task.tags.map((tag) => (
                       <span
                         key={tag.id}
-                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md border border-dark-bg-tertiary/30"
+                        className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md border border-dark-border-subtle"
                         style={{ backgroundColor: tag.color + '20', color: tag.color }}
                       >
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: tag.color }} />
@@ -594,7 +594,7 @@ export default function TaskDetail() {
               )}
 
               {/* Timestamps */}
-              <div className="pt-6 border-t border-dark-bg-tertiary/20">
+              <div className="pt-6 border-t border-dark-border-subtle">
                 <div className="space-y-3 text-xs">
                   {task.created_at && (
                     <div>

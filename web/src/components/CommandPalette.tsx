@@ -247,21 +247,21 @@ export default function CommandPalette() {
             leaveFrom="opacity-100 scale-100"
             leaveTo="opacity-0 scale-95"
           >
-            <Dialog.Panel className="mx-auto max-w-2xl transform rounded-lg bg-white shadow-linear-lg ring-1 ring-black ring-opacity-5 transition-all">
+            <Dialog.Panel className="mx-auto max-w-2xl transform rounded-xl bg-dark-bg-elevated shadow-linear-xl ring-1 ring-dark-border-medium transition-all">
               <Combobox onChange={(command: Command | null) => command?.action()}>
                 {/* Search input */}
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                    <span className="text-gray-400 text-xl">🔍</span>
+                    <span className="text-dark-text-quaternary text-xl">🔍</span>
                   </div>
                   <Combobox.Input
-                    className="h-14 w-full border-0 bg-transparent pl-12 pr-4 text-gray-900 placeholder-gray-400 focus:ring-0 text-base"
+                    className="h-14 w-full border-0 bg-transparent pl-12 pr-4 text-dark-text-primary placeholder-dark-text-quaternary focus:ring-0 text-base"
                     placeholder="Search or type a command..."
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
                     autoFocus
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-4">
-                    <kbd className="hidden sm:inline-block px-2 py-1 text-xs font-semibold text-gray-500 bg-gray-100 rounded">
+                    <kbd className="hidden sm:inline-block px-2 py-1 text-xs font-semibold text-dark-text-quaternary bg-dark-bg-secondary rounded border border-dark-border-subtle">
                       Esc
                     </kbd>
                   </div>
@@ -271,14 +271,14 @@ export default function CommandPalette() {
                 {filteredCommands.length > 0 && (
                   <Combobox.Options
                     static
-                    className="max-h-96 scroll-py-2 overflow-y-auto border-t border-gray-100"
+                    className="max-h-96 scroll-py-2 overflow-y-auto border-t border-dark-border-subtle"
                   >
                     {Object.entries(groupedCommands).map(([category, commands]) => {
                       if (commands.length === 0) return null
 
                       return (
                         <div key={category} className="p-2">
-                          <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          <div className="px-3 py-2 text-[11px] font-semibold text-dark-text-quaternary uppercase tracking-wider">
                             {categoryLabels[category as keyof typeof categoryLabels]}
                           </div>
                           {commands.map((command) => (
@@ -287,7 +287,7 @@ export default function CommandPalette() {
                               value={command}
                               className={({ active }: { active: boolean }) =>
                                 `flex cursor-pointer select-none items-center rounded-md px-3 py-2 ${
-                                  active ? 'bg-primary-500 text-white' : 'text-gray-900'
+                                  active ? 'bg-dark-bg-tertiary text-dark-text-primary' : 'text-dark-text-secondary'
                                 }`
                               }
                             >
@@ -295,16 +295,16 @@ export default function CommandPalette() {
                                 <>
                                   <span className="mr-3 text-xl">{command.icon}</span>
                                   <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-medium truncate ${active ? 'text-white' : 'text-gray-900'}`}>
+                                    <p className={`text-sm font-medium truncate ${active ? 'text-dark-text-primary' : 'text-dark-text-secondary'}`}>
                                       {command.name}
                                     </p>
                                     {command.description && (
-                                      <p className={`text-xs truncate ${active ? 'text-primary-100' : 'text-gray-500'}`}>
+                                      <p className={`text-xs truncate ${active ? 'text-dark-text-tertiary' : 'text-dark-text-quaternary'}`}>
                                         {command.description}
                                       </p>
                                     )}
                                   </div>
-                                  <span className={`ml-3 text-xs ${active ? 'text-primary-100' : 'text-gray-400'}`}>
+                                  <span className={`ml-3 text-xs ${active ? 'text-dark-text-tertiary' : 'text-dark-text-quaternary'}`}>
                                     ↵
                                   </span>
                                 </>
@@ -320,19 +320,19 @@ export default function CommandPalette() {
                 {/* Empty state */}
                 {query && filteredCommands.length === 0 && (
                   <div className="px-6 py-14 text-center">
-                    <p className="text-sm text-gray-500">No results found for "{query}"</p>
+                    <p className="text-sm text-dark-text-tertiary">No results found for "{query}"</p>
                   </div>
                 )}
 
                 {/* Footer hint */}
                 {!query && (
-                  <div className="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 bg-gray-50">
+                  <div className="border-t border-dark-border-subtle px-4 py-3 text-xs text-dark-text-quaternary bg-dark-bg-secondary">
                     <div className="flex items-center justify-between">
                       <span>
-                        Type to search • Use <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-300">↑↓</kbd> to navigate
+                        Type to search • Use <kbd className="px-1.5 py-0.5 bg-dark-bg-tertiary rounded border border-dark-border-subtle text-dark-text-tertiary">↑↓</kbd> to navigate
                       </span>
                       <span>
-                        <kbd className="px-1.5 py-0.5 bg-white rounded border border-gray-300">⌘K</kbd> to toggle
+                        <kbd className="px-1.5 py-0.5 bg-dark-bg-tertiary rounded border border-dark-border-subtle text-dark-text-tertiary">⌘K</kbd> to toggle
                       </span>
                     </div>
                   </div>
