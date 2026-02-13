@@ -212,9 +212,9 @@ func (s *Server) HandleDeleteCloudinaryCredential(w http.ResponseWriter, r *http
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Cloudinary credentials deleted"})
 }
 
-// testCloudinaryConnection tests a Cloudinary connection by calling the usage API
+// testCloudinaryConnection tests a Cloudinary connection by calling the ping API
 func testCloudinaryConnection(ctx context.Context, cloudName, apiKey, apiSecret string) (status string, lastError string) {
-	url := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/usage", cloudName)
+	url := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/ping", cloudName)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
