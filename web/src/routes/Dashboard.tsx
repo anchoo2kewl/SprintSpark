@@ -20,8 +20,9 @@ export default function Dashboard() {
 
   const handleProjectCreated = (project: Project) => {
     // Add project to sidebar via window callback
-    if ((window as any).__addProject) {
-      ;(window as any).__addProject(project)
+    const w = window as Window & { __addProject?: (project: Project) => void }
+    if (w.__addProject) {
+      w.__addProject(project)
     }
     // Navigate to the new project
     navigate(`/app/projects/${project.id}`)

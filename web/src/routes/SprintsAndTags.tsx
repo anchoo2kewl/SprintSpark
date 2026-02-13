@@ -10,9 +10,9 @@ interface Sprint {
   id: number
   name: string
   goal: string
-  start_date: string
-  end_date: string
-  status: 'planned' | 'active' | 'completed'
+  start_date?: string
+  end_date?: string
+  status: string
   created_at: string
 }
 
@@ -66,7 +66,7 @@ export default function SprintsAndTags() {
     try {
       const data = await apiClient.getSprints()
       setSprints(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load sprints:', error)
     }
   }
@@ -75,7 +75,7 @@ export default function SprintsAndTags() {
     try {
       const data = await apiClient.getTags()
       setTags(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load tags:', error)
     }
   }
@@ -103,8 +103,8 @@ export default function SprintsAndTags() {
       setEditingSprintId(null)
       setSprintFormData({ name: '', goal: '', start_date: '', end_date: '', status: 'planned' })
       loadSprints()
-    } catch (error: any) {
-      setSprintError(error.message || 'Failed to save sprint')
+    } catch (error: unknown) {
+      setSprintError(error instanceof Error ? error.message : 'Failed to save sprint')
     }
   }
 
@@ -115,7 +115,7 @@ export default function SprintsAndTags() {
       goal: sprint.goal || '',
       start_date: sprint.start_date || '',
       end_date: sprint.end_date || '',
-      status: sprint.status,
+      status: sprint.status as 'planned' | 'active' | 'completed',
     })
     setShowSprintForm(true)
   }
@@ -129,8 +129,8 @@ export default function SprintsAndTags() {
       await apiClient.deleteSprint(id)
       setSprintSuccess('Sprint deleted successfully')
       loadSprints()
-    } catch (error: any) {
-      setSprintError(error.message || 'Failed to delete sprint')
+    } catch (error: unknown) {
+      setSprintError(error instanceof Error ? error.message : 'Failed to delete sprint')
     }
   }
 
@@ -157,8 +157,8 @@ export default function SprintsAndTags() {
       setEditingTagId(null)
       setTagFormData({ name: '', color: '#3B82F6' })
       loadTags()
-    } catch (error: any) {
-      setTagError(error.message || 'Failed to save tag')
+    } catch (error: unknown) {
+      setTagError(error instanceof Error ? error.message : 'Failed to save tag')
     }
   }
 
@@ -180,8 +180,8 @@ export default function SprintsAndTags() {
       await apiClient.deleteTag(id)
       setTagSuccess('Tag deleted successfully')
       loadTags()
-    } catch (error: any) {
-      setTagError(error.message || 'Failed to delete tag')
+    } catch (error: unknown) {
+      setTagError(error instanceof Error ? error.message : 'Failed to delete tag')
     }
   }
 
@@ -303,7 +303,7 @@ export default function SprintsAndTags() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                       <select
                         value={sprintFormData.status}
-                        onChange={(e) => setSprintFormData({ ...sprintFormData, status: e.target.value as any })}
+                        onChange={(e) => setSprintFormData({ ...sprintFormData, status: e.target.value as 'planned' | 'active' | 'completed' })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                       >
                         <option value="planned">Planned</option>

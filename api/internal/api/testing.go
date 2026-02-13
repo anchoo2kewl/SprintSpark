@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap/zaptest"
 
 	"sprintspark/internal/auth"
@@ -83,6 +85,26 @@ func (ts *TestServer) CreateTestUser(t *testing.T, email, password string) int64
 	return userID
 }
 
+// CreateTestInvite creates a valid invite code for testing and returns the code
+func (ts *TestServer) CreateTestInvite(t *testing.T, inviterID int64) string {
+	t.Helper()
+
+	code := "test-invite-" + fmt.Sprintf("%d", time.Now().UnixNano())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := ts.DB.ExecContext(ctx,
+		`INSERT INTO invites (code, inviter_id) VALUES (?, ?)`,
+		code, inviterID,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test invite: %v", err)
+	}
+
+	return code
+}
+
 // GenerateTestToken generates a JWT token for testing
 func (ts *TestServer) GenerateTestToken(t *testing.T, userID int64, email string) string {
 	t.Helper()
@@ -150,6 +172,97 @@ func AssertJSONField(t *testing.T, data map[string]interface{}, field string, wa
 	if got != want {
 		t.Errorf("Field %q mismatch: got %v, want %v", field, got, want)
 	}
+}
+
+// CreateTestProject creates a project and adds the owner as a project member with 'owner' role
+func (ts *TestServer) CreateTestProject(t *testing.T, ownerID int64, name string) int64 {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := ts.DB.ExecContext(ctx,
+		`INSERT INTO projects (owner_id, name, description) VALUES (?, ?, ?)`,
+		ownerID, name, "Test project description",
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test project: %v", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("Failed to get project ID: %v", err)
+	}
+
+	// Add owner as project member
+	_, err = ts.DB.ExecContext(ctx,
+		`INSERT INTO project_members (project_id, user_id, role, granted_by) VALUES (?, ?, 'owner', ?)`,
+		id, ownerID, ownerID,
+	)
+	if err != nil {
+		t.Fatalf("Failed to add project member: %v", err)
+	}
+
+	return id
+}
+
+// CreateTestTask creates a task in the given project and returns the task ID
+func (ts *TestServer) CreateTestTask(t *testing.T, projectID int64, title string) int64 {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := ts.DB.ExecContext(ctx,
+		`INSERT INTO tasks (project_id, title, status, priority) VALUES (?, ?, 'todo', 'medium')`,
+		projectID, title,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test task: %v", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("Failed to get task ID: %v", err)
+	}
+
+	return id
+}
+
+// AddProjectMember adds a user as a project member with the specified role
+func (ts *TestServer) AddProjectMember(t *testing.T, projectID, userID, grantedBy int64, role string) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := ts.DB.ExecContext(ctx,
+		`INSERT INTO project_members (project_id, user_id, role, granted_by) VALUES (?, ?, ?, ?)`,
+		projectID, userID, role, grantedBy,
+	)
+	if err != nil {
+		t.Fatalf("Failed to add project member: %v", err)
+	}
+}
+
+// MakeAuthRequest creates an HTTP request with auth context (UserIDKey) and optional chi URL params
+func (ts *TestServer) MakeAuthRequest(t *testing.T, method, path string, body interface{}, userID int64, urlParams map[string]string) (*httptest.ResponseRecorder, *http.Request) {
+	t.Helper()
+
+	rec, req := MakeRequest(t, method, path, body, nil)
+
+	ctx := context.WithValue(req.Context(), UserIDKey, userID)
+
+	if len(urlParams) > 0 {
+		rctx := chi.NewRouteContext()
+		for k, v := range urlParams {
+			rctx.URLParams.Add(k, v)
+		}
+		ctx = context.WithValue(ctx, chi.RouteCtxKey, rctx)
+	}
+
+	req = req.WithContext(ctx)
+	return rec, req
 }
 
 // AssertError checks if the error response matches expected error and code

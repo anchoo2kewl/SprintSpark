@@ -23,7 +23,7 @@ export function useLocalTasks(projectId: number) {
         try {
           setLoading(true)
           const serverTasks = await api.getTasks(projectId)
-          setTasks(serverTasks as any) // Type conversion for now
+          setTasks(serverTasks as unknown as TaskDocument[])
           setLoading(false)
         } catch (err) {
           console.error('[useLocalTasks] Server fetch error:', err)
@@ -78,7 +78,7 @@ export function useLocalTasks(projectId: number) {
     // Fallback to server API when RxDB is disabled
     if (!db || !syncService) {
       const newTask = await api.createTask(projectId, data)
-      setTasks(prev => [newTask as any, ...prev])
+      setTasks(prev => [newTask as unknown as TaskDocument, ...prev])
       return
     }
 
@@ -125,7 +125,7 @@ export function useLocalTasks(projectId: number) {
     // Fallback to server API when RxDB is disabled
     if (!db || !syncService) {
       const updatedTask = await api.updateTask(taskId, updates)
-      setTasks(prev => prev.map(t => t.id === taskId ? updatedTask as any : t))
+      setTasks(prev => prev.map(t => t.id === taskId ? updatedTask as unknown as TaskDocument : t))
       return
     }
 

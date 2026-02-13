@@ -21,7 +21,7 @@ test.describe('Admin Functionality', () => {
 
     // Make user admin via API (simulating CLI command)
     const token = await getAuthToken(page);
-    await page.evaluate(async ({ email, token: authToken }) => {
+    await page.evaluate(async ({ email, token: _authToken }) => {
       // In a real scenario, this would be done via server CLI
       // For testing, we'll need to make this user admin through the database
       // This is a simplification - in production the CLI command would be used
@@ -155,9 +155,7 @@ test.describe('Admin Functionality', () => {
       const hasMakeAdmin = await makeAdminButton.isVisible().catch(() => false);
 
       if (hasMakeAdmin) {
-        // Get the user email before clicking
         const row = page.locator('tbody tr').filter({ has: makeAdminButton });
-        const email = await row.locator('td').first().textContent();
 
         // Click Make Admin
         await makeAdminButton.click();

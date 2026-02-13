@@ -18,7 +18,7 @@ import Assets from './routes/Assets'
 
 function AppRoutes() {
   const location = useLocation()
-  const bgLocation = (location.state as any)?.backgroundLocation as Location | undefined
+  const bgLocation = (location.state as { backgroundLocation?: Location })?.backgroundLocation
 
   return (
     <>

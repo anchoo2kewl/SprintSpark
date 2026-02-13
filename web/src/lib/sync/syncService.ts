@@ -5,7 +5,7 @@
 
 import { api } from '../api'
 import type { TaskAIDatabase } from '../db'
-import type { ProjectDocument, TaskDocument, SprintDocument, TagDocument } from '../db/schema'
+import type { ProjectDocument, TaskDocument, SprintDocument, TagDocument, SyncQueueDocument } from '../db/schema'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline'
 
@@ -257,13 +257,13 @@ export class SyncService {
   /**
    * Execute a single sync operation
    */
-  private async executeSyncOperation(item: any): Promise<void> {
+  private async executeSyncOperation(item: SyncQueueDocument): Promise<void> {
     const { operation, collection, documentId, data } = item
 
     switch (collection) {
       case 'projects':
         if (operation === 'create') {
-          await api.createProject(data)
+          await api.createProject(data as { name: string; description?: string })
         } else if (operation === 'update') {
           await api.updateProject(documentId, data)
         } else if (operation === 'delete') {
@@ -273,7 +273,7 @@ export class SyncService {
 
       case 'tasks':
         if (operation === 'create') {
-          await api.createTask(data.project_id, data)
+          await api.createTask(data.project_id as number, data as { title: string })
         } else if (operation === 'update') {
           await api.updateTask(documentId, data)
         } else if (operation === 'delete') {
@@ -310,7 +310,8 @@ export class SyncService {
     operation: 'create' | 'update' | 'delete',
     collection: 'projects' | 'tasks' | 'sprints' | 'tags',
     documentId: number,
-    data: any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: Record<string, any>
   ): Promise<void> {
     await this.db.syncqueue.insert({
       id: `${collection}_${operation}_${documentId}_${Date.now()}`,

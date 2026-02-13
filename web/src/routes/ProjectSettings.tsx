@@ -86,7 +86,7 @@ export default function ProjectSettings() {
     try {
       const data = await apiClient.getProjectMembers(projectId)
       setMembers(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load members:', error)
     }
   }
@@ -95,7 +95,7 @@ export default function ProjectSettings() {
     try {
       const data = await apiClient.getTeamMembers()
       setTeamMembers(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load team members:', error)
     }
   }
@@ -104,7 +104,7 @@ export default function ProjectSettings() {
     try {
       const data = await apiClient.getProjectGitHub(projectId)
       setGithubSettings(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load GitHub settings:', error)
     }
   }
@@ -113,7 +113,7 @@ export default function ProjectSettings() {
     try {
       const data = await apiClient.getSwimLanes(projectId)
       setSwimLanes(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load swim lanes:', error)
     }
   }
@@ -161,8 +161,8 @@ export default function ProjectSettings() {
       setNewLaneName('')
       setNewLaneColor('#6B7280')
       loadSwimLanes()
-    } catch (error: any) {
-      setSwimLaneError(error.message || 'Failed to create swim lane')
+    } catch (error: unknown) {
+      setSwimLaneError(error instanceof Error ? error.message : 'Failed to create swim lane')
     }
   }
 
@@ -183,8 +183,8 @@ export default function ProjectSettings() {
       setSwimLaneSuccess('Swim lane updated successfully')
       setEditingLane(null)
       loadSwimLanes()
-    } catch (error: any) {
-      setSwimLaneError(error.message || 'Failed to update swim lane')
+    } catch (error: unknown) {
+      setSwimLaneError(error instanceof Error ? error.message : 'Failed to update swim lane')
     }
   }
 
@@ -202,8 +202,8 @@ export default function ProjectSettings() {
       await apiClient.deleteSwimLane(laneId)
       setSwimLaneSuccess('Swim lane deleted successfully')
       loadSwimLanes()
-    } catch (error: any) {
-      setSwimLaneError(error.message || 'Failed to delete swim lane')
+    } catch (error: unknown) {
+      setSwimLaneError(error instanceof Error ? error.message : 'Failed to delete swim lane')
     }
   }
 
@@ -225,8 +225,8 @@ export default function ProjectSettings() {
       // Step 3: Move first lane to its final position
       await apiClient.updateSwimLane(laneId, { position: newIndex })
       loadSwimLanes()
-    } catch (error: any) {
-      setSwimLaneError(error.message || 'Failed to reorder swim lanes')
+    } catch (error: unknown) {
+      setSwimLaneError(error instanceof Error ? error.message : 'Failed to reorder swim lanes')
     }
   }
 
@@ -255,8 +255,8 @@ export default function ProjectSettings() {
       setSelectedUserId('')
       setNewMemberRole('member')
       loadMembers()
-    } catch (error: any) {
-      setMemberError(error.message || 'Failed to add member')
+    } catch (error: unknown) {
+      setMemberError(error instanceof Error ? error.message : 'Failed to add member')
     } finally {
       setIsAddingMember(false)
     }
@@ -272,8 +272,8 @@ export default function ProjectSettings() {
       await apiClient.updateProjectMember(projectId, memberId, { role })
       setMemberSuccess('Member role updated successfully')
       loadMembers()
-    } catch (error: any) {
-      setMemberError(error.message || 'Failed to update member role')
+    } catch (error: unknown) {
+      setMemberError(error instanceof Error ? error.message : 'Failed to update member role')
     }
   }
 
@@ -286,8 +286,8 @@ export default function ProjectSettings() {
       await apiClient.removeProjectMember(projectId, memberId)
       setMemberSuccess('Member removed successfully')
       loadMembers()
-    } catch (error: any) {
-      setMemberError(error.message || 'Failed to remove member')
+    } catch (error: unknown) {
+      setMemberError(error instanceof Error ? error.message : 'Failed to remove member')
     }
   }
 
@@ -308,8 +308,8 @@ export default function ProjectSettings() {
       })
 
       setGithubSuccess('GitHub settings saved successfully')
-    } catch (error: any) {
-      setGithubError(error.message || 'Failed to save GitHub settings')
+    } catch (error: unknown) {
+      setGithubError(error instanceof Error ? error.message : 'Failed to save GitHub settings')
     } finally {
       setIsSavingGitHub(false)
     }

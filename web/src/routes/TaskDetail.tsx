@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Button from '../components/ui/Button'
-import { apiClient, Task, type SwimLane } from '../lib/api'
+import { apiClient, Task, type SwimLane, type Sprint, type ProjectMember, type Attachment, type TaskComment } from '../lib/api'
 
 interface TaskDetailProps {
   isModal?: boolean
@@ -26,12 +26,12 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
   const commentRef = useRef<HTMLTextAreaElement>(null)
 
   // Reference data
-  const [sprints, setSprints] = useState<any[]>([])
+  const [sprints, setSprints] = useState<Sprint[]>([])
   const [swimLanes, setSwimLanes] = useState<SwimLane[]>([])
-  const [members, setMembers] = useState<any[]>([])
+  const [members, setMembers] = useState<ProjectMember[]>([])
 
   // Attachments
-  const [attachments, setAttachments] = useState<any[]>([])
+  const [attachments, setAttachments] = useState<Attachment[]>([])
   const [uploading, setUploading] = useState(false)
   const [editingAltId, setEditingAltId] = useState<number | null>(null)
   const [editingAltValue, setEditingAltValue] = useState('')
@@ -39,7 +39,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Comments
-  const [comments, setComments] = useState<any[]>([])
+  const [comments, setComments] = useState<TaskComment[]>([])
   const [newComment, setNewComment] = useState('')
   const [postingComment, setPostingComment] = useState(false)
 
@@ -76,8 +76,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       const found = tasks.find((t: Task) => t.id === Number(taskId))
       if (found) setTask(found)
       else setError('Task not found')
-    } catch (err: any) {
-      setError(err.message || 'Failed to load task')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load task')
     } finally {
       setLoading(false)
     }
@@ -155,8 +155,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       })
 
       await loadAttachments()
-    } catch (err: any) {
-      setError(err.message || 'Failed to upload file')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to upload file')
     } finally {
       setUploading(false)
       setPendingFile(null)
@@ -170,8 +170,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
         try {
           await apiClient.deleteTaskAttachment(Number(taskId), attachmentId)
           await loadAttachments()
-        } catch (err: any) {
-          setError(err.message || 'Failed to delete attachment')
+        } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : 'Failed to delete attachment')
         }
         setConfirmAction(null)
       },
@@ -183,8 +183,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       await apiClient.updateAttachment(attachmentId, { alt_name: editingAltValue })
       setEditingAltId(null)
       await loadAttachments()
-    } catch (err: any) {
-      setError(err.message || 'Failed to update alt name')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update alt name')
     }
   }
 
@@ -219,10 +219,12 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     setImagePickerTarget(null)
   }, [imagePickerTarget, editValue, newComment])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const saveField = async (field: string, value: any) => {
     if (!task) return
     try {
       setSaving(true)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const update: Record<string, any> = {}
 
       switch (field) {
@@ -266,8 +268,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
 
       await apiClient.updateTask(task.id!, update)
       await loadTask()
-    } catch (err: any) {
-      setError(err.message || 'Failed to update')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update')
     } finally {
       setSaving(false)
       setEditingField(null)
@@ -300,8 +302,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       await apiClient.createTaskComment(Number(taskId), newComment.trim())
       setNewComment('')
       await loadComments()
-    } catch (err: any) {
-      setError(err.message || 'Failed to post comment')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to post comment')
     } finally {
       setPostingComment(false)
     }
@@ -316,8 +318,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
           await apiClient.deleteTask(task.id!)
           setConfirmAction(null)
           handleClose()
-        } catch (err: any) {
-          setError(err.message || 'Failed to delete task')
+        } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : 'Failed to delete task')
           setConfirmAction(null)
         }
       },
@@ -580,7 +582,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
                 <p className="text-sm text-dark-text-tertiary italic">No attachments</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {attachments.map((att: any) => (
+                  {attachments.map((att: Attachment) => (
                     <div key={att.id} className="group relative border border-dark-border-subtle rounded-lg overflow-hidden bg-dark-bg-primary">
                       {att.file_type === 'image' ? (
                         <a href={att.cloudinary_url} target="_blank" rel="noopener noreferrer">
@@ -954,7 +956,7 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
   taskId: number
   onUploadComplete: () => void
 }) {
-  const [images, setImages] = useState<any[]>([])
+  const [images, setImages] = useState<Attachment[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -972,8 +974,8 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
       setLoading(true)
       const result = await apiClient.getImages(query)
       setImages(result)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load images')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load images')
     } finally {
       setLoading(false)
     }
@@ -1034,8 +1036,8 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
 
       onUploadComplete()
       onSelect(altName, uploadData.secure_url)
-    } catch (err: any) {
-      setError(err.message || 'Failed to upload')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to upload')
     } finally {
       setUploading(false)
       setPendingUploadFile(null)
@@ -1166,7 +1168,7 @@ function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {images.map((img: any) => (
+              {images.map((img: Attachment) => (
                 <button
                   key={img.id}
                   onClick={() => onSelect(img.alt_name || img.filename, img.cloudinary_url)}

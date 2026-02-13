@@ -313,7 +313,8 @@ export type SyncQueueDocument = {
   operation: 'create' | 'update' | 'delete'
   collection: 'projects' | 'tasks' | 'sprints' | 'tags'
   documentId: number
-  data: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>
   timestamp: number
   retryCount: number
   error?: string

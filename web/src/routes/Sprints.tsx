@@ -10,9 +10,9 @@ interface Sprint {
   id: number
   name: string
   goal: string
-  start_date: string
-  end_date: string
-  status: 'planned' | 'active' | 'completed'
+  start_date?: string
+  end_date?: string
+  status: string
   created_at: string
 }
 
@@ -45,7 +45,7 @@ export default function Sprints() {
     try {
       const data = await apiClient.getSprints()
       setSprints(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load sprints:', error)
     }
   }
@@ -73,8 +73,8 @@ export default function Sprints() {
       setEditingId(null)
       setFormData({ name: '', goal: '', start_date: '', end_date: '', status: 'planned' })
       loadSprints()
-    } catch (error: any) {
-      setError(error.message || 'Failed to save sprint')
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to save sprint')
     }
   }
 
@@ -85,7 +85,7 @@ export default function Sprints() {
       goal: sprint.goal || '',
       start_date: sprint.start_date || '',
       end_date: sprint.end_date || '',
-      status: sprint.status,
+      status: sprint.status as 'planned' | 'active' | 'completed',
     })
     setShowForm(true)
   }
@@ -99,8 +99,8 @@ export default function Sprints() {
       await apiClient.deleteSprint(id)
       setSuccess('Sprint deleted successfully')
       loadSprints()
-    } catch (error: any) {
-      setError(error.message || 'Failed to delete sprint')
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to delete sprint')
     }
   }
 
@@ -215,7 +215,7 @@ export default function Sprints() {
                     <label className="block text-sm font-medium text-dark-text-primary mb-1">Status</label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as 'planned' | 'active' | 'completed' })}
                       className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-primary text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                     >
                       <option value="planned">Planned</option>

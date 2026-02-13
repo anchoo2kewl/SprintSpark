@@ -33,7 +33,7 @@ export default function Tags() {
     try {
       const data = await apiClient.getTags()
       setTags(data)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load tags:', error)
     }
   }
@@ -61,8 +61,8 @@ export default function Tags() {
       setEditingId(null)
       setFormData({ name: '', color: '#3B82F6' })
       loadTags()
-    } catch (error: any) {
-      setError(error.message || 'Failed to save tag')
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to save tag')
     }
   }
 
@@ -84,8 +84,8 @@ export default function Tags() {
       await apiClient.deleteTag(id)
       setSuccess('Tag deleted successfully')
       loadTags()
-    } catch (error: any) {
-      setError(error.message || 'Failed to delete tag')
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to delete tag')
     }
   }
 

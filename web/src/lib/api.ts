@@ -9,6 +9,144 @@ export type LoginRequest = components['schemas']['LoginRequest']
 export type Project = components['schemas']['Project']
 export type Task = components['schemas']['Task']
 export type ApiError = components['schemas']['Error']
+// Types with required fields for commonly used API responses
+export interface TaskComment {
+  id: number
+  task_id: number
+  user_id: number
+  user_name?: string | null
+  comment: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Sprint {
+  id: number
+  user_id: number
+  name: string
+  start_date?: string
+  end_date?: string
+  goal: string
+  status: string
+  created_at: string
+  updated_at?: string
+}
+
+export interface Tag {
+  id: number
+  user_id: number
+  name: string
+  color: string
+  created_at: string
+}
+
+export interface Attachment {
+  id: number
+  task_id: number
+  filename: string
+  alt_name?: string
+  file_type: string
+  content_type: string
+  file_size: number
+  cloudinary_url: string
+  cloudinary_public_id: string
+  created_at: string
+}
+
+export interface Invite {
+  id: number
+  code: string
+  inviter_id: number
+  invitee_id?: number
+  invitee_name?: string
+  used_at?: string
+  expires_at?: string
+  created_at: string
+}
+
+export interface ProjectMember {
+  id: number
+  user_id: number
+  email: string
+  name?: string
+  user_name?: string
+  role: string
+  granted_by: number
+  granted_at: string
+}
+
+export interface MessageResponse {
+  message: string
+}
+
+export interface ProjectGitHubSettings {
+  github_repo_url: string
+  github_owner: string
+  github_repo_name: string
+  github_branch: string
+  github_sync_enabled: boolean
+  github_last_sync: string | null
+}
+
+export interface UserWithStats {
+  id: number
+  email: string
+  is_admin: boolean
+  created_at: string
+  login_count: number
+  last_login_at?: string | null
+  last_login_ip?: string | null
+  failed_attempts: number
+}
+
+export interface UserActivity {
+  id: number
+  user_id: number
+  activity_type: string
+  ip_address?: string | null
+  user_agent?: string | null
+  created_at: string
+}
+
+export interface APIKey {
+  id: number
+  name: string
+  key_prefix: string
+  created_at: string
+  last_used_at?: string | null
+  expires_at?: string | null
+}
+
+export interface CreateAPIKeyResponse {
+  key: string
+  name: string
+}
+
+export interface Team {
+  id: number
+  name: string
+}
+
+export interface TeamMember {
+  id: number
+  user_id: number
+  user_name?: string
+  email: string
+  role: string
+}
+
+export interface TeamInvitation {
+  id: number
+  team_name: string
+  inviter_name?: string
+}
+
+export interface StorageUsageItem {
+  user_id: number
+  user_name: string
+  file_count: number
+  total_size: number
+}
 
 // Request types (not in OpenAPI spec yet, so define them)
 export interface CreateProjectRequest {
@@ -278,31 +416,31 @@ class ApiClient {
   }
 
   // Task comments endpoints
-  async getTaskComments(taskId: number): Promise<any[]> {
-    return this.request<any[]>(`/api/tasks/${taskId}/comments`)
+  async getTaskComments(taskId: number): Promise<TaskComment[]> {
+    return this.request<TaskComment[]>(`/api/tasks/${taskId}/comments`)
   }
 
-  async createTaskComment(taskId: number, comment: string): Promise<any> {
-    return this.request<any>(`/api/tasks/${taskId}/comments`, {
+  async createTaskComment(taskId: number, comment: string): Promise<TaskComment> {
+    return this.request<TaskComment>(`/api/tasks/${taskId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ comment }),
     })
   }
 
   // Project settings - Members
-  async getProjectMembers(projectId: number): Promise<any[]> {
-    return this.request<any[]>(`/api/projects/${projectId}/members`)
+  async getProjectMembers(projectId: number): Promise<ProjectMember[]> {
+    return this.request<ProjectMember[]>(`/api/projects/${projectId}/members`)
   }
 
-  async addProjectMember(projectId: number, data: { email: string; role: string }): Promise<any> {
-    return this.request<any>(`/api/projects/${projectId}/members`, {
+  async addProjectMember(projectId: number, data: { email: string; role: string }): Promise<MessageResponse> {
+    return this.request<MessageResponse>(`/api/projects/${projectId}/members`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateProjectMember(projectId: number, memberId: number, data: { role: string }): Promise<any> {
-    return this.request<any>(`/api/projects/${projectId}/members/${memberId}`, {
+  async updateProjectMember(projectId: number, memberId: number, data: { role: string }): Promise<MessageResponse> {
+    return this.request<MessageResponse>(`/api/projects/${projectId}/members/${memberId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
@@ -315,28 +453,28 @@ class ApiClient {
   }
 
   // Project settings - GitHub
-  async getProjectGitHub(projectId: number): Promise<any> {
-    return this.request<any>(`/api/projects/${projectId}/github`)
+  async getProjectGitHub(projectId: number): Promise<ProjectGitHubSettings> {
+    return this.request<ProjectGitHubSettings>(`/api/projects/${projectId}/github`)
   }
 
-  async updateProjectGitHub(projectId: number, data: any): Promise<any> {
-    return this.request<any>(`/api/projects/${projectId}/github`, {
+  async updateProjectGitHub(projectId: number, data: Partial<ProjectGitHubSettings>): Promise<ProjectGitHubSettings> {
+    return this.request<ProjectGitHubSettings>(`/api/projects/${projectId}/github`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
   }
 
   // Admin endpoints
-  async getUsers(): Promise<any[]> {
-    return this.request<any[]>('/api/admin/users')
+  async getUsers(): Promise<UserWithStats[]> {
+    return this.request<UserWithStats[]>('/api/admin/users')
   }
 
-  async getUserActivity(userId: number): Promise<any[]> {
-    return this.request<any[]>(`/api/admin/users/${userId}/activity`)
+  async getUserActivity(userId: number): Promise<UserActivity[]> {
+    return this.request<UserActivity[]>(`/api/admin/users/${userId}/activity`)
   }
 
-  async updateUserAdmin(userId: number, isAdmin: boolean): Promise<any> {
-    return this.request<any>(`/api/admin/users/${userId}/admin`, {
+  async updateUserAdmin(userId: number, isAdmin: boolean): Promise<MessageResponse> {
+    return this.request<MessageResponse>(`/api/admin/users/${userId}/admin`, {
       method: 'PATCH',
       body: JSON.stringify({ is_admin: isAdmin }),
     })
@@ -375,19 +513,19 @@ class ApiClient {
   }
 
   // Sprint endpoints
-  async getSprints(): Promise<any[]> {
-    return this.request<any[]>('/api/sprints')
+  async getSprints(): Promise<Sprint[]> {
+    return this.request<Sprint[]>('/api/sprints')
   }
 
-  async createSprint(data: any): Promise<any> {
-    return this.request<any>('/api/sprints', {
+  async createSprint(data: Partial<Sprint>): Promise<Sprint> {
+    return this.request<Sprint>('/api/sprints', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateSprint(id: number, data: any): Promise<any> {
-    return this.request<any>(`/api/sprints/${id}`, {
+  async updateSprint(id: number, data: Partial<Sprint>): Promise<Sprint> {
+    return this.request<Sprint>(`/api/sprints/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
@@ -400,19 +538,19 @@ class ApiClient {
   }
 
   // Tag endpoints
-  async getTags(): Promise<any[]> {
-    return this.request<any[]>('/api/tags')
+  async getTags(): Promise<Tag[]> {
+    return this.request<Tag[]>('/api/tags')
   }
 
-  async createTag(data: any): Promise<any> {
-    return this.request<any>('/api/tags', {
+  async createTag(data: Partial<Tag>): Promise<Tag> {
+    return this.request<Tag>('/api/tags', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateTag(id: number, data: any): Promise<any> {
-    return this.request<any>(`/api/tags/${id}`, {
+  async updateTag(id: number, data: Partial<Tag>): Promise<Tag> {
+    return this.request<Tag>(`/api/tags/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
@@ -425,12 +563,12 @@ class ApiClient {
   }
 
   // API key endpoints
-  async getAPIKeys(): Promise<any[]> {
-    return this.request<any[]>('/api/api-keys')
+  async getAPIKeys(): Promise<APIKey[]> {
+    return this.request<APIKey[]>('/api/api-keys')
   }
 
-  async createAPIKey(data: { name: string; expires_in?: number }): Promise<any> {
-    return this.request<any>('/api/api-keys', {
+  async createAPIKey(data: { name: string; expires_in?: number }): Promise<CreateAPIKeyResponse> {
+    return this.request<CreateAPIKeyResponse>('/api/api-keys', {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -443,12 +581,12 @@ class ApiClient {
   }
 
   // Team endpoints
-  async getMyTeam(): Promise<any> {
-    return this.request<any>('/api/team')
+  async getMyTeam(): Promise<Team> {
+    return this.request<Team>('/api/team')
   }
 
-  async getTeamMembers(): Promise<any[]> {
-    return this.request<any[]>('/api/team/members')
+  async getTeamMembers(): Promise<TeamMember[]> {
+    return this.request<TeamMember[]>('/api/team/members')
   }
 
   async inviteTeamMember(email: string): Promise<void> {
@@ -464,8 +602,8 @@ class ApiClient {
     })
   }
 
-  async getMyInvitations(): Promise<any[]> {
-    return this.request<any[]>('/api/team/invitations')
+  async getMyInvitations(): Promise<TeamInvitation[]> {
+    return this.request<TeamInvitation[]>('/api/team/invitations')
   }
 
   async acceptInvitation(invitationId: number): Promise<void> {
@@ -512,15 +650,15 @@ class ApiClient {
   }
 
   // Task attachment endpoints
-  async getTaskAttachments(taskId: number): Promise<any[]> {
-    return this.request<any[]>(`/api/tasks/${taskId}/attachments`)
+  async getTaskAttachments(taskId: number): Promise<Attachment[]> {
+    return this.request<Attachment[]>(`/api/tasks/${taskId}/attachments`)
   }
 
   async createTaskAttachment(taskId: number, data: {
     filename: string; alt_name?: string; file_type: string; content_type: string;
     file_size: number; cloudinary_url: string; cloudinary_public_id: string;
-  }): Promise<any> {
-    return this.request<any>(`/api/tasks/${taskId}/attachments`, {
+  }): Promise<Attachment> {
+    return this.request<Attachment>(`/api/tasks/${taskId}/attachments`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -533,19 +671,19 @@ class ApiClient {
   }
 
   // Storage usage
-  async getStorageUsage(projectId: number): Promise<any[]> {
-    return this.request<any[]>(`/api/projects/${projectId}/storage`)
+  async getStorageUsage(projectId: number): Promise<StorageUsageItem[]> {
+    return this.request<StorageUsageItem[]>(`/api/projects/${projectId}/storage`)
   }
 
   // Image library
-  async getImages(query?: string): Promise<any[]> {
+  async getImages(query?: string): Promise<Attachment[]> {
     const params = query ? `?q=${encodeURIComponent(query)}` : ''
-    return this.request<any[]>(`/api/images${params}`)
+    return this.request<Attachment[]>(`/api/images${params}`)
   }
 
   // Update attachment
-  async updateAttachment(id: number, data: { alt_name?: string }): Promise<any> {
-    return this.request<any>(`/api/attachments/${id}`, {
+  async updateAttachment(id: number, data: { alt_name?: string }): Promise<Attachment> {
+    return this.request<Attachment>(`/api/attachments/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
@@ -570,7 +708,7 @@ class ApiClient {
   }
 
   // Invite endpoints
-  async getInvites(): Promise<{ invites: any[]; invite_count: number; is_admin: boolean }> {
+  async getInvites(): Promise<{ invites: Invite[]; invite_count: number; is_admin: boolean }> {
     return this.request('/api/invites')
   }
 
@@ -582,7 +720,7 @@ class ApiClient {
     return this.request(`/api/invites/validate?code=${encodeURIComponent(code)}`)
   }
 
-  async adminBoostInvites(userId: number, inviteCount: number): Promise<any> {
+  async adminBoostInvites(userId: number, inviteCount: number): Promise<MessageResponse> {
     return this.request(`/api/admin/users/${userId}/invites`, {
       method: 'PATCH',
       body: JSON.stringify({ invite_count: inviteCount }),

@@ -17,7 +17,7 @@ interface ApiState<T> {
 // Generic API hook for fetching data
 export function useApi<T>(
   apiCall: () => Promise<T>,
-  dependencies: any[] = []
+  dependencies: unknown[] = []
 ): ApiState<T> & { refetch: () => Promise<void> } {
   const [state, setState] = useState<ApiState<T>>({
     data: null,

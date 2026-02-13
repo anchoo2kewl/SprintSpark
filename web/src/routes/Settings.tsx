@@ -4,7 +4,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import TextInput from '../components/ui/TextInput'
 import FormError from '../components/ui/FormError'
-import { apiClient, type CloudinaryCredentialResponse } from '../lib/api'
+import { apiClient, type CloudinaryCredentialResponse, type APIKey, type Team, type TeamMember, type TeamInvitation, type Invite } from '../lib/api'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -32,7 +32,7 @@ export default function Settings() {
   const [isDisabling2FA, setIsDisabling2FA] = useState(false)
 
   // API Keys state
-  const [apiKeys, setApiKeys] = useState<any[]>([])
+  const [apiKeys, setApiKeys] = useState<APIKey[]>([])
   const [newKeyName, setNewKeyName] = useState('')
   const [newKeyExpires, setNewKeyExpires] = useState<number | undefined>(90)
   const [createdKey, setCreatedKey] = useState<{ key: string; name: string } | null>(null)
@@ -59,9 +59,9 @@ export default function Settings() {
   const [isTestingCloudinary, setIsTestingCloudinary] = useState(false)
 
   // Team Management state
-  const [team, setTeam] = useState<any>(null)
-  const [teamMembers, setTeamMembers] = useState<any[]>([])
-  const [invitations, setInvitations] = useState<any[]>([])
+  const [team, setTeam] = useState<Team | null>(null)
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [invitations, setInvitations] = useState<TeamInvitation[]>([])
   const [inviteEmail, setInviteEmail] = useState('')
   const [teamError, setTeamError] = useState('')
   const [teamSuccess, setTeamSuccess] = useState('')
@@ -70,7 +70,7 @@ export default function Settings() {
   const [isRespondingToInvitation, setIsRespondingToInvitation] = useState<number | null>(null)
 
   // Invite system state
-  const [myInvites, setMyInvites] = useState<any[]>([])
+  const [myInvites, setMyInvites] = useState<Invite[]>([])
   const [myInviteCount, setMyInviteCount] = useState(0)
   const [isUserAdmin, setIsUserAdmin] = useState(false)
   const [isCreatingInvite, setIsCreatingInvite] = useState(false)
@@ -122,8 +122,8 @@ export default function Settings() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch (error: any) {
-      setPasswordError(error.message || 'Failed to change password')
+    } catch (error: unknown) {
+      setPasswordError(error instanceof Error ? error.message : 'Failed to change password')
     } finally {
       setIsChangingPassword(false)
     }
@@ -138,8 +138,8 @@ export default function Settings() {
       setTwoFASecret(response.secret)
       setQrCodeURL(response.qr_code_url)
       setShowBackupCodes(false)
-    } catch (error: any) {
-      setTwoFAError(error.message || 'Failed to setup 2FA')
+    } catch (error: unknown) {
+      setTwoFAError(error instanceof Error ? error.message : 'Failed to setup 2FA')
     } finally {
       setIsSettingUp2FA(false)
     }
@@ -166,8 +166,8 @@ export default function Settings() {
       setVerificationCode('')
       setQrCodeURL('')
       setTwoFASecret('')
-    } catch (error: any) {
-      setTwoFAError(error.message || 'Invalid verification code')
+    } catch (error: unknown) {
+      setTwoFAError(error instanceof Error ? error.message : 'Invalid verification code')
     } finally {
       setIsEnabling2FA(false)
     }
@@ -192,8 +192,8 @@ export default function Settings() {
       setDisablePassword('')
       setBackupCodes([])
       setShowBackupCodes(false)
-    } catch (error: any) {
-      setTwoFAError(error.message || 'Failed to disable 2FA')
+    } catch (error: unknown) {
+      setTwoFAError(error instanceof Error ? error.message : 'Failed to disable 2FA')
     } finally {
       setIsDisabling2FA(false)
     }
@@ -349,8 +349,8 @@ export default function Settings() {
       setNewInviteCode(result.code)
       setInviteSuccess('Invite created! Share the link below.')
       await loadInvites()
-    } catch (error: any) {
-      setInviteError(error.message || 'Failed to create invite')
+    } catch (error: unknown) {
+      setInviteError(error instanceof Error ? error.message : 'Failed to create invite')
     } finally {
       setIsCreatingInvite(false)
     }
@@ -394,8 +394,8 @@ export default function Settings() {
       setNewKeyName('')
       setNewKeyExpires(90)
       await loadAPIKeys()
-    } catch (error: any) {
-      setApiKeyError(error.message || 'Failed to create API key')
+    } catch (error: unknown) {
+      setApiKeyError(error instanceof Error ? error.message : 'Failed to create API key')
     } finally {
       setIsCreatingKey(false)
     }
@@ -414,8 +414,8 @@ export default function Settings() {
       await apiClient.deleteAPIKey(id)
       setApiKeySuccess('API key deleted successfully')
       await loadAPIKeys()
-    } catch (error: any) {
-      setApiKeyError(error.message || 'Failed to delete API key')
+    } catch (error: unknown) {
+      setApiKeyError(error instanceof Error ? error.message : 'Failed to delete API key')
     } finally {
       setIsDeletingKey(null)
     }
@@ -462,8 +462,8 @@ export default function Settings() {
       setTeamSuccess(`Invitation sent to ${inviteEmail}`)
       setInviteEmail('')
       await loadTeamData()
-    } catch (error: any) {
-      setTeamError(error.message || 'Failed to send invitation')
+    } catch (error: unknown) {
+      setTeamError(error instanceof Error ? error.message : 'Failed to send invitation')
     } finally {
       setIsInviting(false)
     }
@@ -482,8 +482,8 @@ export default function Settings() {
       await apiClient.removeTeamMember(memberId)
       setTeamSuccess('Member removed successfully')
       await loadTeamData()
-    } catch (error: any) {
-      setTeamError(error.message || 'Failed to remove member')
+    } catch (error: unknown) {
+      setTeamError(error instanceof Error ? error.message : 'Failed to remove member')
     } finally {
       setIsRemovingMember(null)
     }
@@ -498,8 +498,8 @@ export default function Settings() {
       await apiClient.acceptInvitation(invitationId)
       setTeamSuccess('Invitation accepted! Reloading team data...')
       await loadTeamData()
-    } catch (error: any) {
-      setTeamError(error.message || 'Failed to accept invitation')
+    } catch (error: unknown) {
+      setTeamError(error instanceof Error ? error.message : 'Failed to accept invitation')
     } finally {
       setIsRespondingToInvitation(null)
     }
@@ -514,8 +514,8 @@ export default function Settings() {
       await apiClient.rejectInvitation(invitationId)
       setTeamSuccess('Invitation rejected')
       await loadTeamData()
-    } catch (error: any) {
-      setTeamError(error.message || 'Failed to reject invitation')
+    } catch (error: unknown) {
+      setTeamError(error instanceof Error ? error.message : 'Failed to reject invitation')
     } finally {
       setIsRespondingToInvitation(null)
     }
@@ -1470,7 +1470,7 @@ print(response.json())`}
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {myInvites.map((inv: any) => (
+                      {myInvites.map((inv: Invite) => (
                         <div key={inv.id} className="p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
@@ -1575,7 +1575,7 @@ print(response.json())`}
                   <div className="mb-6">
                     <h3 className="text-sm font-semibold text-dark-text-primary mb-3">Pending Invitations</h3>
                     <div className="space-y-2">
-                      {invitations.map((invitation: any) => (
+                      {invitations.map((invitation: TeamInvitation) => (
                         <div key={invitation.id} className="p-4 bg-primary-500/10 border border-primary-500/30 rounded-lg">
                           <div className="flex items-center justify-between">
                             <div>
@@ -1643,7 +1643,7 @@ print(response.json())`}
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {teamMembers.map((member: any) => (
+                      {teamMembers.map((member: TeamMember) => (
                         <div key={member.id} className="p-4 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">

@@ -48,9 +48,10 @@ export default function Sidebar({ onCreateProject, isOpen, onClose }: SidebarPro
 
   // Expose addProject method to parent via callback
   useEffect(() => {
-    ;(window as any).__addProject = addProject
+    const w = window as Window & { __addProject?: (project: Project) => void }
+    w.__addProject = addProject
     return () => {
-      delete (window as any).__addProject
+      delete w.__addProject
     }
   }, [projects])
 

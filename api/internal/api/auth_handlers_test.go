@@ -8,14 +8,15 @@ import (
 
 func TestHandleSignup(t *testing.T) {
 	tests := []struct {
-		name           string
-		email          string
-		password       string
-		wantStatus     int
-		wantError      string
-		wantErrorCode  string
-		checkToken     bool
-		setupFunc      func(*TestServer)
+		name          string
+		email         string
+		password      string
+		inviteCode    string
+		wantStatus    int
+		wantError     string
+		wantErrorCode string
+		checkToken    bool
+		setupFunc     func(*TestServer) string // returns invite code
 	}{
 		{
 			name:       "valid signup",
@@ -23,6 +24,10 @@ func TestHandleSignup(t *testing.T) {
 			password:   "password123",
 			wantStatus: http.StatusCreated,
 			checkToken: true,
+			setupFunc: func(ts *TestServer) string {
+				inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+				return ts.CreateTestInvite(t, inviterID)
+			},
 		},
 		{
 			name:          "duplicate email",
@@ -31,8 +36,9 @@ func TestHandleSignup(t *testing.T) {
 			wantStatus:    http.StatusConflict,
 			wantError:     "email already exists",
 			wantErrorCode: "email_exists",
-			setupFunc: func(ts *TestServer) {
-				ts.CreateTestUser(t, "existing@example.com", "password123")
+			setupFunc: func(ts *TestServer) string {
+				inviterID := ts.CreateTestUser(t, "existing@example.com", "password123")
+				return ts.CreateTestInvite(t, inviterID)
 			},
 		},
 		{
@@ -67,6 +73,23 @@ func TestHandleSignup(t *testing.T) {
 			wantError:     "at least 8 characters",
 			wantErrorCode: "validation_error",
 		},
+		{
+			name:          "missing invite code",
+			email:         "user@example.com",
+			password:      "password123",
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invite code is required",
+			wantErrorCode: "invite_required",
+		},
+		{
+			name:          "invalid invite code",
+			email:         "user@example.com",
+			password:      "password123",
+			inviteCode:    "bad-code",
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "invalid invite code",
+			wantErrorCode: "invalid_invite",
+		},
 	}
 
 	for _, tt := range tests {
@@ -74,13 +97,15 @@ func TestHandleSignup(t *testing.T) {
 			ts := NewTestServer(t)
 			defer ts.Close()
 
+			inviteCode := tt.inviteCode
 			if tt.setupFunc != nil {
-				tt.setupFunc(ts)
+				inviteCode = tt.setupFunc(ts)
 			}
 
 			req := SignupRequest{
-				Email:    tt.email,
-				Password: tt.password,
+				Email:      tt.email,
+				Password:   tt.password,
+				InviteCode: inviteCode,
 			}
 
 			rec, httpReq := MakeRequest(t, http.MethodPost, "/api/auth/signup", req, nil)
@@ -308,10 +333,15 @@ func TestCompleteAuthFlow(t *testing.T) {
 	email := "flowtest@example.com"
 	password := "password123"
 
+	// Create an inviter user and invite code for signup
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+	inviteCode := ts.CreateTestInvite(t, inviterID)
+
 	// Step 1: Sign up
 	signupReq := SignupRequest{
-		Email:    email,
-		Password: password,
+		Email:      email,
+		Password:   password,
+		InviteCode: inviteCode,
 	}
 
 	signupRec, signupHttpReq := MakeRequest(t, http.MethodPost, "/api/auth/signup", signupReq, nil)

@@ -123,7 +123,7 @@ export async function navigateToProject(page: Page, projectName: string) {
 /**
  * Verify API state by making direct API call
  */
-export async function verifyAPIState(request: any, endpoint: string, expectedData: any) {
+export async function verifyAPIState(request: any, endpoint: string, _expectedData: any) {
   const token = await request.storageState().then((state: any) => {
     return state.cookies.find((c: any) => c.name === 'auth_token')?.value;
   });
