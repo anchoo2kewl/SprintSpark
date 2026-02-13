@@ -121,9 +121,12 @@ show_help() {
     echo "  remote admin ...     Execute admin command on production"
     echo "  local admin ...      Execute admin command on local database"
     echo ""
+    echo -e "${YELLOW}Database Commands:${NC}"
+    echo "  db-migrate <src> <dst> [--yes]  Copy database between environments (DESTRUCTIVE)"
+    echo "  db-query <query>                Execute SQL on production database"
+    echo ""
     echo -e "${YELLOW}Utility Commands:${NC}"
     echo "  validate-openapi     Validate OpenAPI spec"
-    echo "  db-query <query>     Execute SQL on production database"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo "  $0 deploy \"feat: add dark mode\"       # Deploy to staging"
@@ -132,6 +135,8 @@ show_help() {
     echo "  $0 staging health                      # Check staging health"
     echo "  $0 prod health                         # Check production health"
     echo "  $0 staging logs api                    # View staging API logs"
+    echo "  $0 db-migrate staging prod             # Copy staging DB to production"
+    echo "  $0 db-migrate prod staging             # Copy production DB to staging"
 }
 
 # Deploy to staging (commit, push, GitHub Actions handles staging deploy)
@@ -445,6 +450,242 @@ validate_openapi() {
         fi
     else
         openapi-generator-cli validate -i api/openapi.yaml
+    fi
+}
+
+# Migrate database between environments
+# Usage: db_migrate <src> <dst> [--yes]
+db_migrate() {
+    local src_env="$1"
+    local dst_env="$2"
+    local force="$3"
+
+    # Normalize env names
+    case "$src_env" in
+        staging)  src_env="staging" ;;
+        prod|production) src_env="production" ;;
+        *)
+            print_error "Invalid source environment: $src_env"
+            echo "Valid environments: staging, prod"
+            return 1
+            ;;
+    esac
+
+    case "$dst_env" in
+        staging)  dst_env="staging" ;;
+        prod|production) dst_env="production" ;;
+        *)
+            print_error "Invalid destination environment: $dst_env"
+            echo "Valid environments: staging, prod"
+            return 1
+            ;;
+    esac
+
+    if [ "$src_env" = "$dst_env" ]; then
+        print_error "Source and destination cannot be the same environment"
+        return 1
+    fi
+
+    # Resolve paths for both environments
+    local src_path src_domain dst_path dst_domain
+    if [ "$src_env" = "staging" ]; then
+        src_path="$STAGING_DEPLOY_PATH"
+        src_domain="$STAGING_DOMAIN"
+    else
+        src_path="$PROD_DEPLOY_PATH"
+        src_domain="$PROD_DOMAIN"
+    fi
+
+    if [ "$dst_env" = "staging" ]; then
+        dst_path="$STAGING_DEPLOY_PATH"
+        dst_domain="$STAGING_DOMAIN"
+    else
+        dst_path="$PROD_DEPLOY_PATH"
+        dst_domain="$PROD_DOMAIN"
+    fi
+
+    print_header "Database Migration"
+    echo ""
+    echo -e "${CYAN}Source:${NC}      $src_env ($src_domain)"
+    echo -e "${CYAN}Destination:${NC} $dst_env ($dst_domain)"
+    echo ""
+
+    # Helper: get DB stats for an environment path
+    _db_stats() {
+        local env_path="$1"
+        ssh "$REMOTE_SERVER" "cd '$env_path' && docker compose exec -T -u root api sh -c '
+            apk add --no-cache sqlite >/dev/null 2>&1
+            for t in \$(sqlite3 /data/sprintspark.db \".tables\"); do
+                c=\$(sqlite3 /data/sprintspark.db \"SELECT COUNT(*) FROM \$t;\")
+                printf \"  %-25s %s rows\n\" \"\$t\" \"\$c\"
+            done
+            printf \"  %-25s %s\n\" \"DB size:\" \"\$(du -h /data/sprintspark.db | cut -f1)\"
+        '" 2>/dev/null || echo "  (unable to read stats)"
+    }
+
+    # Show source DB stats
+    print_status "Fetching source database info..."
+    echo ""
+    echo -e "${CYAN}Source database ($src_env):${NC}"
+    _db_stats "$src_path"
+    echo ""
+
+    # Show destination DB stats
+    print_status "Fetching destination database info..."
+    echo -e "${CYAN}Destination database ($dst_env) — WILL BE DESTROYED:${NC}"
+    _db_stats "$dst_path"
+    echo ""
+
+    # Warning
+    echo -e "${RED}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║  ⚠️  WARNING: THIS WILL DESTROY THE $dst_env DATABASE  ${NC}"
+    echo -e "${RED}║                                                              ║${NC}"
+    echo -e "${RED}║  The $dst_env database at $dst_domain will be${NC}"
+    echo -e "${RED}║  completely replaced with a copy from $src_env.${NC}"
+    echo -e "${RED}║                                                              ║${NC}"
+    echo -e "${RED}║  This action CANNOT be undone.                               ║${NC}"
+    echo -e "${RED}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    if [ "$force" = "--yes" ]; then
+        print_warning "Running in silent mode (--yes) — skipping confirmations"
+    else
+        # First confirmation
+        read -p "Type the destination environment name to confirm ($dst_env): " confirm_env
+        if [ "$confirm_env" != "$dst_env" ]; then
+            print_status "Migration cancelled"
+            return 0
+        fi
+
+        # Second confirmation for production
+        if [ "$dst_env" = "production" ]; then
+            echo ""
+            echo -e "${RED}You are about to overwrite the PRODUCTION database!${NC}"
+            read -p "Type 'yes-destroy-production' to proceed: " confirm_prod
+            if [ "$confirm_prod" != "yes-destroy-production" ]; then
+                print_status "Migration cancelled"
+                return 0
+            fi
+        fi
+    fi
+
+    echo ""
+    print_status "Starting database migration..."
+
+    # Step 1: Create backup of destination database
+    print_status "Step 1/5: Backing up destination database..."
+    local backup_ts=$(date +%Y%m%d_%H%M%S)
+    ssh "$REMOTE_SERVER" "cd '$dst_path' && docker compose exec -T api sh -c 'cp /data/sprintspark.db /data/sprintspark.db.backup_${backup_ts}'" || {
+        print_error "Failed to backup destination database"
+        return 1
+    }
+    print_success "Backup saved as sprintspark.db.backup_${backup_ts}"
+
+    # Step 2: Export source database to host (checkpoint WAL first for clean copy)
+    print_status "Step 2/5: Exporting source database..."
+    local src_app_name
+    if [ "$src_env" = "staging" ]; then
+        src_app_name="sprintspark-staging"
+    else
+        src_app_name="sprintspark"
+    fi
+    local src_dir_name
+    src_dir_name=$(basename "$src_path")
+    local src_volume="${src_dir_name}_${src_app_name}-data"
+
+    # Checkpoint WAL to ensure all data is in the main DB file, then copy
+    ssh "$REMOTE_SERVER" "
+        cd '$src_path' && docker compose exec -T api sh -c '
+            if command -v sqlite3 >/dev/null 2>&1 || apk add --no-cache sqlite >/dev/null 2>&1; then
+                sqlite3 /data/sprintspark.db \"PRAGMA wal_checkpoint(TRUNCATE);\" >/dev/null 2>&1
+            fi
+        '
+        docker run --rm \
+            -v '${src_volume}:/data' \
+            -v /tmp:/tmp \
+            alpine sh -c 'cp /data/sprintspark.db /tmp/sprintspark_migrate_${backup_ts}.db'
+    " || {
+        print_error "Failed to export source database"
+        return 1
+    }
+
+    # Step 3: Stop destination API to prevent writes
+    print_status "Step 3/5: Stopping destination API..."
+    ssh "$REMOTE_SERVER" "cd '$dst_path' && docker compose stop api" || {
+        print_error "Failed to stop destination API"
+        return 1
+    }
+
+    # Step 4: Import into destination via the Docker volume
+    print_status "Step 4/5: Importing database into destination..."
+    local dst_dir_name
+    dst_dir_name=$(basename "$dst_path")
+    # Docker Compose volume name = <project>_<volume> where project = directory name
+    # and volume name = <app_name>-data from docker-compose.yml
+    local dst_app_name
+    if [ "$dst_env" = "staging" ]; then
+        dst_app_name="sprintspark-staging"
+    else
+        dst_app_name="sprintspark"
+    fi
+    local dst_volume="${dst_dir_name}_${dst_app_name}-data"
+
+    ssh "$REMOTE_SERVER" "
+        docker run --rm \
+            -v '${dst_volume}:/data' \
+            -v /tmp:/tmp \
+            alpine sh -c '
+                cp /tmp/sprintspark_migrate_${backup_ts}.db /data/sprintspark.db
+                rm -f /data/sprintspark.db-wal /data/sprintspark.db-shm
+                chmod 666 /data/sprintspark.db
+            '
+    " || {
+        print_error "Failed to import database. Restarting destination..."
+        ssh "$REMOTE_SERVER" "cd '$dst_path' && docker compose start api"
+        return 1
+    }
+
+    # Step 5: Restart destination services
+    print_status "Step 5/5: Restarting destination services..."
+    ssh "$REMOTE_SERVER" "cd '$dst_path' && docker compose up -d" || {
+        print_error "Failed to restart destination services"
+        return 1
+    }
+
+    # Clean up temp file
+    ssh "$REMOTE_SERVER" "rm -f /tmp/sprintspark_migrate_${backup_ts}.db" 2>/dev/null || true
+
+    # Wait and verify health
+    print_status "Waiting for services to be healthy..."
+    sleep 10
+
+    resolve_env "$dst_env"
+    local healthy=false
+    for i in $(seq 1 20); do
+        if curl -skf "https://$REMOTE_DOMAIN/api/health" >/dev/null 2>&1; then
+            healthy=true
+            break
+        fi
+        sleep 3
+    done
+
+    if [ "$healthy" = true ]; then
+        echo ""
+        print_success "Database migration completed successfully!"
+        echo ""
+        echo -e "${CYAN}Source:${NC}      $src_env ($src_domain)"
+        echo -e "${CYAN}Destination:${NC} $dst_env ($dst_domain) — now has source data"
+        echo -e "${CYAN}Backup:${NC}     sprintspark.db.backup_${backup_ts} (inside destination container)"
+        echo ""
+        print_status "To restore the backup if needed:"
+        echo "  ssh $REMOTE_SERVER"
+        echo "  cd $dst_path"
+        echo "  docker compose exec api sh -c 'cp /data/sprintspark.db.backup_${backup_ts} /data/sprintspark.db'"
+        echo "  docker compose restart api"
+    else
+        print_error "Migration completed but destination health check failed"
+        print_status "Check logs: $0 $( [ '$dst_env' = 'staging' ] && echo 'staging' || echo 'prod' ) logs api"
+        return 1
     fi
 }
 
@@ -1088,6 +1329,9 @@ case ${1:-help} in
         ;;
     validate-openapi)
         validate_openapi
+        ;;
+    db-migrate)
+        db_migrate "$2" "$3" "$4"
         ;;
     db-query)
         execute_db_query "$2"
