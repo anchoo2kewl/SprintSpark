@@ -76,6 +76,20 @@ type SignupResponse = operations['signup']['responses']['201']['content']['appli
 type LoginResponse = operations['login']['responses']['200']['content']['application/json']
 type GetCurrentUserResponse = operations['getCurrentUser']['responses']['200']['content']['application/json']
 
+export interface CloudinaryCredentialResponse {
+  id: number
+  user_id: number
+  cloud_name: string
+  api_key: string
+  max_file_size_mb: number
+  status: 'unknown' | 'connected' | 'error' | 'suspended'
+  last_checked_at: string | null
+  last_error: string
+  consecutive_failures: number
+  created_at: string
+  updated_at: string
+}
+
 // API Client Configuration
 // Use relative URL in production (served behind nginx proxy)
 // or VITE_API_URL for development override
@@ -450,12 +464,15 @@ class ApiClient {
   }
 
   // Cloudinary endpoints
-  async getCloudinaryCredential(): Promise<any> {
-    return this.request<any>('/api/settings/cloudinary')
+  async getCloudinaryCredential(): Promise<CloudinaryCredentialResponse | null> {
+    const data = await this.request<CloudinaryCredentialResponse>('/api/settings/cloudinary')
+    // Backend returns {} when no credentials exist
+    if (!data || !data.cloud_name) return null
+    return data
   }
 
-  async saveCloudinaryCredential(data: { cloud_name: string; api_key: string; api_secret: string; max_file_size_mb?: number }): Promise<any> {
-    return this.request<any>('/api/settings/cloudinary', {
+  async saveCloudinaryCredential(data: { cloud_name: string; api_key: string; api_secret: string; max_file_size_mb?: number }): Promise<CloudinaryCredentialResponse> {
+    return this.request<CloudinaryCredentialResponse>('/api/settings/cloudinary', {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -464,6 +481,12 @@ class ApiClient {
   async deleteCloudinaryCredential(): Promise<void> {
     return this.request<void>('/api/settings/cloudinary', {
       method: 'DELETE',
+    })
+  }
+
+  async testCloudinaryConnection(): Promise<CloudinaryCredentialResponse> {
+    return this.request<CloudinaryCredentialResponse>('/api/settings/cloudinary/test', {
+      method: 'POST',
     })
   }
 

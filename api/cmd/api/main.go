@@ -210,6 +210,7 @@ func main() {
 			r.Get("/settings/cloudinary", server.HandleGetCloudinaryCredential)
 			r.Post("/settings/cloudinary", server.HandleSaveCloudinaryCredential)
 			r.Delete("/settings/cloudinary", server.HandleDeleteCloudinaryCredential)
+			r.Post("/settings/cloudinary/test", server.HandleTestCloudinaryConnection)
 			r.Get("/settings/cloudinary/signature", server.HandleGetUploadSignature)
 
 			// Task attachment routes

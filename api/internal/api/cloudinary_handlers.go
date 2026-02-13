@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -18,13 +19,17 @@ import (
 // Cloudinary credential types
 
 type CloudinaryCredential struct {
-	ID            int64     `json:"id"`
-	UserID        int64     `json:"user_id"`
-	CloudName     string    `json:"cloud_name"`
-	APIKey        string    `json:"api_key"`
-	MaxFileSizeMB int       `json:"max_file_size_mb"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID                  int64      `json:"id"`
+	UserID              int64      `json:"user_id"`
+	CloudName           string     `json:"cloud_name"`
+	APIKey              string     `json:"api_key"`
+	MaxFileSizeMB       int        `json:"max_file_size_mb"`
+	Status              string     `json:"status"`
+	LastCheckedAt       *time.Time `json:"last_checked_at"`
+	LastError           string     `json:"last_error"`
+	ConsecutiveFailures int        `json:"consecutive_failures"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 type SaveCloudinaryCredentialRequest struct {
@@ -87,12 +92,16 @@ func (s *Server) HandleGetCloudinaryCredential(w http.ResponseWriter, r *http.Re
 
 	var cred CloudinaryCredential
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, user_id, cloud_name, api_key, max_file_size_mb, created_at, updated_at
+		`SELECT id, user_id, cloud_name, api_key, max_file_size_mb,
+		        status, last_checked_at, last_error, consecutive_failures,
+		        created_at, updated_at
 		 FROM cloudinary_credentials WHERE user_id = ?`, userID,
-	).Scan(&cred.ID, &cred.UserID, &cred.CloudName, &cred.APIKey, &cred.MaxFileSizeMB, &cred.CreatedAt, &cred.UpdatedAt)
+	).Scan(&cred.ID, &cred.UserID, &cred.CloudName, &cred.APIKey, &cred.MaxFileSizeMB,
+		&cred.Status, &cred.LastCheckedAt, &cred.LastError, &cred.ConsecutiveFailures,
+		&cred.CreatedAt, &cred.UpdatedAt)
 
 	if err == sql.ErrNoRows {
-		respondJSON(w, http.StatusOK, nil)
+		respondJSON(w, http.StatusOK, map[string]interface{}{})
 		return
 	}
 	if err != nil {
@@ -106,7 +115,7 @@ func (s *Server) HandleGetCloudinaryCredential(w http.ResponseWriter, r *http.Re
 
 // HandleSaveCloudinaryCredential creates or updates the current user's Cloudinary credentials
 func (s *Server) HandleSaveCloudinaryCredential(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
 	userID := r.Context().Value(UserIDKey).(int64)
@@ -145,7 +154,43 @@ func (s *Server) HandleSaveCloudinaryCredential(w http.ResponseWriter, r *http.R
 	}
 
 	s.logger.Info("Cloudinary credentials saved", zap.Int64("user_id", userID))
-	respondJSON(w, http.StatusOK, map[string]string{"message": "Cloudinary credentials saved"})
+
+	// Test connection with the provided credentials
+	status, lastError := testCloudinaryConnection(ctx, req.CloudName, req.APIKey, req.APISecret)
+
+	now := time.Now()
+	consecutiveFailures := 0
+	if status == "error" {
+		consecutiveFailures = 1
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`UPDATE cloudinary_credentials
+		 SET status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?
+		 WHERE user_id = ?`,
+		status, now, lastError, consecutiveFailures, userID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to update cloudinary health status", zap.Error(err))
+	}
+
+	// Return the full credential object
+	var cred CloudinaryCredential
+	err = s.db.QueryRowContext(ctx,
+		`SELECT id, user_id, cloud_name, api_key, max_file_size_mb,
+		        status, last_checked_at, last_error, consecutive_failures,
+		        created_at, updated_at
+		 FROM cloudinary_credentials WHERE user_id = ?`, userID,
+	).Scan(&cred.ID, &cred.UserID, &cred.CloudName, &cred.APIKey, &cred.MaxFileSizeMB,
+		&cred.Status, &cred.LastCheckedAt, &cred.LastError, &cred.ConsecutiveFailures,
+		&cred.CreatedAt, &cred.UpdatedAt)
+	if err != nil {
+		s.logger.Error("Failed to fetch saved cloudinary credentials", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "credentials saved but failed to retrieve", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, cred)
 }
 
 // HandleDeleteCloudinaryCredential removes the current user's Cloudinary credentials
@@ -165,6 +210,95 @@ func (s *Server) HandleDeleteCloudinaryCredential(w http.ResponseWriter, r *http
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Cloudinary credentials deleted"})
+}
+
+// testCloudinaryConnection tests a Cloudinary connection by calling the usage API
+func testCloudinaryConnection(ctx context.Context, cloudName, apiKey, apiSecret string) (status string, lastError string) {
+	url := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/usage", cloudName)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "error", fmt.Sprintf("failed to create request: %v", err)
+	}
+	req.SetBasicAuth(apiKey, apiSecret)
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "error", fmt.Sprintf("connection failed: %v", err)
+	}
+	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode == http.StatusOK {
+		return "connected", ""
+	}
+	return "error", fmt.Sprintf("Cloudinary returned HTTP %d", resp.StatusCode)
+}
+
+// HandleTestCloudinaryConnection tests the stored Cloudinary credentials
+func (s *Server) HandleTestCloudinaryConnection(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	var cloudName, apiKey, apiSecret string
+	var consecutiveFailures int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT cloud_name, api_key, api_secret, consecutive_failures
+		 FROM cloudinary_credentials WHERE user_id = ?`, userID,
+	).Scan(&cloudName, &apiKey, &apiSecret, &consecutiveFailures)
+
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusBadRequest, "no Cloudinary credentials configured", "no_credentials")
+		return
+	}
+	if err != nil {
+		s.logger.Error("Failed to fetch cloudinary credentials for test", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to fetch credentials", "internal_error")
+		return
+	}
+
+	status, lastError := testCloudinaryConnection(ctx, cloudName, apiKey, apiSecret)
+
+	now := time.Now()
+	if status == "connected" {
+		consecutiveFailures = 0
+	} else {
+		consecutiveFailures++
+		if consecutiveFailures >= 5 {
+			status = "suspended"
+		}
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`UPDATE cloudinary_credentials
+		 SET status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?
+		 WHERE user_id = ?`,
+		status, now, lastError, consecutiveFailures, userID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to update cloudinary health status", zap.Error(err))
+	}
+
+	// Return the full credential
+	var cred CloudinaryCredential
+	err = s.db.QueryRowContext(ctx,
+		`SELECT id, user_id, cloud_name, api_key, max_file_size_mb,
+		        status, last_checked_at, last_error, consecutive_failures,
+		        created_at, updated_at
+		 FROM cloudinary_credentials WHERE user_id = ?`, userID,
+	).Scan(&cred.ID, &cred.UserID, &cred.CloudName, &cred.APIKey, &cred.MaxFileSizeMB,
+		&cred.Status, &cred.LastCheckedAt, &cred.LastError, &cred.ConsecutiveFailures,
+		&cred.CreatedAt, &cred.UpdatedAt)
+	if err != nil {
+		s.logger.Error("Failed to fetch updated cloudinary credentials", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "test completed but failed to retrieve status", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, cred)
 }
 
 // HandleGetUploadSignature generates a Cloudinary upload signature for the current user

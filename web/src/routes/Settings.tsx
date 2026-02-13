@@ -4,7 +4,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import TextInput from '../components/ui/TextInput'
 import FormError from '../components/ui/FormError'
-import { apiClient } from '../lib/api'
+import { apiClient, type CloudinaryCredentialResponse } from '../lib/api'
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -51,6 +51,11 @@ export default function Settings() {
   const [cloudinarySuccess, setCloudinarySuccess] = useState('')
   const [isSavingCloudinary, setIsSavingCloudinary] = useState(false)
   const [isDeletingCloudinary, setIsDeletingCloudinary] = useState(false)
+  const [cloudinaryStatus, setCloudinaryStatus] = useState<'unknown' | 'connected' | 'error' | 'suspended'>('unknown')
+  const [cloudinaryLastChecked, setCloudinaryLastChecked] = useState<string | null>(null)
+  const [cloudinaryLastError, setCloudinaryLastError] = useState('')
+  const [cloudinaryConsecutiveFailures, setCloudinaryConsecutiveFailures] = useState(0)
+  const [isTestingCloudinary, setIsTestingCloudinary] = useState(false)
 
   // Team Management state
   const [team, setTeam] = useState<any>(null)
@@ -208,14 +213,31 @@ export default function Settings() {
     setTwoFASuccess('Secret key copied to clipboard')
   }
 
+  const applyCloudinaryHealth = (cred: CloudinaryCredentialResponse) => {
+    setCloudinaryStatus(cred.status)
+    setCloudinaryLastChecked(cred.last_checked_at)
+    setCloudinaryLastError(cred.last_error)
+    setCloudinaryConsecutiveFailures(cred.consecutive_failures)
+  }
+
   const loadCloudinaryCredentials = async () => {
     try {
       const cred = await apiClient.getCloudinaryCredential()
-      if (cred && cred.cloud_name) {
+      if (cred) {
         setCloudName(cred.cloud_name)
         setCloudAPIKey(cred.api_key)
         setCloudMaxSize(cred.max_file_size_mb || 10)
         setHasCloudinaryCredentials(true)
+        applyCloudinaryHealth(cred)
+
+        // Auto-test if last check was > 24h ago and not suspended
+        if (cred.status !== 'suspended') {
+          const lastCheck = cred.last_checked_at ? new Date(cred.last_checked_at).getTime() : 0
+          const dayAgo = Date.now() - 24 * 60 * 60 * 1000
+          if (lastCheck < dayAgo) {
+            handleTestCloudinary()
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load Cloudinary credentials:', error)
@@ -234,19 +256,47 @@ export default function Settings() {
 
     setIsSavingCloudinary(true)
     try {
-      await apiClient.saveCloudinaryCredential({
+      const cred = await apiClient.saveCloudinaryCredential({
         cloud_name: cloudName.trim(),
         api_key: cloudAPIKey.trim(),
         api_secret: cloudAPISecret.trim(),
         max_file_size_mb: cloudMaxSize,
       })
-      setCloudinarySuccess('Cloudinary credentials saved successfully')
       setHasCloudinaryCredentials(true)
       setCloudAPISecret('')
-    } catch (error: any) {
-      setCloudinaryError(error.message || 'Failed to save credentials')
+      applyCloudinaryHealth(cred)
+
+      if (cred.status === 'connected') {
+        setCloudinarySuccess('Credentials saved and connection verified')
+      } else {
+        setCloudinarySuccess('Credentials saved')
+        setCloudinaryError(cred.last_error || 'Connection test failed')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save credentials'
+      setCloudinaryError(message)
     } finally {
       setIsSavingCloudinary(false)
+    }
+  }
+
+  const handleTestCloudinary = async () => {
+    setIsTestingCloudinary(true)
+    setCloudinaryError('')
+    setCloudinarySuccess('')
+    try {
+      const cred = await apiClient.testCloudinaryConnection()
+      applyCloudinaryHealth(cred)
+      if (cred.status === 'connected') {
+        setCloudinarySuccess('Connection verified')
+      } else {
+        setCloudinaryError(cred.last_error || 'Connection test failed')
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to test connection'
+      setCloudinaryError(message)
+    } finally {
+      setIsTestingCloudinary(false)
     }
   }
 
@@ -263,9 +313,14 @@ export default function Settings() {
       setCloudAPISecret('')
       setCloudMaxSize(10)
       setHasCloudinaryCredentials(false)
+      setCloudinaryStatus('unknown')
+      setCloudinaryLastChecked(null)
+      setCloudinaryLastError('')
+      setCloudinaryConsecutiveFailures(0)
       setCloudinarySuccess('Cloudinary credentials removed')
-    } catch (error: any) {
-      setCloudinaryError(error.message || 'Failed to remove credentials')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to remove credentials'
+      setCloudinaryError(message)
     } finally {
       setIsDeletingCloudinary(false)
     }
@@ -784,22 +839,59 @@ export default function Settings() {
                 {cloudinaryError && <FormError message={cloudinaryError} className="mb-4" />}
 
                 {hasCloudinaryCredentials && (
-                  <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full bg-success-500"></div>
-                      <div>
-                        <p className="font-medium text-dark-text-primary">Connected</p>
-                        <p className="text-sm text-dark-text-secondary">Cloud: {cloudName} &middot; Max file size: {cloudMaxSize}MB</p>
+                  <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          cloudinaryStatus === 'connected' ? 'bg-success-500' :
+                          cloudinaryStatus === 'error' ? 'bg-danger-500' :
+                          cloudinaryStatus === 'suspended' ? 'bg-yellow-500' :
+                          'bg-dark-text-tertiary'
+                        }`}></div>
+                        <div>
+                          <p className="font-medium text-dark-text-primary">
+                            {cloudinaryStatus === 'connected' ? 'Connected' :
+                             cloudinaryStatus === 'error' ? 'Connection Error' :
+                             cloudinaryStatus === 'suspended' ? 'Suspended' :
+                             'Unknown'}
+                          </p>
+                          <p className="text-sm text-dark-text-secondary">
+                            Cloud: {cloudName} &middot; Max file size: {cloudMaxSize}MB
+                            {cloudinaryLastChecked && (
+                              <> &middot; Checked: {new Date(cloudinaryLastChecked).toLocaleString()}</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={handleTestCloudinary}
+                          disabled={isTestingCloudinary}
+                        >
+                          {isTestingCloudinary ? 'Testing...' : 'Test Connection'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={handleDeleteCloudinary}
+                          disabled={isDeletingCloudinary}
+                        >
+                          {isDeletingCloudinary ? 'Removing...' : 'Remove'}
+                        </Button>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={handleDeleteCloudinary}
-                      disabled={isDeletingCloudinary}
-                    >
-                      {isDeletingCloudinary ? 'Removing...' : 'Remove'}
-                    </Button>
+                    {cloudinaryLastError && cloudinaryStatus !== 'connected' && (
+                      <div className="text-sm text-danger-400 bg-danger-500/10 px-3 py-2 rounded">
+                        {cloudinaryLastError}
+                        {cloudinaryConsecutiveFailures >= 5 && (
+                          <span className="block mt-1 text-yellow-400">
+                            Auto-checks suspended after {cloudinaryConsecutiveFailures} consecutive failures. Use "Test Connection" to retry.
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
