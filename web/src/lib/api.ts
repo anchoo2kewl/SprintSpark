@@ -142,6 +142,16 @@ export interface TeamInvitation {
   inviter_name?: string
 }
 
+export interface TokenInvitationInfo {
+  invitation_id: number
+  team_name: string
+  inviter_name: string
+  invitee_email: string
+  status: string
+  requires_signup: boolean
+  invite_code?: string
+}
+
 export interface StorageUsageItem {
   user_id: number
   user_name: string
@@ -630,6 +640,17 @@ class ApiClient {
   async rejectInvitation(invitationId: number): Promise<void> {
     return this.request<void>(`/api/team/invitations/${invitationId}/reject`, {
       method: 'POST',
+    })
+  }
+
+  async getInvitationByToken(token: string): Promise<TokenInvitationInfo> {
+    return this.request<TokenInvitationInfo>(`/api/team/invitations/by-token?token=${encodeURIComponent(token)}`)
+  }
+
+  async acceptInvitationByToken(token: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/team/invitations/accept-by-token', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
     })
   }
 

@@ -113,33 +113,33 @@ func (s *BrevoService) SendUserInvite(ctx context.Context, toEmail, inviterName,
 	return s.SendEmail(ctx, toEmail, subject, html)
 }
 
-// SendProjectInvitation sends a project invitation email to an existing user
-func (s *BrevoService) SendProjectInvitation(ctx context.Context, toEmail, inviterName, projectName, appURL string) error {
-	loginURL := fmt.Sprintf("%s/login", appURL)
+// SendProjectInvitation sends a project invitation email to an existing user with a one-click accept link
+func (s *BrevoService) SendProjectInvitation(ctx context.Context, toEmail, inviterName, projectName, acceptToken, appURL string) error {
+	acceptURL := fmt.Sprintf("%s/accept-invite?token=%s", appURL, acceptToken)
 	subject := fmt.Sprintf("You've been invited to %s", projectName)
 
 	html := buildEmailTemplate(
 		fmt.Sprintf("Join \"%s\"", projectName),
 		fmt.Sprintf("<strong>%s</strong> has invited you to collaborate on <strong>%s</strong> in TaskAI.", inviterName, projectName),
-		loginURL,
-		"Open TaskAI",
-		"Log in to view your pending invitations.",
+		acceptURL,
+		"Accept Invitation",
+		"This invitation link will expire in 7 days.",
 	)
 
 	return s.SendEmail(ctx, toEmail, subject, html)
 }
 
-// SendProjectInvitationNewUser sends a project invitation email to a user who needs to sign up first
-func (s *BrevoService) SendProjectInvitationNewUser(ctx context.Context, toEmail, inviterName, projectName, inviteCode, appURL string) error {
-	signupURL := fmt.Sprintf("%s/signup?code=%s", appURL, inviteCode)
+// SendProjectInvitationNewUser sends a project invitation email to a user who needs to sign up first, with a one-click accept link
+func (s *BrevoService) SendProjectInvitationNewUser(ctx context.Context, toEmail, inviterName, projectName, acceptToken, appURL string) error {
+	acceptURL := fmt.Sprintf("%s/accept-invite?token=%s", appURL, acceptToken)
 	subject := fmt.Sprintf("%s invited you to %s on TaskAI", inviterName, projectName)
 
 	html := buildEmailTemplate(
 		fmt.Sprintf("Join \"%s\" on TaskAI", projectName),
 		fmt.Sprintf("<strong>%s</strong> has invited you to collaborate on <strong>%s</strong>. Create your TaskAI account to get started.", inviterName, projectName),
-		signupURL,
-		"Create Account & Join",
-		"This invite link will expire in 7 days.",
+		acceptURL,
+		"Accept Invitation",
+		"This invitation link will expire in 7 days.",
 	)
 
 	return s.SendEmail(ctx, toEmail, subject, html)

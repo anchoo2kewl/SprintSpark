@@ -1,5 +1,5 @@
 import { useState, FormEvent, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../state/AuthContext'
 import { validateLoginForm } from '../lib/validation'
 import Card, { CardHeader, CardBody } from '../components/ui/Card'
@@ -14,13 +14,15 @@ export default function Login() {
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const { login, error, loading, clearError, user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
 
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate('/app', { replace: true })
+      navigate(redirectTo || '/app', { replace: true })
     }
-  }, [user, navigate])
+  }, [user, navigate, redirectTo])
 
   const handleBlur = (field: string) => {
     setTouched({ ...touched, [field]: true })

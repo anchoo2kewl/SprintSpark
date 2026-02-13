@@ -5,8 +5,10 @@ import Login from './Login'
 
 // Mock react-router-dom
 const mockNavigate = vi.fn()
+const mockSearchParams = new URLSearchParams()
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
+  useSearchParams: () => [mockSearchParams],
   Link: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a>,
 }))
 

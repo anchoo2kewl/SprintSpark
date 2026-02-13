@@ -189,7 +189,7 @@ func TestSendProjectInvitation(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	})
 
-	err := svc.SendProjectInvitation(context.Background(), "member@test.com", "Bob", "My Project", "https://app.taskai.cc")
+	err := svc.SendProjectInvitation(context.Background(), "member@test.com", "Bob", "My Project", "token123", "https://app.taskai.cc")
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -200,14 +200,17 @@ func TestSendProjectInvitation(t *testing.T) {
 	if !strings.Contains(receivedBody.Subject, "My Project") {
 		t.Errorf("Expected subject to contain project name, got '%s'", receivedBody.Subject)
 	}
-	if !strings.Contains(receivedBody.HTMLContent, "https://app.taskai.cc/login") {
-		t.Error("Expected HTML to contain login URL")
+	if !strings.Contains(receivedBody.HTMLContent, "https://app.taskai.cc/accept-invite?token=token123") {
+		t.Error("Expected HTML to contain accept-invite URL with token")
 	}
 	if !strings.Contains(receivedBody.HTMLContent, "Bob") {
 		t.Error("Expected HTML to contain inviter name")
 	}
 	if !strings.Contains(receivedBody.HTMLContent, "My Project") {
 		t.Error("Expected HTML to contain project name")
+	}
+	if !strings.Contains(receivedBody.HTMLContent, "Accept Invitation") {
+		t.Error("Expected HTML to contain 'Accept Invitation' CTA label")
 	}
 }
 
@@ -220,7 +223,7 @@ func TestSendProjectInvitationNewUser(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	})
 
-	err := svc.SendProjectInvitationNewUser(context.Background(), "new@test.com", "Carol", "Sprint Board", "xyz789", "https://app.taskai.cc")
+	err := svc.SendProjectInvitationNewUser(context.Background(), "new@test.com", "Carol", "Sprint Board", "tokenXYZ", "https://app.taskai.cc")
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -234,8 +237,11 @@ func TestSendProjectInvitationNewUser(t *testing.T) {
 	if !strings.Contains(receivedBody.Subject, "Sprint Board") {
 		t.Errorf("Expected subject to contain project name, got '%s'", receivedBody.Subject)
 	}
-	if !strings.Contains(receivedBody.HTMLContent, "https://app.taskai.cc/signup?code=xyz789") {
-		t.Error("Expected HTML to contain signup URL with invite code")
+	if !strings.Contains(receivedBody.HTMLContent, "https://app.taskai.cc/accept-invite?token=tokenXYZ") {
+		t.Error("Expected HTML to contain accept-invite URL with token")
+	}
+	if !strings.Contains(receivedBody.HTMLContent, "Accept Invitation") {
+		t.Error("Expected HTML to contain 'Accept Invitation' CTA label")
 	}
 }
 

@@ -88,6 +88,30 @@ func createTestTeamInvitation(t *testing.T, ts *TestServer, teamID, inviterID in
 	return invID
 }
 
+// createTestTeamInvitationWithToken creates a pending invitation with an acceptance token
+func createTestTeamInvitationWithToken(t *testing.T, ts *TestServer, teamID, inviterID int64, inviteeEmail string, inviteeID *int64, token string, expiresIn string) int64 {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := ts.DB.ExecContext(ctx,
+		fmt.Sprintf(`INSERT INTO team_invitations (team_id, inviter_id, invitee_email, invitee_id, status, created_at, acceptance_token, token_expires_at)
+		 VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, ?, datetime('now', '%s'))`, expiresIn),
+		teamID, inviterID, inviteeEmail, inviteeID, token,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test team invitation with token: %v", err)
+	}
+
+	invID, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("Failed to get invitation ID: %v", err)
+	}
+
+	return invID
+}
+
 func TestHandleGetMyTeam(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -930,4 +954,311 @@ func TestHandleRemoveTeamMember_MemberNotFound(t *testing.T) {
 	ts.HandleRemoveTeamMember(rec, req)
 
 	AssertError(t, rec, http.StatusNotFound, "member not found", "not_found")
+}
+
+// --- Token-based acceptance tests ---
+
+func TestHandleGetInvitationByToken_MissingToken(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/team/invitations/by-token", nil, nil)
+	ts.HandleGetInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "token is required", "invalid_input")
+}
+
+func TestHandleGetInvitationByToken_InvalidToken(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/team/invitations/by-token?token=invalid123", nil, nil)
+	ts.HandleGetInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "invitation not found or token is invalid", "not_found")
+}
+
+func TestHandleGetInvitationByToken_ExpiredToken(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "expired-token", "-1 day")
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/team/invitations/by-token?token=expired-token", nil, nil)
+	ts.HandleGetInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusGone, "invitation link has expired", "token_expired")
+}
+
+func TestHandleGetInvitationByToken_AlreadyAccepted(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	invID := createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "accepted-token", "+7 days")
+
+	// Mark as accepted
+	ctx := context.Background()
+	ts.DB.ExecContext(ctx, `UPDATE team_invitations SET status = 'accepted' WHERE id = ?`, invID)
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/team/invitations/by-token?token=accepted-token", nil, nil)
+	ts.HandleGetInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusConflict, "invitation has already been accepted", "already_responded")
+}
+
+func TestHandleGetInvitationByToken_ValidExistingUser(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "valid-token-123", "+7 days")
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/team/invitations/by-token?token=valid-token-123", nil, nil)
+	ts.HandleGetInvitationByToken(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var resp TokenInvitationResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if resp.TeamName != "Test Team" {
+		t.Errorf("Expected team name 'Test Team', got '%s'", resp.TeamName)
+	}
+	if resp.InviteeEmail != "invitee@example.com" {
+		t.Errorf("Expected invitee email 'invitee@example.com', got '%s'", resp.InviteeEmail)
+	}
+	if resp.RequiresSignup {
+		t.Error("Expected requires_signup to be false for existing user")
+	}
+	if resp.Status != "pending" {
+		t.Errorf("Expected status 'pending', got '%s'", resp.Status)
+	}
+}
+
+func TestHandleGetInvitationByToken_NewUserWithInviteCode(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	invID := createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "newuser@example.com", nil, "new-user-token", "+7 days")
+
+	// Set invite code on the invitation
+	ctx := context.Background()
+	ts.DB.ExecContext(ctx, `UPDATE team_invitations SET invite_code = 'SIGNUPCODE123' WHERE id = ?`, invID)
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/team/invitations/by-token?token=new-user-token", nil, nil)
+	ts.HandleGetInvitationByToken(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var resp TokenInvitationResponse
+	json.NewDecoder(rec.Body).Decode(&resp)
+
+	if !resp.RequiresSignup {
+		t.Error("Expected requires_signup to be true for new user")
+	}
+	if resp.InviteCode != "SIGNUPCODE123" {
+		t.Errorf("Expected invite_code 'SIGNUPCODE123', got '%s'", resp.InviteCode)
+	}
+}
+
+func TestHandleAcceptInvitationByToken_MissingToken(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/team/invitations/accept-by-token", map[string]string{}, userID, nil)
+	ctx := context.WithValue(req.Context(), UserEmailKey, "user@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "token is required", "invalid_input")
+}
+
+func TestHandleAcceptInvitationByToken_InvalidToken(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	body := struct{ Token string }{Token: "nonexistent-token"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/team/invitations/accept-by-token", body, userID, nil)
+	ctx := context.WithValue(req.Context(), UserEmailKey, "user@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusNotFound, "invitation not found or token is invalid", "not_found")
+}
+
+func TestHandleAcceptInvitationByToken_ExpiredToken(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "expired-accept-token", "-1 day")
+
+	body := struct{ Token string }{Token: "expired-accept-token"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/team/invitations/accept-by-token", body, inviteeID, nil)
+	ctx := context.WithValue(req.Context(), UserEmailKey, "invitee@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusGone, "invitation link has expired", "token_expired")
+}
+
+func TestHandleAcceptInvitationByToken_WrongEmail(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	wrongUserID := ts.CreateTestUser(t, "wrong@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "wrong-email-token", "+7 days")
+
+	body := struct{ Token string }{Token: "wrong-email-token"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/team/invitations/accept-by-token", body, wrongUserID, nil)
+	ctx := context.WithValue(req.Context(), UserEmailKey, "wrong@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusForbidden, "this invitation is for a different email address", "forbidden")
+}
+
+func TestHandleAcceptInvitationByToken_AlreadyAccepted(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	invID := createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "already-accepted-token", "+7 days")
+
+	ctx := context.Background()
+	ts.DB.ExecContext(ctx, `UPDATE team_invitations SET status = 'accepted' WHERE id = ?`, invID)
+
+	body := struct{ Token string }{Token: "already-accepted-token"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/team/invitations/accept-by-token", body, inviteeID, nil)
+	rctx := context.WithValue(req.Context(), UserEmailKey, "invitee@example.com")
+	req = req.WithContext(rctx)
+	ts.HandleAcceptInvitationByToken(rec, req)
+
+	AssertError(t, rec, http.StatusConflict, "invitation has already been accepted", "already_responded")
+}
+
+func TestHandleAcceptInvitationByToken_Success(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+	createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "success-token", "+7 days")
+
+	body := struct{ Token string }{Token: "success-token"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/team/invitations/accept-by-token", body, inviteeID, nil)
+	ctx := context.WithValue(req.Context(), UserEmailKey, "invitee@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitationByToken(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var resp map[string]string
+	json.NewDecoder(rec.Body).Decode(&resp)
+	if resp["message"] != "invitation accepted" {
+		t.Errorf("Expected message 'invitation accepted', got '%s'", resp["message"])
+	}
+
+	// Verify team membership was created
+	bgCtx := context.Background()
+	var memberCount int
+	ts.DB.QueryRowContext(bgCtx, `SELECT COUNT(*) FROM team_members WHERE team_id = ? AND user_id = ?`, teamID, inviteeID).Scan(&memberCount)
+	if memberCount != 1 {
+		t.Errorf("Expected 1 team member row, got %d", memberCount)
+	}
+
+	// Verify invitation was marked as accepted
+	var status string
+	ts.DB.QueryRowContext(bgCtx, `SELECT status FROM team_invitations WHERE acceptance_token = ?`, "success-token").Scan(&status)
+	if status != "accepted" {
+		t.Errorf("Expected invitation status 'accepted', got '%s'", status)
+	}
+}
+
+func TestHandleAcceptInvitationByToken_AddsToProjects(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	inviteeID := ts.CreateTestUser(t, "invitee@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+
+	// Create a project belonging to this team
+	bgCtx := context.Background()
+	projResult, _ := ts.DB.ExecContext(bgCtx,
+		`INSERT INTO projects (name, owner_id, team_id, created_at, updated_at) VALUES ('Team Project', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		ownerID, teamID,
+	)
+	projID, _ := projResult.LastInsertId()
+
+	createTestTeamInvitationWithToken(t, ts, teamID, ownerID, "invitee@example.com", &inviteeID, "project-token", "+7 days")
+
+	body := struct{ Token string }{Token: "project-token"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/team/invitations/accept-by-token", body, inviteeID, nil)
+	ctx := context.WithValue(req.Context(), UserEmailKey, "invitee@example.com")
+	req = req.WithContext(ctx)
+	ts.HandleAcceptInvitationByToken(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	// Verify user was added to the project
+	var projMemberCount int
+	ts.DB.QueryRowContext(bgCtx, `SELECT COUNT(*) FROM project_members WHERE project_id = ? AND user_id = ?`, projID, inviteeID).Scan(&projMemberCount)
+	if projMemberCount != 1 {
+		t.Errorf("Expected 1 project member row, got %d", projMemberCount)
+	}
+}
+
+func TestHandleInviteTeamMember_GeneratesToken(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	teamID := createTestTeam(t, ts, ownerID, "Test Team")
+
+	body := InviteTeamMemberRequest{Email: "newinvitee@example.com"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/teams/invitations", body, ownerID, nil)
+	ts.HandleInviteTeamMember(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusCreated)
+
+	// Verify acceptance_token was generated
+	bgCtx := context.Background()
+	var token string
+	var tokenExpires time.Time
+	err := ts.DB.QueryRowContext(bgCtx,
+		`SELECT acceptance_token, token_expires_at FROM team_invitations WHERE team_id = ? AND invitee_email = ?`,
+		teamID, "newinvitee@example.com",
+	).Scan(&token, &tokenExpires)
+	if err != nil {
+		t.Fatalf("Failed to query invitation: %v", err)
+	}
+	if token == "" {
+		t.Error("Expected acceptance_token to be generated, got empty")
+	}
+	if tokenExpires.Before(time.Now()) {
+		t.Error("Expected token_expires_at to be in the future")
+	}
 }

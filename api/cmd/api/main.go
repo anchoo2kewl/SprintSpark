@@ -126,6 +126,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(api.RateLimitMiddleware(30))
 			r.Get("/invites/validate", server.HandleValidateInvite)
+			r.Get("/team/invitations/by-token", server.HandleGetInvitationByToken)
 		})
 
 		// Protected routes
@@ -205,6 +206,7 @@ func main() {
 			r.Get("/team/invitations", server.HandleGetMyInvitations)
 			r.Post("/team/invitations/{id}/accept", server.HandleAcceptInvitation)
 			r.Post("/team/invitations/{id}/reject", server.HandleRejectInvitation)
+			r.Post("/team/invitations/accept-by-token", server.HandleAcceptInvitationByToken)
 
 			// Cloudinary routes
 			r.Get("/settings/cloudinary", server.HandleGetCloudinaryCredential)

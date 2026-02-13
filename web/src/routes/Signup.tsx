@@ -11,6 +11,7 @@ import FormError from '../components/ui/FormError'
 export default function Signup() {
   const [searchParams] = useSearchParams()
   const inviteCodeFromURL = searchParams.get('code') || ''
+  const redirectTo = searchParams.get('redirect')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,9 +31,9 @@ export default function Signup() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate('/app', { replace: true })
+      navigate(redirectTo || '/app', { replace: true })
     }
-  }, [user, navigate])
+  }, [user, navigate, redirectTo])
 
   // Validate invite code from URL on mount
   useEffect(() => {

@@ -15,6 +15,7 @@ import Tags from './routes/Tags'
 import Admin from './routes/Admin'
 import Settings from './routes/Settings'
 import Assets from './routes/Assets'
+import AcceptTeamInvite from './routes/AcceptTeamInvite'
 
 function AppRoutes() {
   const location = useLocation()
@@ -27,6 +28,7 @@ function AppRoutes() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/accept-invite" element={<AcceptTeamInvite />} />
 
         {/* Protected routes */}
         <Route

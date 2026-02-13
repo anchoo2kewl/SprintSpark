@@ -218,12 +218,20 @@ func (s *Server) HandleInviteTeamMember(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Create invitation
+	// Generate acceptance token for one-click email acceptance
+	acceptanceToken, tokenErr := generateInviteCode()
+	if tokenErr != nil {
+		s.logger.Error("Failed to generate acceptance token", zap.Error(tokenErr))
+		respondError(w, http.StatusInternalServerError, "failed to create invitation", "internal_error")
+		return
+	}
+
+	// Create invitation with acceptance token (expires in 7 days)
 	insertQuery := `
-		INSERT INTO team_invitations (team_id, inviter_id, invitee_email, invitee_id, status, created_at)
-		VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+		INSERT INTO team_invitations (team_id, inviter_id, invitee_email, invitee_id, status, created_at, acceptance_token, token_expires_at)
+		VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, ?, datetime('now', '+7 days'))
 	`
-	result, err := s.db.ExecContext(ctx, insertQuery, teamID, userID, req.Email, inviteeID)
+	result, err := s.db.ExecContext(ctx, insertQuery, teamID, userID, req.Email, inviteeID, acceptanceToken)
 	if err != nil {
 		s.logger.Error("Failed to create invitation", zap.Error(err))
 		respondError(w, http.StatusInternalServerError, "failed to create invitation", "internal_error")
@@ -264,15 +272,15 @@ func (s *Server) HandleInviteTeamMember(w http.ResponseWriter, r *http.Request) 
 		appURL := s.getAppURL()
 
 		if inviteeID != nil {
-			// Existing user — send project invitation
-			if err := emailSvc.SendProjectInvitation(ctx, req.Email, inviterName, teamName, appURL); err != nil {
+			// Existing user — send project invitation with accept link
+			if err := emailSvc.SendProjectInvitation(ctx, req.Email, inviterName, teamName, acceptanceToken, appURL); err != nil {
 				s.logger.Warn("Failed to send team invitation email",
 					zap.String("to", req.Email),
 					zap.Error(err),
 				)
 			}
 		} else {
-			// New user — auto-generate invite code and send signup link
+			// New user — auto-generate invite code and send signup link with accept token
 			inviteCode, codeErr := generateTeamInviteCode()
 			if codeErr == nil {
 				// Create a platform invite for this user
@@ -280,7 +288,12 @@ func (s *Server) HandleInviteTeamMember(w http.ResponseWriter, r *http.Request) 
 					`INSERT INTO invites (code, inviter_id, expires_at) VALUES (?, ?, datetime('now', '+7 days'))`,
 					inviteCode, userID,
 				)
-				if err := emailSvc.SendProjectInvitationNewUser(ctx, req.Email, inviterName, teamName, inviteCode, appURL); err != nil {
+				// Store invite code on the team invitation for retrieval during acceptance
+				_, _ = s.db.ExecContext(ctx,
+					`UPDATE team_invitations SET invite_code = ? WHERE id = ?`,
+					inviteCode, invitationID,
+				)
+				if err := emailSvc.SendProjectInvitationNewUser(ctx, req.Email, inviterName, teamName, acceptanceToken, appURL); err != nil {
 					s.logger.Warn("Failed to send team invitation email to new user",
 						zap.String("to", req.Email),
 						zap.Error(err),
@@ -620,6 +633,195 @@ func (s *Server) getInvitation(ctx context.Context, invitationID int64) (*TeamIn
 // generateTeamInviteCode creates a random invite code (delegates to the shared generator)
 func generateTeamInviteCode() (string, error) {
 	return generateInviteCode()
+}
+
+// TokenInvitationResponse is returned by the token lookup endpoint
+type TokenInvitationResponse struct {
+	InvitationID int64  `json:"invitation_id"`
+	TeamName     string `json:"team_name"`
+	InviterName  string `json:"inviter_name"`
+	InviteeEmail string `json:"invitee_email"`
+	Status       string `json:"status"`
+	RequiresSignup bool `json:"requires_signup"`
+	InviteCode   string `json:"invite_code,omitempty"`
+}
+
+// HandleGetInvitationByToken returns invitation info for a given acceptance token (public, no auth required)
+func (s *Server) HandleGetInvitationByToken(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		respondError(w, http.StatusBadRequest, "token is required", "invalid_input")
+		return
+	}
+
+	var resp TokenInvitationResponse
+	var tokenExpiresAt time.Time
+	var inviteeID *int64
+	var inviteCode *string
+
+	query := `
+		SELECT ti.id, t.name, COALESCE(u.name, u.email), ti.invitee_email, ti.status,
+		       ti.invitee_id, ti.token_expires_at, ti.invite_code
+		FROM team_invitations ti
+		JOIN teams t ON ti.team_id = t.id
+		JOIN users u ON ti.inviter_id = u.id
+		WHERE ti.acceptance_token = ?
+	`
+	err := s.db.QueryRowContext(ctx, query, token).Scan(
+		&resp.InvitationID, &resp.TeamName, &resp.InviterName, &resp.InviteeEmail,
+		&resp.Status, &inviteeID, &tokenExpiresAt, &inviteCode,
+	)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "invitation not found or token is invalid", "not_found")
+		return
+	} else if err != nil {
+		s.logger.Error("Failed to get invitation by token", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to fetch invitation", "internal_error")
+		return
+	}
+
+	// Check token expiry
+	if time.Now().After(tokenExpiresAt) {
+		respondError(w, http.StatusGone, "invitation link has expired", "token_expired")
+		return
+	}
+
+	// Check if invitation is still pending
+	if resp.Status != "pending" {
+		respondError(w, http.StatusConflict, "invitation has already been "+resp.Status, "already_responded")
+		return
+	}
+
+	// Determine if user needs to sign up
+	resp.RequiresSignup = (inviteeID == nil)
+	if resp.RequiresSignup && inviteCode != nil {
+		resp.InviteCode = *inviteCode
+	}
+
+	respondJSON(w, http.StatusOK, resp)
+}
+
+// HandleAcceptInvitationByToken accepts a team invitation using the acceptance token (requires auth)
+func (s *Server) HandleAcceptInvitationByToken(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+	email := r.Context().Value(UserEmailKey).(string)
+
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+		respondError(w, http.StatusBadRequest, "token is required", "invalid_input")
+		return
+	}
+
+	// Find invitation by token
+	var inv struct {
+		ID           int64
+		TeamID       int64
+		InviteeEmail string
+		InviteeID    *int64
+		Status       string
+		TokenExpires time.Time
+	}
+
+	query := `
+		SELECT id, team_id, invitee_email, invitee_id, status, token_expires_at
+		FROM team_invitations
+		WHERE acceptance_token = ?
+	`
+	err := s.db.QueryRowContext(ctx, query, req.Token).Scan(
+		&inv.ID, &inv.TeamID, &inv.InviteeEmail, &inv.InviteeID, &inv.Status, &inv.TokenExpires,
+	)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "invitation not found or token is invalid", "not_found")
+		return
+	} else if err != nil {
+		s.logger.Error("Failed to get invitation by token", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to fetch invitation", "internal_error")
+		return
+	}
+
+	// Check token expiry
+	if time.Now().After(inv.TokenExpires) {
+		respondError(w, http.StatusGone, "invitation link has expired", "token_expired")
+		return
+	}
+
+	// Verify invitation is for this user
+	if inv.InviteeEmail != email {
+		respondError(w, http.StatusForbidden, "this invitation is for a different email address", "forbidden")
+		return
+	}
+
+	// Check if invitation is still pending
+	if inv.Status != "pending" {
+		respondError(w, http.StatusConflict, "invitation has already been "+inv.Status, "already_responded")
+		return
+	}
+
+	// Begin transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		s.logger.Error("Failed to begin transaction", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to process invitation", "internal_error")
+		return
+	}
+	defer tx.Rollback()
+
+	// Update invitation status
+	_, err = tx.ExecContext(ctx,
+		`UPDATE team_invitations SET status = 'accepted', invitee_id = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?`,
+		userID, inv.ID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to update invitation", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to update invitation", "internal_error")
+		return
+	}
+
+	// Add user to team
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO team_members (team_id, user_id, role, status, joined_at) VALUES (?, ?, 'member', 'active', CURRENT_TIMESTAMP)`,
+		inv.TeamID, userID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to add team member", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to add team member", "internal_error")
+		return
+	}
+
+	// Add user to all existing team projects
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO project_members (project_id, user_id, role, granted_by, granted_at)
+		 SELECT p.id, ?, 'member', p.owner_id, CURRENT_TIMESTAMP
+		 FROM projects p WHERE p.team_id = ?`,
+		userID, inv.TeamID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to add user to team projects", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to add to team projects", "internal_error")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.logger.Error("Failed to commit transaction", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to process invitation", "internal_error")
+		return
+	}
+
+	s.logger.Info("Invitation accepted via token",
+		zap.Int64("invitation_id", inv.ID),
+		zap.Int64("user_id", userID),
+		zap.Int64("team_id", inv.TeamID),
+	)
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "invitation accepted"})
 }
 
 func isValidEmail(email string) bool {
