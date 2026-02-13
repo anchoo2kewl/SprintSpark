@@ -137,7 +137,7 @@ export class TaskAIClient {
   async addComment(taskId: string, content: string): Promise<Comment> {
     return this.request<Comment>(`/api/tasks/${encodeURIComponent(taskId)}/comments`, {
       method: "POST",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ comment: content }),
     });
   }
 }
