@@ -214,6 +214,12 @@ func main() {
 			// Storage usage
 			r.Get("/projects/{id}/storage", server.HandleGetStorageUsage)
 
+			// Image library
+			r.Get("/images", server.HandleListImages)
+
+			// Attachment update
+			r.Patch("/attachments/{id}", server.HandleUpdateAttachment)
+
 			// Admin routes (requires admin role)
 			r.Get("/admin/users", server.HandleGetUsers)
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)

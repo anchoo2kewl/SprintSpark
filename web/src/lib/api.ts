@@ -477,7 +477,7 @@ class ApiClient {
   }
 
   async createTaskAttachment(taskId: number, data: {
-    filename: string; file_type: string; content_type: string;
+    filename: string; alt_name?: string; file_type: string; content_type: string;
     file_size: number; cloudinary_url: string; cloudinary_public_id: string;
   }): Promise<any> {
     return this.request<any>(`/api/tasks/${taskId}/attachments`, {
@@ -495,6 +495,20 @@ class ApiClient {
   // Storage usage
   async getStorageUsage(projectId: number): Promise<any[]> {
     return this.request<any[]>(`/api/projects/${projectId}/storage`)
+  }
+
+  // Image library
+  async getImages(query?: string): Promise<any[]> {
+    const params = query ? `?q=${encodeURIComponent(query)}` : ''
+    return this.request<any[]>(`/api/images${params}`)
+  }
+
+  // Update attachment
+  async updateAttachment(id: number, data: { alt_name?: string }): Promise<any> {
+    return this.request<any>(`/api/attachments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
   }
 
   // Swim lane endpoints

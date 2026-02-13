@@ -47,6 +47,7 @@ type TaskAttachment struct {
 	ProjectID          int64     `json:"project_id"`
 	UserID             int64     `json:"user_id"`
 	Filename           string    `json:"filename"`
+	AltName            string    `json:"alt_name"`
 	FileType           string    `json:"file_type"`
 	ContentType        string    `json:"content_type"`
 	FileSize           int64     `json:"file_size"`
@@ -58,11 +59,16 @@ type TaskAttachment struct {
 
 type CreateAttachmentRequest struct {
 	Filename           string `json:"filename"`
+	AltName            string `json:"alt_name"`
 	FileType           string `json:"file_type"`
 	ContentType        string `json:"content_type"`
 	FileSize           int64  `json:"file_size"`
 	CloudinaryURL      string `json:"cloudinary_url"`
 	CloudinaryPublicID string `json:"cloudinary_public_id"`
+}
+
+type UpdateAttachmentRequest struct {
+	AltName *string `json:"alt_name"`
 }
 
 type StorageUsage struct {
@@ -209,7 +215,7 @@ func (s *Server) HandleListTaskAttachments(w http.ResponseWriter, r *http.Reques
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT ta.id, ta.task_id, ta.project_id, ta.user_id, ta.filename,
+		`SELECT ta.id, ta.task_id, ta.project_id, ta.user_id, ta.filename, ta.alt_name,
 		        ta.file_type, ta.content_type, ta.file_size,
 		        ta.cloudinary_url, ta.cloudinary_public_id, ta.created_at,
 		        u.name as user_name
@@ -229,7 +235,7 @@ func (s *Server) HandleListTaskAttachments(w http.ResponseWriter, r *http.Reques
 	for rows.Next() {
 		var a TaskAttachment
 		if err := rows.Scan(&a.ID, &a.TaskID, &a.ProjectID, &a.UserID,
-			&a.Filename, &a.FileType, &a.ContentType, &a.FileSize,
+			&a.Filename, &a.AltName, &a.FileType, &a.ContentType, &a.FileSize,
 			&a.CloudinaryURL, &a.CloudinaryPublicID, &a.CreatedAt,
 			&a.UserName); err != nil {
 			s.logger.Error("Failed to scan attachment", zap.Error(err))
@@ -282,9 +288,9 @@ func (s *Server) HandleCreateTaskAttachment(w http.ResponseWriter, r *http.Reque
 	}
 
 	result, err := s.db.ExecContext(ctx,
-		`INSERT INTO task_attachments (task_id, project_id, user_id, filename, file_type, content_type, file_size, cloudinary_url, cloudinary_public_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		taskID, projectID, userID, req.Filename, req.FileType, req.ContentType, req.FileSize, req.CloudinaryURL, req.CloudinaryPublicID,
+		`INSERT INTO task_attachments (task_id, project_id, user_id, filename, alt_name, file_type, content_type, file_size, cloudinary_url, cloudinary_public_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		taskID, projectID, userID, req.Filename, req.AltName, req.FileType, req.ContentType, req.FileSize, req.CloudinaryURL, req.CloudinaryPublicID,
 	)
 	if err != nil {
 		s.logger.Error("Failed to create attachment", zap.Error(err))
@@ -306,6 +312,7 @@ func (s *Server) HandleCreateTaskAttachment(w http.ResponseWriter, r *http.Reque
 		ProjectID:          projectID,
 		UserID:             userID,
 		Filename:           req.Filename,
+		AltName:            req.AltName,
 		FileType:           req.FileType,
 		ContentType:        req.ContentType,
 		FileSize:           req.FileSize,
@@ -358,6 +365,151 @@ func (s *Server) HandleDeleteTaskAttachment(w http.ResponseWriter, r *http.Reque
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "Attachment deleted"})
+}
+
+// HandleListImages returns images accessible to the current user (own + shared project members)
+func (s *Server) HandleListImages(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+	query := r.URL.Query().Get("q")
+
+	var rows *sql.Rows
+	var err error
+
+	if query != "" {
+		searchPattern := "%" + query + "%"
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT DISTINCT ta.id, ta.task_id, ta.project_id, ta.user_id, ta.filename, ta.alt_name,
+			        ta.file_type, ta.content_type, ta.file_size,
+			        ta.cloudinary_url, ta.cloudinary_public_id, ta.created_at,
+			        u.name as user_name
+			 FROM task_attachments ta
+			 LEFT JOIN users u ON ta.user_id = u.id
+			 WHERE ta.file_type = 'image' AND (
+			   ta.user_id = ? OR ta.user_id IN (
+			     SELECT DISTINCT pm2.user_id FROM project_members pm1
+			     JOIN project_members pm2 ON pm1.project_id = pm2.project_id
+			     WHERE pm1.user_id = ? AND pm2.user_id != ?
+			   )
+			 ) AND (ta.alt_name LIKE ? OR ta.filename LIKE ?)
+			 ORDER BY ta.created_at DESC
+			 LIMIT 50`, userID, userID, userID, searchPattern, searchPattern,
+		)
+	} else {
+		rows, err = s.db.QueryContext(ctx,
+			`SELECT DISTINCT ta.id, ta.task_id, ta.project_id, ta.user_id, ta.filename, ta.alt_name,
+			        ta.file_type, ta.content_type, ta.file_size,
+			        ta.cloudinary_url, ta.cloudinary_public_id, ta.created_at,
+			        u.name as user_name
+			 FROM task_attachments ta
+			 LEFT JOIN users u ON ta.user_id = u.id
+			 WHERE ta.file_type = 'image' AND (
+			   ta.user_id = ? OR ta.user_id IN (
+			     SELECT DISTINCT pm2.user_id FROM project_members pm1
+			     JOIN project_members pm2 ON pm1.project_id = pm2.project_id
+			     WHERE pm1.user_id = ? AND pm2.user_id != ?
+			   )
+			 )
+			 ORDER BY ta.created_at DESC
+			 LIMIT 50`, userID, userID, userID,
+		)
+	}
+
+	if err != nil {
+		s.logger.Error("Failed to list images", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to list images", "internal_error")
+		return
+	}
+	defer rows.Close()
+
+	images := []TaskAttachment{}
+	for rows.Next() {
+		var a TaskAttachment
+		if err := rows.Scan(&a.ID, &a.TaskID, &a.ProjectID, &a.UserID,
+			&a.Filename, &a.AltName, &a.FileType, &a.ContentType, &a.FileSize,
+			&a.CloudinaryURL, &a.CloudinaryPublicID, &a.CreatedAt,
+			&a.UserName); err != nil {
+			s.logger.Error("Failed to scan image", zap.Error(err))
+			respondError(w, http.StatusInternalServerError, "failed to scan image", "internal_error")
+			return
+		}
+		images = append(images, a)
+	}
+
+	respondJSON(w, http.StatusOK, images)
+}
+
+// HandleUpdateAttachment updates an attachment's alt_name
+func (s *Server) HandleUpdateAttachment(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	attachmentID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid attachment ID", "bad_request")
+		return
+	}
+
+	// Verify ownership
+	var ownerID int64
+	err = s.db.QueryRowContext(ctx,
+		`SELECT user_id FROM task_attachments WHERE id = ?`, attachmentID,
+	).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "attachment not found", "not_found")
+		return
+	}
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify attachment", "internal_error")
+		return
+	}
+	if ownerID != userID {
+		respondError(w, http.StatusForbidden, "you can only update your own attachments", "forbidden")
+		return
+	}
+
+	var req UpdateAttachmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body", "bad_request")
+		return
+	}
+
+	if req.AltName != nil {
+		_, err = s.db.ExecContext(ctx,
+			`UPDATE task_attachments SET alt_name = ? WHERE id = ?`, *req.AltName, attachmentID,
+		)
+		if err != nil {
+			s.logger.Error("Failed to update attachment", zap.Error(err))
+			respondError(w, http.StatusInternalServerError, "failed to update attachment", "internal_error")
+			return
+		}
+	}
+
+	// Return updated attachment
+	var a TaskAttachment
+	err = s.db.QueryRowContext(ctx,
+		`SELECT ta.id, ta.task_id, ta.project_id, ta.user_id, ta.filename, ta.alt_name,
+		        ta.file_type, ta.content_type, ta.file_size,
+		        ta.cloudinary_url, ta.cloudinary_public_id, ta.created_at,
+		        u.name as user_name
+		 FROM task_attachments ta
+		 LEFT JOIN users u ON ta.user_id = u.id
+		 WHERE ta.id = ?`, attachmentID,
+	).Scan(&a.ID, &a.TaskID, &a.ProjectID, &a.UserID,
+		&a.Filename, &a.AltName, &a.FileType, &a.ContentType, &a.FileSize,
+		&a.CloudinaryURL, &a.CloudinaryPublicID, &a.CreatedAt,
+		&a.UserName)
+	if err != nil {
+		s.logger.Error("Failed to fetch updated attachment", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to fetch attachment", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, a)
 }
 
 // HandleGetStorageUsage returns storage usage per user for a project

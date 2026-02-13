@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -23,6 +23,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
   const [editValue, setEditValue] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
   const descRef = useRef<HTMLTextAreaElement>(null)
+  const commentRef = useRef<HTMLTextAreaElement>(null)
 
   // Reference data
   const [sprints, setSprints] = useState<any[]>([])
@@ -32,11 +33,16 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
   // Attachments
   const [attachments, setAttachments] = useState<any[]>([])
   const [uploading, setUploading] = useState(false)
+  const [editingAltId, setEditingAltId] = useState<number | null>(null)
+  const [editingAltValue, setEditingAltValue] = useState('')
 
   // Comments
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState('')
   const [postingComment, setPostingComment] = useState(false)
+
+  // Image picker
+  const [imagePickerTarget, setImagePickerTarget] = useState<'description' | 'comment' | null>(null)
 
   useEffect(() => {
     loadTask()
@@ -99,7 +105,6 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file type
     const allowedTypes = ['image/', 'video/', 'application/pdf']
     if (!allowedTypes.some(t => file.type.startsWith(t))) {
       setError('Only images, videos, and PDFs are allowed')
@@ -108,11 +113,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
 
     try {
       setUploading(true)
-
-      // Get upload signature from backend
       const sig = await apiClient.getUploadSignature()
 
-      // Upload directly to Cloudinary
       const formData = new FormData()
       formData.append('file', file)
       formData.append('api_key', sig.api_key)
@@ -127,14 +129,15 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       if (!uploadRes.ok) throw new Error('Upload to Cloudinary failed')
       const uploadData = await uploadRes.json()
 
-      // Determine file type category
       let fileType = 'image'
       if (file.type.startsWith('video/')) fileType = 'video'
       else if (file.type === 'application/pdf') fileType = 'pdf'
 
-      // Save attachment metadata to backend
+      const altName = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+
       await apiClient.createTaskAttachment(Number(taskId), {
         filename: file.name,
+        alt_name: altName,
         file_type: fileType,
         content_type: file.type,
         file_size: file.size,
@@ -160,6 +163,47 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       setError(err.message || 'Failed to delete attachment')
     }
   }
+
+  const handleSaveAltName = async (attachmentId: number) => {
+    try {
+      await apiClient.updateAttachment(attachmentId, { alt_name: editingAltValue })
+      setEditingAltId(null)
+      await loadAttachments()
+    } catch (err: any) {
+      setError(err.message || 'Failed to update alt name')
+    }
+  }
+
+  const insertImageMarkdown = useCallback((alt: string, url: string) => {
+    const markdown = `![${alt}](${url})`
+
+    if (imagePickerTarget === 'description' && descRef.current) {
+      const textarea = descRef.current
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = editValue
+      const newText = text.substring(0, start) + markdown + text.substring(end)
+      setEditValue(newText)
+      setTimeout(() => {
+        textarea.focus()
+        const cursorPos = start + markdown.length
+        textarea.setSelectionRange(cursorPos, cursorPos)
+      }, 0)
+    } else if (imagePickerTarget === 'comment' && commentRef.current) {
+      const textarea = commentRef.current
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newText = newComment.substring(0, start) + markdown + newComment.substring(end)
+      setNewComment(newText)
+      setTimeout(() => {
+        textarea.focus()
+        const cursorPos = start + markdown.length
+        textarea.setSelectionRange(cursorPos, cursorPos)
+      }, 0)
+    }
+
+    setImagePickerTarget(null)
+  }, [imagePickerTarget, editValue, newComment])
 
   const saveField = async (field: string, value: any) => {
     if (!task) return
@@ -426,6 +470,19 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
 
               {editingField === 'description' ? (
                 <div>
+                  {/* Toolbar */}
+                  <div className="flex items-center gap-1 mb-1">
+                    <button
+                      onClick={() => setImagePickerTarget('description')}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs text-dark-text-tertiary hover:text-primary-400 hover:bg-primary-500/10 rounded transition-colors"
+                      title="Insert image"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Insert image
+                    </button>
+                  </div>
                   <textarea
                     ref={descRef}
                     value={editValue}
@@ -454,7 +511,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
                   </div>
                 </div>
               ) : task.description ? (
-                <div className="prose prose-sm max-w-none prose-headings:text-dark-text-primary prose-p:text-dark-text-secondary prose-a:text-primary-400 prose-code:text-primary-400 prose-code:bg-primary-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-dark-bg-primary prose-pre:border prose-pre:border-dark-border-subtle prose-strong:text-dark-text-primary prose-li:text-dark-text-secondary">
+                <div className="prose prose-sm max-w-none prose-headings:text-dark-text-primary prose-p:text-dark-text-secondary prose-a:text-primary-400 prose-code:text-primary-400 prose-code:bg-primary-500/10 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-pre:bg-dark-bg-primary prose-pre:border prose-pre:border-dark-border-subtle prose-strong:text-dark-text-primary prose-li:text-dark-text-secondary prose-img:rounded-lg prose-img:border prose-img:border-dark-border-subtle">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {task.description}
                   </ReactMarkdown>
@@ -504,7 +561,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
                         <a href={att.cloudinary_url} target="_blank" rel="noopener noreferrer">
                           <img
                             src={att.cloudinary_url}
-                            alt={att.filename}
+                            alt={att.alt_name || att.filename}
                             className="w-full h-24 object-cover"
                           />
                         </a>
@@ -523,7 +580,32 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
                         </a>
                       )}
                       <div className="p-2">
-                        <p className="text-xs text-dark-text-primary truncate" title={att.filename}>{att.filename}</p>
+                        {editingAltId === att.id ? (
+                          <input
+                            type="text"
+                            value={editingAltValue}
+                            onChange={(e) => setEditingAltValue(e.target.value)}
+                            onBlur={() => handleSaveAltName(att.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveAltName(att.id)
+                              if (e.key === 'Escape') setEditingAltId(null)
+                            }}
+                            className="w-full text-xs bg-dark-bg-tertiary border border-dark-border-subtle text-dark-text-primary rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-primary-500"
+                            autoFocus
+                            placeholder="Alt name..."
+                          />
+                        ) : (
+                          <p
+                            className="text-xs text-dark-text-primary truncate cursor-pointer hover:text-primary-400 transition-colors"
+                            title={`Click to edit alt name: ${att.alt_name || att.filename}`}
+                            onClick={() => {
+                              setEditingAltId(att.id)
+                              setEditingAltValue(att.alt_name || '')
+                            }}
+                          >
+                            {att.alt_name || att.filename}
+                          </p>
+                        )}
                         <p className="text-[10px] text-dark-text-tertiary">
                           {(att.file_size / 1024 / 1024).toFixed(1)} MB
                         </p>
@@ -550,7 +632,21 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
               </h2>
 
               <div className="mb-4">
+                {/* Comment toolbar */}
+                <div className="flex items-center gap-1 mb-1">
+                  <button
+                    onClick={() => setImagePickerTarget('comment')}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-xs text-dark-text-tertiary hover:text-primary-400 hover:bg-primary-500/10 rounded transition-colors"
+                    title="Insert image"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Insert image
+                  </button>
+                </div>
                 <textarea
+                  ref={commentRef}
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   rows={3}
@@ -598,8 +694,10 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
                               {new Date(comment.created_at).toLocaleString()}
                             </span>
                           </div>
-                          <div className="text-sm text-dark-text-secondary whitespace-pre-wrap break-words">
-                            {comment.comment}
+                          <div className="text-sm text-dark-text-secondary prose prose-sm max-w-none prose-img:rounded-lg prose-img:max-h-64 prose-img:border prose-img:border-dark-border-subtle prose-a:text-primary-400">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {comment.comment}
+                            </ReactMarkdown>
                           </div>
                         </div>
                       </div>
@@ -790,6 +888,210 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
           </div>
         </div>
       )}
+
+      {/* Image Picker Modal */}
+      {imagePickerTarget && (
+        <ImagePickerModal
+          onSelect={insertImageMarkdown}
+          onClose={() => setImagePickerTarget(null)}
+          taskId={Number(taskId)}
+          onUploadComplete={loadAttachments}
+        />
+      )}
+    </div>
+  )
+}
+
+/* Image Picker Modal */
+
+function ImagePickerModal({ onSelect, onClose, taskId, onUploadComplete }: {
+  onSelect: (alt: string, url: string) => void
+  onClose: () => void
+  taskId: number
+  onUploadComplete: () => void
+}) {
+  const [images, setImages] = useState<any[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    loadImages()
+  }, [])
+
+  const loadImages = async (query?: string) => {
+    try {
+      setLoading(true)
+      const result = await apiClient.getImages(query)
+      setImages(result)
+    } catch (err: any) {
+      setError(err.message || 'Failed to load images')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value)
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    searchTimeout.current = setTimeout(() => {
+      loadImages(value || undefined)
+    }, 300)
+  }
+
+  const handleUploadAndInsert = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !file.type.startsWith('image/')) {
+      setError('Only images can be inserted')
+      return
+    }
+
+    try {
+      setUploading(true)
+      const sig = await apiClient.getUploadSignature()
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('api_key', sig.api_key)
+      formData.append('timestamp', String(sig.timestamp))
+      formData.append('signature', sig.signature)
+
+      const uploadRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${sig.cloud_name}/auto/upload`,
+        { method: 'POST', body: formData }
+      )
+
+      if (!uploadRes.ok) throw new Error('Upload to Cloudinary failed')
+      const uploadData = await uploadRes.json()
+
+      const altName = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')
+
+      await apiClient.createTaskAttachment(taskId, {
+        filename: file.name,
+        alt_name: altName,
+        file_type: 'image',
+        content_type: file.type,
+        file_size: file.size,
+        cloudinary_url: uploadData.secure_url,
+        cloudinary_public_id: uploadData.public_id,
+      })
+
+      onUploadComplete()
+      onSelect(altName, uploadData.secure_url)
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl mx-4 bg-dark-bg-secondary rounded-xl border border-dark-border-subtle shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-dark-border-subtle">
+          <h3 className="text-sm font-semibold text-dark-text-primary">Insert Image</h3>
+          <button
+            onClick={onClose}
+            className="p-1 text-dark-text-tertiary hover:text-dark-text-primary rounded transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Search + Upload */}
+        <div className="px-5 py-3 border-b border-dark-border-subtle flex gap-2">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search images by name..."
+              className="w-full pl-9 pr-3 py-2 text-sm bg-dark-bg-primary border border-dark-border-subtle text-dark-text-primary rounded-lg focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none placeholder-dark-text-tertiary"
+              autoFocus
+            />
+          </div>
+          <label className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg cursor-pointer transition-colors ${
+            uploading
+              ? 'bg-dark-bg-tertiary text-dark-text-tertiary cursor-not-allowed'
+              : 'bg-primary-500/10 text-primary-400 hover:bg-primary-500/20'
+          }`}>
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            {uploading ? 'Uploading...' : 'Upload new'}
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={handleUploadAndInsert}
+              disabled={uploading}
+            />
+          </label>
+        </div>
+
+        {/* Image Grid */}
+        <div className="px-5 py-4 max-h-80 overflow-y-auto">
+          {error && (
+            <p className="text-sm text-danger-400 mb-3">{error}</p>
+          )}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <span className="text-sm text-dark-text-tertiary animate-pulse">Loading images...</span>
+            </div>
+          ) : images.length === 0 ? (
+            <div className="text-center py-8">
+              <svg className="w-10 h-10 mx-auto text-dark-text-tertiary mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p className="text-sm text-dark-text-tertiary">
+                {searchQuery ? 'No images match your search' : 'No images yet. Upload one to get started.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {images.map((img: any) => (
+                <button
+                  key={img.id}
+                  onClick={() => onSelect(img.alt_name || img.filename, img.cloudinary_url)}
+                  className="group relative border border-dark-border-subtle rounded-lg overflow-hidden bg-dark-bg-primary hover:border-primary-500 hover:ring-1 hover:ring-primary-500/30 transition-all"
+                  title={img.alt_name || img.filename}
+                >
+                  <img
+                    src={img.cloudinary_url}
+                    alt={img.alt_name || img.filename}
+                    className="w-full h-20 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <div className="px-1.5 py-1">
+                    <p className="text-[10px] text-dark-text-secondary truncate">
+                      {img.alt_name || img.filename}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
