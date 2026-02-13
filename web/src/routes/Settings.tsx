@@ -900,7 +900,8 @@ export default function Settings() {
                     label="Cloud Name"
                     value={cloudName}
                     onChange={(e) => setCloudName(e.target.value)}
-                    placeholder="your-cloud-name"
+                    placeholder="e.g. drfaxtpug"
+                    helpText="Found in Cloudinary Console → Settings → API Keys. It's the short identifier after the @ in your CLOUDINARY_URL."
                     required
                   />
 
@@ -908,7 +909,8 @@ export default function Settings() {
                     label="API Key"
                     value={cloudAPIKey}
                     onChange={(e) => setCloudAPIKey(e.target.value)}
-                    placeholder="123456789012345"
+                    placeholder="e.g. 587593568128219"
+                    helpText="The numeric key from your Cloudinary API Keys page (console.cloudinary.com → Settings → API Keys)."
                     required
                   />
 
@@ -918,6 +920,7 @@ export default function Settings() {
                     value={cloudAPISecret}
                     onChange={(e) => setCloudAPISecret(e.target.value)}
                     placeholder={hasCloudinaryCredentials ? '••••••••••••' : 'Enter your API secret'}
+                    helpText="Click the eye icon next to your API key on the Cloudinary API Keys page to reveal it."
                     required={!hasCloudinaryCredentials}
                   />
 
@@ -950,7 +953,8 @@ export default function Settings() {
                     </svg>
                     <div className="text-sm text-dark-text-secondary">
                       <p className="font-medium mb-1 text-dark-text-primary">How file storage works</p>
-                      <p>Files are uploaded directly to your Cloudinary account. In team projects, each member uses their own Cloudinary quota. Storage usage is tracked per user per project.</p>
+                      <p className="mb-2">Files are uploaded directly to your Cloudinary account. In team projects, each member uses their own Cloudinary quota. Storage usage is tracked per user per project.</p>
+                      <p>Find your credentials at <a href="https://console.cloudinary.com/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-orange-400 underline hover:text-orange-300">Cloudinary Console &rarr; Settings &rarr; API Keys</a>. Your cloud name, API key, and secret are all on that page.</p>
                     </div>
                   </div>
                 </div>
