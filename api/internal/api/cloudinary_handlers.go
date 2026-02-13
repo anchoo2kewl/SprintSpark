@@ -1,0 +1,401 @@
+package api
+
+import (
+	"context"
+	"crypto/sha1"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+)
+
+// Cloudinary credential types
+
+type CloudinaryCredential struct {
+	ID            int64     `json:"id"`
+	UserID        int64     `json:"user_id"`
+	CloudName     string    `json:"cloud_name"`
+	APIKey        string    `json:"api_key"`
+	MaxFileSizeMB int       `json:"max_file_size_mb"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type SaveCloudinaryCredentialRequest struct {
+	CloudName     string `json:"cloud_name"`
+	APIKey        string `json:"api_key"`
+	APISecret     string `json:"api_secret"`
+	MaxFileSizeMB *int   `json:"max_file_size_mb,omitempty"`
+}
+
+type UploadSignatureResponse struct {
+	Signature string `json:"signature"`
+	Timestamp int64  `json:"timestamp"`
+	CloudName string `json:"cloud_name"`
+	APIKey    string `json:"api_key"`
+}
+
+type TaskAttachment struct {
+	ID                 int64     `json:"id"`
+	TaskID             int64     `json:"task_id"`
+	ProjectID          int64     `json:"project_id"`
+	UserID             int64     `json:"user_id"`
+	Filename           string    `json:"filename"`
+	FileType           string    `json:"file_type"`
+	ContentType        string    `json:"content_type"`
+	FileSize           int64     `json:"file_size"`
+	CloudinaryURL      string    `json:"cloudinary_url"`
+	CloudinaryPublicID string    `json:"cloudinary_public_id"`
+	CreatedAt          time.Time `json:"created_at"`
+	UserName           *string   `json:"user_name,omitempty"`
+}
+
+type CreateAttachmentRequest struct {
+	Filename           string `json:"filename"`
+	FileType           string `json:"file_type"`
+	ContentType        string `json:"content_type"`
+	FileSize           int64  `json:"file_size"`
+	CloudinaryURL      string `json:"cloudinary_url"`
+	CloudinaryPublicID string `json:"cloudinary_public_id"`
+}
+
+type StorageUsage struct {
+	UserID    int64  `json:"user_id"`
+	UserName  string `json:"user_name"`
+	FileCount int    `json:"file_count"`
+	TotalSize int64  `json:"total_size"`
+}
+
+// HandleGetCloudinaryCredential returns the current user's Cloudinary credentials
+func (s *Server) HandleGetCloudinaryCredential(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	var cred CloudinaryCredential
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, user_id, cloud_name, api_key, max_file_size_mb, created_at, updated_at
+		 FROM cloudinary_credentials WHERE user_id = ?`, userID,
+	).Scan(&cred.ID, &cred.UserID, &cred.CloudName, &cred.APIKey, &cred.MaxFileSizeMB, &cred.CreatedAt, &cred.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		respondJSON(w, http.StatusOK, nil)
+		return
+	}
+	if err != nil {
+		s.logger.Error("Failed to fetch cloudinary credentials", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to fetch credentials", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, cred)
+}
+
+// HandleSaveCloudinaryCredential creates or updates the current user's Cloudinary credentials
+func (s *Server) HandleSaveCloudinaryCredential(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	var req SaveCloudinaryCredentialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body", "bad_request")
+		return
+	}
+
+	if req.CloudName == "" || req.APIKey == "" || req.APISecret == "" {
+		respondError(w, http.StatusBadRequest, "cloud_name, api_key, and api_secret are required", "validation_error")
+		return
+	}
+
+	maxSize := 10
+	if req.MaxFileSizeMB != nil && *req.MaxFileSizeMB > 0 {
+		maxSize = *req.MaxFileSizeMB
+	}
+
+	_, err := s.db.ExecContext(ctx,
+		`INSERT INTO cloudinary_credentials (user_id, cloud_name, api_key, api_secret, max_file_size_mb, updated_at)
+		 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		 ON CONFLICT(user_id) DO UPDATE SET
+		   cloud_name = excluded.cloud_name,
+		   api_key = excluded.api_key,
+		   api_secret = excluded.api_secret,
+		   max_file_size_mb = excluded.max_file_size_mb,
+		   updated_at = CURRENT_TIMESTAMP`,
+		userID, req.CloudName, req.APIKey, req.APISecret, maxSize,
+	)
+	if err != nil {
+		s.logger.Error("Failed to save cloudinary credentials", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to save credentials", "internal_error")
+		return
+	}
+
+	s.logger.Info("Cloudinary credentials saved", zap.Int64("user_id", userID))
+	respondJSON(w, http.StatusOK, map[string]string{"message": "Cloudinary credentials saved"})
+}
+
+// HandleDeleteCloudinaryCredential removes the current user's Cloudinary credentials
+func (s *Server) HandleDeleteCloudinaryCredential(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM cloudinary_credentials WHERE user_id = ?`, userID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to delete cloudinary credentials", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to delete credentials", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "Cloudinary credentials deleted"})
+}
+
+// HandleGetUploadSignature generates a Cloudinary upload signature for the current user
+func (s *Server) HandleGetUploadSignature(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	var cloudName, apiKey, apiSecret string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT cloud_name, api_key, api_secret FROM cloudinary_credentials WHERE user_id = ?`, userID,
+	).Scan(&cloudName, &apiKey, &apiSecret)
+
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusBadRequest, "no Cloudinary credentials configured", "no_credentials")
+		return
+	}
+	if err != nil {
+		s.logger.Error("Failed to fetch cloudinary credentials for signature", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to generate signature", "internal_error")
+		return
+	}
+
+	timestamp := time.Now().Unix()
+	signStr := fmt.Sprintf("timestamp=%d%s", timestamp, apiSecret)
+	h := sha1.New()
+	h.Write([]byte(signStr))
+	signature := hex.EncodeToString(h.Sum(nil))
+
+	respondJSON(w, http.StatusOK, UploadSignatureResponse{
+		Signature: signature,
+		Timestamp: timestamp,
+		CloudName: cloudName,
+		APIKey:    apiKey,
+	})
+}
+
+// HandleListTaskAttachments returns all attachments for a task
+func (s *Server) HandleListTaskAttachments(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	taskID, err := strconv.ParseInt(chi.URLParam(r, "taskId"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid task ID", "bad_request")
+		return
+	}
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT ta.id, ta.task_id, ta.project_id, ta.user_id, ta.filename,
+		        ta.file_type, ta.content_type, ta.file_size,
+		        ta.cloudinary_url, ta.cloudinary_public_id, ta.created_at,
+		        u.name as user_name
+		 FROM task_attachments ta
+		 LEFT JOIN users u ON ta.user_id = u.id
+		 WHERE ta.task_id = ?
+		 ORDER BY ta.created_at DESC`, taskID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to list task attachments", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to list attachments", "internal_error")
+		return
+	}
+	defer rows.Close()
+
+	attachments := []TaskAttachment{}
+	for rows.Next() {
+		var a TaskAttachment
+		if err := rows.Scan(&a.ID, &a.TaskID, &a.ProjectID, &a.UserID,
+			&a.Filename, &a.FileType, &a.ContentType, &a.FileSize,
+			&a.CloudinaryURL, &a.CloudinaryPublicID, &a.CreatedAt,
+			&a.UserName); err != nil {
+			s.logger.Error("Failed to scan attachment", zap.Error(err))
+			respondError(w, http.StatusInternalServerError, "failed to scan attachment", "internal_error")
+			return
+		}
+		attachments = append(attachments, a)
+	}
+
+	respondJSON(w, http.StatusOK, attachments)
+}
+
+// HandleCreateTaskAttachment stores a new attachment record after client-side Cloudinary upload
+func (s *Server) HandleCreateTaskAttachment(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	taskID, err := strconv.ParseInt(chi.URLParam(r, "taskId"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid task ID", "bad_request")
+		return
+	}
+
+	var req CreateAttachmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid request body", "bad_request")
+		return
+	}
+
+	if req.Filename == "" || req.CloudinaryURL == "" || req.CloudinaryPublicID == "" {
+		respondError(w, http.StatusBadRequest, "filename, cloudinary_url, and cloudinary_public_id are required", "validation_error")
+		return
+	}
+
+	// Look up the project_id from the task
+	var projectID int64
+	err = s.db.QueryRowContext(ctx,
+		`SELECT project_id FROM tasks WHERE id = ?`, taskID,
+	).Scan(&projectID)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "task not found", "not_found")
+		return
+	}
+	if err != nil {
+		s.logger.Error("Failed to look up task", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to look up task", "internal_error")
+		return
+	}
+
+	result, err := s.db.ExecContext(ctx,
+		`INSERT INTO task_attachments (task_id, project_id, user_id, filename, file_type, content_type, file_size, cloudinary_url, cloudinary_public_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		taskID, projectID, userID, req.Filename, req.FileType, req.ContentType, req.FileSize, req.CloudinaryURL, req.CloudinaryPublicID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to create attachment", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to create attachment", "internal_error")
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	s.logger.Info("Task attachment created",
+		zap.Int64("id", id),
+		zap.Int64("task_id", taskID),
+		zap.Int64("user_id", userID),
+		zap.String("filename", req.Filename),
+	)
+
+	attachment := TaskAttachment{
+		ID:                 id,
+		TaskID:             taskID,
+		ProjectID:          projectID,
+		UserID:             userID,
+		Filename:           req.Filename,
+		FileType:           req.FileType,
+		ContentType:        req.ContentType,
+		FileSize:           req.FileSize,
+		CloudinaryURL:      req.CloudinaryURL,
+		CloudinaryPublicID: req.CloudinaryPublicID,
+		CreatedAt:          time.Now(),
+	}
+
+	respondJSON(w, http.StatusCreated, attachment)
+}
+
+// HandleDeleteTaskAttachment removes an attachment (only the uploader can delete)
+func (s *Server) HandleDeleteTaskAttachment(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	attachmentID, err := strconv.ParseInt(chi.URLParam(r, "attachmentId"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid attachment ID", "bad_request")
+		return
+	}
+
+	// Verify ownership
+	var ownerID int64
+	err = s.db.QueryRowContext(ctx,
+		`SELECT user_id FROM task_attachments WHERE id = ?`, attachmentID,
+	).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "attachment not found", "not_found")
+		return
+	}
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify attachment", "internal_error")
+		return
+	}
+	if ownerID != userID {
+		respondError(w, http.StatusForbidden, "you can only delete your own attachments", "forbidden")
+		return
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`DELETE FROM task_attachments WHERE id = ?`, attachmentID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to delete attachment", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to delete attachment", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "Attachment deleted"})
+}
+
+// HandleGetStorageUsage returns storage usage per user for a project
+func (s *Server) HandleGetStorageUsage(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	projectID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid project ID", "bad_request")
+		return
+	}
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT ta.user_id, COALESCE(u.name, u.email) as user_name,
+		        COUNT(*) as file_count, COALESCE(SUM(ta.file_size), 0) as total_size
+		 FROM task_attachments ta
+		 LEFT JOIN users u ON ta.user_id = u.id
+		 WHERE ta.project_id = ?
+		 GROUP BY ta.user_id
+		 ORDER BY total_size DESC`, projectID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to get storage usage", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to get storage usage", "internal_error")
+		return
+	}
+	defer rows.Close()
+
+	usage := []StorageUsage{}
+	for rows.Next() {
+		var u StorageUsage
+		if err := rows.Scan(&u.UserID, &u.UserName, &u.FileCount, &u.TotalSize); err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to scan usage", "internal_error")
+			return
+		}
+		usage = append(usage, u)
+	}
+
+	respondJSON(w, http.StatusOK, usage)
+}

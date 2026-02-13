@@ -41,6 +41,17 @@ export default function Settings() {
   const [isCreatingKey, setIsCreatingKey] = useState(false)
   const [isDeletingKey, setIsDeletingKey] = useState<number | null>(null)
 
+  // Cloudinary state
+  const [cloudName, setCloudName] = useState('')
+  const [cloudAPIKey, setCloudAPIKey] = useState('')
+  const [cloudAPISecret, setCloudAPISecret] = useState('')
+  const [cloudMaxSize, setCloudMaxSize] = useState(10)
+  const [hasCloudinaryCredentials, setHasCloudinaryCredentials] = useState(false)
+  const [cloudinaryError, setCloudinaryError] = useState('')
+  const [cloudinarySuccess, setCloudinarySuccess] = useState('')
+  const [isSavingCloudinary, setIsSavingCloudinary] = useState(false)
+  const [isDeletingCloudinary, setIsDeletingCloudinary] = useState(false)
+
   // Team Management state
   const [team, setTeam] = useState<any>(null)
   const [teamMembers, setTeamMembers] = useState<any[]>([])
@@ -56,6 +67,7 @@ export default function Settings() {
     load2FAStatus()
     loadAPIKeys()
     loadTeamData()
+    loadCloudinaryCredentials()
   }, [])
 
   const load2FAStatus = async () => {
@@ -184,6 +196,69 @@ export default function Settings() {
   const copySecret = () => {
     copyToClipboard(twoFASecret)
     setTwoFASuccess('Secret key copied to clipboard')
+  }
+
+  const loadCloudinaryCredentials = async () => {
+    try {
+      const cred = await apiClient.getCloudinaryCredential()
+      if (cred && cred.cloud_name) {
+        setCloudName(cred.cloud_name)
+        setCloudAPIKey(cred.api_key)
+        setCloudMaxSize(cred.max_file_size_mb || 10)
+        setHasCloudinaryCredentials(true)
+      }
+    } catch (error) {
+      console.error('Failed to load Cloudinary credentials:', error)
+    }
+  }
+
+  const handleSaveCloudinary = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCloudinaryError('')
+    setCloudinarySuccess('')
+
+    if (!cloudName.trim() || !cloudAPIKey.trim() || !cloudAPISecret.trim()) {
+      setCloudinaryError('All fields are required')
+      return
+    }
+
+    setIsSavingCloudinary(true)
+    try {
+      await apiClient.saveCloudinaryCredential({
+        cloud_name: cloudName.trim(),
+        api_key: cloudAPIKey.trim(),
+        api_secret: cloudAPISecret.trim(),
+        max_file_size_mb: cloudMaxSize,
+      })
+      setCloudinarySuccess('Cloudinary credentials saved successfully')
+      setHasCloudinaryCredentials(true)
+      setCloudAPISecret('')
+    } catch (error: any) {
+      setCloudinaryError(error.message || 'Failed to save credentials')
+    } finally {
+      setIsSavingCloudinary(false)
+    }
+  }
+
+  const handleDeleteCloudinary = async () => {
+    if (!confirm('Are you sure you want to remove your Cloudinary credentials?')) return
+
+    setIsDeletingCloudinary(true)
+    setCloudinaryError('')
+    setCloudinarySuccess('')
+    try {
+      await apiClient.deleteCloudinaryCredential()
+      setCloudName('')
+      setCloudAPIKey('')
+      setCloudAPISecret('')
+      setCloudMaxSize(10)
+      setHasCloudinaryCredentials(false)
+      setCloudinarySuccess('Cloudinary credentials removed')
+    } catch (error: any) {
+      setCloudinaryError(error.message || 'Failed to remove credentials')
+    } finally {
+      setIsDeletingCloudinary(false)
+    }
   }
 
   const loadAPIKeys = async () => {
@@ -632,6 +707,116 @@ export default function Settings() {
                     </div>
                   </form>
                 )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Cloudinary Section */}
+          <Card className="shadow-md">
+            <div className="p-6 sm:p-8 flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-dark-text-primary mb-1">Cloudinary Storage</h2>
+                <p className="text-sm text-dark-text-secondary mb-6">
+                  Connect your Cloudinary account to upload images, videos, and PDFs to tasks
+                </p>
+
+                {cloudinarySuccess && (
+                  <div className="mb-4 p-4 bg-success-500/10 border-l-4 border-success-400 rounded-r-lg">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-success-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-success-300 font-medium">{cloudinarySuccess}</span>
+                    </div>
+                  </div>
+                )}
+
+                {cloudinaryError && <FormError message={cloudinaryError} className="mb-4" />}
+
+                {hasCloudinaryCredentials && (
+                  <div className="mb-6 p-4 bg-dark-bg-primary border border-dark-border-subtle rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-3 h-3 rounded-full bg-success-500"></div>
+                      <div>
+                        <p className="font-medium text-dark-text-primary">Connected</p>
+                        <p className="text-sm text-dark-text-secondary">Cloud: {cloudName} &middot; Max file size: {cloudMaxSize}MB</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={handleDeleteCloudinary}
+                      disabled={isDeletingCloudinary}
+                    >
+                      {isDeletingCloudinary ? 'Removing...' : 'Remove'}
+                    </Button>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveCloudinary} className="space-y-4">
+                  <TextInput
+                    label="Cloud Name"
+                    value={cloudName}
+                    onChange={(e) => setCloudName(e.target.value)}
+                    placeholder="your-cloud-name"
+                    required
+                  />
+
+                  <TextInput
+                    label="API Key"
+                    value={cloudAPIKey}
+                    onChange={(e) => setCloudAPIKey(e.target.value)}
+                    placeholder="123456789012345"
+                    required
+                  />
+
+                  <TextInput
+                    label={hasCloudinaryCredentials ? 'API Secret (enter to update)' : 'API Secret'}
+                    type="password"
+                    value={cloudAPISecret}
+                    onChange={(e) => setCloudAPISecret(e.target.value)}
+                    placeholder={hasCloudinaryCredentials ? '••••••••••••' : 'Enter your API secret'}
+                    required={!hasCloudinaryCredentials}
+                  />
+
+                  <div>
+                    <label className="block text-sm font-medium text-dark-text-primary mb-2">
+                      Max File Size (MB)
+                    </label>
+                    <select
+                      value={cloudMaxSize}
+                      onChange={(e) => setCloudMaxSize(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-dark-border-subtle bg-dark-bg-secondary text-dark-text-primary rounded-lg focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors"
+                    >
+                      <option value="5">5 MB</option>
+                      <option value="10">10 MB</option>
+                      <option value="25">25 MB</option>
+                      <option value="50">50 MB</option>
+                      <option value="100">100 MB</option>
+                    </select>
+                  </div>
+
+                  <Button type="submit" disabled={isSavingCloudinary}>
+                    {isSavingCloudinary ? 'Saving...' : hasCloudinaryCredentials ? 'Update Credentials' : 'Save Credentials'}
+                  </Button>
+                </form>
+
+                <div className="mt-6 bg-orange-500/10 border border-orange-500/30 rounded-lg p-4">
+                  <div className="flex gap-3">
+                    <svg className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm text-dark-text-secondary">
+                      <p className="font-medium mb-1 text-dark-text-primary">How file storage works</p>
+                      <p>Files are uploaded directly to your Cloudinary account. In team projects, each member uses their own Cloudinary quota. Storage usage is tracked per user per project.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </Card>

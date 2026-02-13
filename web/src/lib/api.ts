@@ -449,6 +449,54 @@ class ApiClient {
     })
   }
 
+  // Cloudinary endpoints
+  async getCloudinaryCredential(): Promise<any> {
+    return this.request<any>('/api/settings/cloudinary')
+  }
+
+  async saveCloudinaryCredential(data: { cloud_name: string; api_key: string; api_secret: string; max_file_size_mb?: number }): Promise<any> {
+    return this.request<any>('/api/settings/cloudinary', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteCloudinaryCredential(): Promise<void> {
+    return this.request<void>('/api/settings/cloudinary', {
+      method: 'DELETE',
+    })
+  }
+
+  async getUploadSignature(): Promise<{ signature: string; timestamp: number; cloud_name: string; api_key: string }> {
+    return this.request('/api/settings/cloudinary/signature')
+  }
+
+  // Task attachment endpoints
+  async getTaskAttachments(taskId: number): Promise<any[]> {
+    return this.request<any[]>(`/api/tasks/${taskId}/attachments`)
+  }
+
+  async createTaskAttachment(taskId: number, data: {
+    filename: string; file_type: string; content_type: string;
+    file_size: number; cloudinary_url: string; cloudinary_public_id: string;
+  }): Promise<any> {
+    return this.request<any>(`/api/tasks/${taskId}/attachments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteTaskAttachment(taskId: number, attachmentId: number): Promise<void> {
+    return this.request<void>(`/api/tasks/${taskId}/attachments/${attachmentId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Storage usage
+  async getStorageUsage(projectId: number): Promise<any[]> {
+    return this.request<any[]>(`/api/projects/${projectId}/storage`)
+  }
+
   // Swim lane endpoints
   async getSwimLanes(projectId: number): Promise<SwimLane[]> {
     return this.request<SwimLane[]>(`/api/projects/${projectId}/swim-lanes`)

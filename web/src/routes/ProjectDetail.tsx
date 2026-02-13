@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { api, Project, type SwimLane } from '../lib/api'
 import { useLocalTasks } from '../hooks/useLocalTasks'
@@ -29,15 +29,6 @@ export default function ProjectDetail() {
   const [newTaskDescription, setNewTaskDescription] = useState('')
   const [newTaskDueDate, setNewTaskDueDate] = useState('')
   const [creating, setCreating] = useState(false)
-
-  // Task detail modal state
-  const [selectedTask, setSelectedTask] = useState<TaskDocument | null>(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [editDescription, setEditDescription] = useState('')
-  const [editStatus, setEditStatus] = useState<'todo' | 'in_progress' | 'done'>('todo')
-  const [editSwimLaneId, setEditSwimLaneId] = useState<number | null>(null)
-  const [editDueDate, setEditDueDate] = useState('')
-  const [updating, setUpdating] = useState(false)
 
   // Drag and drop state
   const [activeTask, setActiveTask] = useState<TaskDocument | null>(null)
@@ -110,48 +101,6 @@ export default function ProjectDetail() {
       alert(err instanceof Error ? err.message : 'Failed to create task')
     } finally {
       setCreating(false)
-    }
-  }
-
-  const handleTaskClick = (task: TaskDocument) => {
-    setSelectedTask(task)
-    setEditTitle(task.title || '')
-    setEditDescription(task.description || '')
-    setEditStatus(task.status as 'todo' | 'in_progress' | 'done')
-    setEditSwimLaneId(task.swim_lane_id ?? null)
-    setEditDueDate(task.due_date ? task.due_date.split('T')[0] : '')
-  }
-
-  const handleUpdateTask = async () => {
-    if (!selectedTask || !editTitle.trim() || selectedTask.id === undefined) return
-
-    try {
-      setUpdating(true)
-
-      // Find swim lane to get status mapping
-      const swimLane = swimLanes.find(l => l.id === editSwimLaneId)
-      let newStatus = editStatus
-
-      // Map swim lane to status for backward compatibility
-      if (swimLane) {
-        if (swimLane.name === 'To Do') newStatus = 'todo'
-        else if (swimLane.name === 'In Progress') newStatus = 'in_progress'
-        else if (swimLane.name === 'Done') newStatus = 'done'
-      }
-
-      // Optimistic update - updates UI instantly
-      await updateTask(selectedTask.id, {
-        title: editTitle.trim(),
-        description: editDescription.trim() || undefined,
-        status: newStatus,
-        swim_lane_id: editSwimLaneId,
-        due_date: editDueDate || null,
-      })
-      setSelectedTask(null)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update task')
-    } finally {
-      setUpdating(false)
     }
   }
 
@@ -314,7 +263,6 @@ export default function ProjectDetail() {
                   tasks={tasksBySwimLane[lane.id] || []}
                   color={lane.color}
                   projectId={projectId || ''}
-                  onTaskClick={handleTaskClick}
                 />
               ))}
             </div>
@@ -411,91 +359,6 @@ export default function ProjectDetail() {
             </div>
           </div>
         )}
-
-        {/* Task Detail Modal */}
-        {selectedTask && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-            <div className="bg-dark-bg-elevated rounded-xl shadow-linear-xl max-w-md w-full p-5 border border-dark-border-subtle">
-              <h2 className="text-base font-semibold text-dark-text-primary mb-4">Edit Task</h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="edit-title" className="block text-sm font-medium text-dark-text-tertiary mb-1">
-                    Title *
-                  </label>
-                  <input
-                    id="edit-title"
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="edit-description" className="block text-sm font-medium text-dark-text-tertiary mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    id="edit-description"
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="edit-swim-lane" className="block text-sm font-medium text-dark-text-tertiary mb-1">
-                    Swim Lane
-                  </label>
-                  <select
-                    id="edit-swim-lane"
-                    value={editSwimLaneId ?? ''}
-                    onChange={(e) => setEditSwimLaneId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm"
-                  >
-                    {swimLanes.map((lane) => (
-                      <option key={lane.id} value={lane.id}>
-                        {lane.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="edit-due-date" className="block text-sm font-medium text-dark-text-tertiary mb-1">
-                    Due Date
-                  </label>
-                  <input
-                    id="edit-due-date"
-                    type="date"
-                    value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-dark-bg-secondary text-dark-text-primary border border-dark-border-subtle rounded-md focus:outline-none focus:ring-1 focus:ring-dark-border-strong focus:border-dark-border-strong text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setSelectedTask(null)}
-                  className="flex-1 px-4 py-2 border border-dark-border-subtle text-dark-text-secondary rounded-md hover:bg-dark-bg-tertiary transition-colors duration-150"
-                  disabled={updating}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateTask}
-                  disabled={!editTitle.trim() || updating}
-                  className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 text-sm"
-                >
-                  {updating ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </DndContext>
   )
@@ -505,14 +368,13 @@ export default function ProjectDetail() {
 import { useDroppable } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
 
-function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: {
+function TaskColumn({ id, title, count, tasks, color, projectId }: {
   id: string
   title: string
   count: number
   tasks: TaskDocument[]
   color: string
   projectId: string
-  onTaskClick: (task: TaskDocument) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
 
@@ -531,7 +393,6 @@ function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: 
             key={task.id}
             task={task}
             projectId={projectId || ''}
-            onTaskClick={onTaskClick}
           />
         ))}
       </div>
@@ -539,11 +400,12 @@ function TaskColumn({ id, title, count, tasks, color, projectId, onTaskClick }: 
   )
 }
 
-function DraggableTask({ task, projectId, onTaskClick }: {
+function DraggableTask({ task, projectId }: {
   task: TaskDocument
   projectId: string
-  onTaskClick: (task: TaskDocument) => void
 }) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id as number,
   })
@@ -553,13 +415,19 @@ function DraggableTask({ task, projectId, onTaskClick }: {
     opacity: isDragging ? 0.5 : 1,
   } : undefined
 
+  const handleClick = () => {
+    navigate(`/app/projects/${projectId}/tasks/${task.id}`, {
+      state: { backgroundLocation: location },
+    })
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
-      onClick={() => onTaskClick(task)}
+      onClick={handleClick}
     >
       <TaskCard
         task={task}
@@ -570,16 +438,13 @@ function DraggableTask({ task, projectId, onTaskClick }: {
   )
 }
 
-function TaskCard({ task, projectId, isDragging }: {
+function TaskCard({ task, isDragging }: {
   task: TaskDocument
-  projectId: string
+  projectId?: string
   isDragging?: boolean
 }) {
-  const navigate = useNavigate()
-
   return (
     <div
-      onClick={() => navigate(`/app/projects/${projectId}/tasks/${task.id}`)}
       className={`bg-dark-bg-primary border border-dark-border-subtle rounded-lg p-3 hover:border-dark-border-medium hover:shadow-linear-sm transition-all duration-150 cursor-pointer ${
         isDragging ? 'shadow-linear-lg rotate-1' : ''
       } ${task.status === 'done' ? 'opacity-60' : ''}`}

@@ -200,6 +200,20 @@ func main() {
 			r.Post("/team/invitations/{id}/accept", server.HandleAcceptInvitation)
 			r.Post("/team/invitations/{id}/reject", server.HandleRejectInvitation)
 
+			// Cloudinary routes
+			r.Get("/settings/cloudinary", server.HandleGetCloudinaryCredential)
+			r.Post("/settings/cloudinary", server.HandleSaveCloudinaryCredential)
+			r.Delete("/settings/cloudinary", server.HandleDeleteCloudinaryCredential)
+			r.Get("/settings/cloudinary/signature", server.HandleGetUploadSignature)
+
+			// Task attachment routes
+			r.Get("/tasks/{taskId}/attachments", server.HandleListTaskAttachments)
+			r.Post("/tasks/{taskId}/attachments", server.HandleCreateTaskAttachment)
+			r.Delete("/tasks/{taskId}/attachments/{attachmentId}", server.HandleDeleteTaskAttachment)
+
+			// Storage usage
+			r.Get("/projects/{id}/storage", server.HandleGetStorageUsage)
+
 			// Admin routes (requires admin role)
 			r.Get("/admin/users", server.HandleGetUsers)
 			r.Get("/admin/users/{id}/activity", server.HandleGetUserActivity)
