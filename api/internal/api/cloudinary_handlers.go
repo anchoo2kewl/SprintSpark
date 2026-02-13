@@ -83,6 +83,11 @@ type StorageUsage struct {
 	TotalSize int64  `json:"total_size"`
 }
 
+type AssetResponse struct {
+	TaskAttachment
+	IsOwner bool `json:"is_owner"`
+}
+
 // HandleGetCloudinaryCredential returns the current user's Cloudinary credentials
 func (s *Server) HandleGetCloudinaryCredential(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -684,4 +689,124 @@ func (s *Server) HandleGetStorageUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, usage)
+}
+
+// HandleListAssets returns all file assets accessible to the current user (own + shared project members)
+func (s *Server) HandleListAssets(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+	query := r.URL.Query().Get("q")
+	fileType := r.URL.Query().Get("type")
+
+	limit := 50
+	if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+	offset := 0
+	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
+		offset = o
+	}
+
+	// Build query dynamically based on filters
+	baseQuery := `SELECT DISTINCT ta.id, ta.task_id, ta.project_id, ta.user_id, ta.filename, ta.alt_name,
+		ta.file_type, ta.content_type, ta.file_size,
+		ta.cloudinary_url, ta.cloudinary_public_id, ta.created_at,
+		u.name as user_name,
+		CASE WHEN ta.user_id = ? THEN 1 ELSE 0 END as is_owner
+	 FROM task_attachments ta
+	 LEFT JOIN users u ON ta.user_id = u.id
+	 WHERE (
+	   ta.user_id = ? OR ta.user_id IN (
+	     SELECT DISTINCT pm2.user_id FROM project_members pm1
+	     JOIN project_members pm2 ON pm1.project_id = pm2.project_id
+	     WHERE pm1.user_id = ? AND pm2.user_id != ?
+	   )
+	 )`
+
+	args := []interface{}{userID, userID, userID, userID}
+
+	if fileType != "" {
+		baseQuery += ` AND ta.file_type = ?`
+		args = append(args, fileType)
+	}
+
+	if query != "" {
+		searchPattern := "%" + query + "%"
+		baseQuery += ` AND (ta.alt_name LIKE ? OR ta.filename LIKE ?)`
+		args = append(args, searchPattern, searchPattern)
+	}
+
+	baseQuery += ` ORDER BY ta.created_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := s.db.QueryContext(ctx, baseQuery, args...)
+	if err != nil {
+		s.logger.Error("Failed to list assets", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to list assets", "internal_error")
+		return
+	}
+	defer rows.Close()
+
+	assets := []AssetResponse{}
+	for rows.Next() {
+		var a AssetResponse
+		var isOwnerInt int
+		if err := rows.Scan(&a.ID, &a.TaskID, &a.ProjectID, &a.UserID,
+			&a.Filename, &a.AltName, &a.FileType, &a.ContentType, &a.FileSize,
+			&a.CloudinaryURL, &a.CloudinaryPublicID, &a.CreatedAt,
+			&a.UserName, &isOwnerInt); err != nil {
+			s.logger.Error("Failed to scan asset", zap.Error(err))
+			respondError(w, http.StatusInternalServerError, "failed to scan asset", "internal_error")
+			return
+		}
+		a.IsOwner = isOwnerInt == 1
+		assets = append(assets, a)
+	}
+
+	respondJSON(w, http.StatusOK, assets)
+}
+
+// HandleDeleteAttachment removes an attachment by ID (only the uploader can delete)
+func (s *Server) HandleDeleteAttachment(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+
+	attachmentID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid attachment ID", "bad_request")
+		return
+	}
+
+	// Verify ownership
+	var ownerID int64
+	err = s.db.QueryRowContext(ctx,
+		`SELECT user_id FROM task_attachments WHERE id = ?`, attachmentID,
+	).Scan(&ownerID)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "attachment not found", "not_found")
+		return
+	}
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify attachment", "internal_error")
+		return
+	}
+	if ownerID != userID {
+		respondError(w, http.StatusForbidden, "you can only delete your own attachments", "forbidden")
+		return
+	}
+
+	_, err = s.db.ExecContext(ctx,
+		`DELETE FROM task_attachments WHERE id = ?`, attachmentID,
+	)
+	if err != nil {
+		s.logger.Error("Failed to delete attachment", zap.Error(err))
+		respondError(w, http.StatusInternalServerError, "failed to delete attachment", "internal_error")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "Attachment deleted"})
 }

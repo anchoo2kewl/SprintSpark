@@ -224,8 +224,12 @@ func main() {
 			// Image library
 			r.Get("/images", server.HandleListImages)
 
-			// Attachment update
+			// Asset management
+			r.Get("/assets", server.HandleListAssets)
+
+			// Attachment update and delete
 			r.Patch("/attachments/{id}", server.HandleUpdateAttachment)
+			r.Delete("/attachments/{id}", server.HandleDeleteAttachment)
 
 			// Invite routes
 			r.Get("/invites", server.HandleListInvites)

@@ -14,6 +14,7 @@ import Sprints from './routes/Sprints'
 import Tags from './routes/Tags'
 import Admin from './routes/Admin'
 import Settings from './routes/Settings'
+import Assets from './routes/Assets'
 
 function AppRoutes() {
   const location = useLocation()
@@ -42,6 +43,7 @@ function AppRoutes() {
           <Route path="projects/:projectId/tasks/:taskId" element={<TaskDetail />} />
           <Route path="sprints" element={<Sprints />} />
           <Route path="tags" element={<Tags />} />
+          <Route path="assets" element={<Assets />} />
           <Route path="admin" element={<Admin />} />
           <Route path="settings" element={<Settings />} />
         </Route>

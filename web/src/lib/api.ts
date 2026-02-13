@@ -90,6 +90,23 @@ export interface CloudinaryCredentialResponse {
   updated_at: string
 }
 
+export interface Asset {
+  id: number
+  task_id: number
+  project_id: number
+  user_id: number
+  filename: string
+  alt_name: string
+  file_type: string
+  content_type: string
+  file_size: number
+  cloudinary_url: string
+  cloudinary_public_id: string
+  created_at: string
+  user_name?: string
+  is_owner: boolean
+}
+
 // API Client Configuration
 // Use relative URL in production (served behind nginx proxy)
 // or VITE_API_URL for development override
@@ -532,6 +549,24 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
+  }
+
+  // Delete attachment (standalone, not task-scoped)
+  async deleteAttachment(id: number): Promise<void> {
+    return this.request<void>(`/api/attachments/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Asset management
+  async getAssets(params?: { q?: string; type?: string; limit?: number; offset?: number }): Promise<Asset[]> {
+    const searchParams = new URLSearchParams()
+    if (params?.q) searchParams.set('q', params.q)
+    if (params?.type) searchParams.set('type', params.type)
+    if (params?.limit) searchParams.set('limit', String(params.limit))
+    if (params?.offset) searchParams.set('offset', String(params.offset))
+    const qs = searchParams.toString()
+    return this.request<Asset[]>(`/api/assets${qs ? '?' + qs : ''}`)
   }
 
   // Invite endpoints
