@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/pquerna/otp/totp"
 )
 
 func TestHandleChangePassword(t *testing.T) {
@@ -462,6 +464,51 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func TestHandle2FAEnableValidCode(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	// Set up 2FA to store a secret
+	setupRec, setupReq := ts.MakeAuthRequest(t, http.MethodPost, "/api/settings/2fa/setup", nil, userID, nil)
+	ts.Handle2FASetup(setupRec, setupReq)
+	AssertStatusCode(t, setupRec.Code, http.StatusOK)
+
+	var setupResp TwoFactorSetupResponse
+	DecodeJSON(t, setupRec, &setupResp)
+
+	// Generate a valid TOTP code using the secret
+	code, err := totp.GenerateCode(setupResp.Secret, time.Now())
+	if err != nil {
+		t.Fatalf("Failed to generate TOTP code: %v", err)
+	}
+
+	// Enable 2FA with valid code
+	body := TwoFactorEnableRequest{Code: code}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/settings/2fa/enable", body, userID, nil)
+	ts.Handle2FAEnable(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var resp TwoFactorEnableResponse
+	DecodeJSON(t, rec, &resp)
+
+	if len(resp.BackupCodes) != 10 {
+		t.Errorf("Expected 10 backup codes, got %d", len(resp.BackupCodes))
+	}
+
+	// Verify 2FA is now enabled in the database
+	var enabled int
+	err = ts.DB.QueryRow("SELECT totp_enabled FROM users WHERE id = ?", userID).Scan(&enabled)
+	if err != nil {
+		t.Fatalf("Failed to query: %v", err)
+	}
+	if enabled != 1 {
+		t.Error("Expected 2FA to be enabled after valid code")
+	}
 }
 
 // Ensure JSON output is valid for 2FA status

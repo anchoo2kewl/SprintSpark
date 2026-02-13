@@ -692,3 +692,87 @@ func TestHandleDeleteProject(t *testing.T) {
 		AssertError(t, rec, http.StatusForbidden, "only project owner can delete", "forbidden")
 	})
 }
+
+func TestHandleCreateProject_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTestTeamForUser(t, ts, userID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/projects", "not-json", userID, nil)
+	ts.HandleCreateProject(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_input")
+}
+
+func TestHandleCreateProject_NoTeam(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	// Create user WITHOUT a team
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+
+	body := CreateProjectRequest{Name: "Orphan Project"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/projects", body, userID, nil)
+	ts.HandleCreateProject(rec, req)
+
+	AssertError(t, rec, http.StatusInternalServerError, "failed to get user team", "internal_error")
+}
+
+func TestHandleCreateProject_AddsTeamMembers(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+	memberID := ts.CreateTestUser(t, "member@example.com", "password123")
+	teamID := createTestTeamForUser(t, ts, ownerID)
+
+	// Add second user to the team
+	ctx := context.Background()
+	_, err := ts.DB.ExecContext(ctx,
+		`INSERT INTO team_members (team_id, user_id, role, status, joined_at) VALUES (?, ?, 'member', 'active', CURRENT_TIMESTAMP)`,
+		teamID, memberID,
+	)
+	if err != nil {
+		t.Fatalf("Failed to add team member: %v", err)
+	}
+
+	body := CreateProjectRequest{Name: "Team Project"}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/projects", body, ownerID, nil)
+	ts.HandleCreateProject(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusCreated)
+
+	var project Project
+	DecodeJSON(t, rec, &project)
+
+	// Verify team member was added to the project
+	var count int
+	err = ts.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM project_members WHERE project_id = ? AND user_id = ?`,
+		project.ID, memberID,
+	).Scan(&count)
+	if err != nil {
+		t.Fatalf("Failed to check membership: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("Expected team member to be added to project, but got count %d", count)
+	}
+}
+
+func TestHandleUpdateProject_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Test Project")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch,
+		fmt.Sprintf("/api/projects/%d", projectID), "not-json", userID,
+		map[string]string{"id": fmt.Sprintf("%d", projectID)})
+
+	ts.HandleUpdateProject(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_input")
+}

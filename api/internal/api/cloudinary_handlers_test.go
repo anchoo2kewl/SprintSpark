@@ -1691,3 +1691,192 @@ func TestHandleCreateTaskAttachmentPersistence(t *testing.T) {
 	}
 }
 
+func TestHandleGetUploadSignature(t *testing.T) {
+	tests := []struct {
+		name          string
+		wantStatus    int
+		wantError     string
+		wantErrorCode string
+		setupFunc     func(t *testing.T, ts *TestServer) int64
+	}{
+		{
+			name:       "generates signature with stored credentials",
+			wantStatus: http.StatusOK,
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				userID := ts.CreateTestUser(t, "user@example.com", "password123")
+				createTestCloudinaryCredential(t, ts, userID, "my-cloud", "my-api-key", "my-api-secret")
+				return userID
+			},
+		},
+		{
+			name:          "returns error when no credentials exist",
+			wantStatus:    http.StatusBadRequest,
+			wantError:     "no Cloudinary credentials configured",
+			wantErrorCode: "no_credentials",
+			setupFunc: func(t *testing.T, ts *TestServer) int64 {
+				return ts.CreateTestUser(t, "user@example.com", "password123")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ts := NewTestServer(t)
+			defer ts.Close()
+
+			userID := tt.setupFunc(t, ts)
+
+			rec, req := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/upload-signature", nil, userID, nil)
+			ts.HandleGetUploadSignature(rec, req)
+
+			AssertStatusCode(t, rec.Code, tt.wantStatus)
+
+			if tt.wantError != "" {
+				AssertError(t, rec, tt.wantStatus, tt.wantError, tt.wantErrorCode)
+			}
+
+			if tt.wantStatus == http.StatusOK {
+				var resp UploadSignatureResponse
+				DecodeJSON(t, rec, &resp)
+				if resp.Signature == "" {
+					t.Error("Expected non-empty signature")
+				}
+				if resp.Timestamp == 0 {
+					t.Error("Expected non-zero timestamp")
+				}
+				if resp.CloudName != "my-cloud" {
+					t.Errorf("Expected cloud_name 'my-cloud', got %q", resp.CloudName)
+				}
+				if resp.APIKey != "my-api-key" {
+					t.Errorf("Expected api_key 'my-api-key', got %q", resp.APIKey)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleGetUploadSignatureDeterministic(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	createTestCloudinaryCredential(t, ts, userID, "cloud", "key", "secret")
+
+	// Get two signatures - they should have the same cloud_name and api_key
+	rec1, req1 := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/upload-signature", nil, userID, nil)
+	ts.HandleGetUploadSignature(rec1, req1)
+	AssertStatusCode(t, rec1.Code, http.StatusOK)
+
+	var resp1 UploadSignatureResponse
+	DecodeJSON(t, rec1, &resp1)
+
+	rec2, req2 := makeAuthRequest(t, http.MethodGet, "/api/cloudinary/upload-signature", nil, userID, nil)
+	ts.HandleGetUploadSignature(rec2, req2)
+	AssertStatusCode(t, rec2.Code, http.StatusOK)
+
+	var resp2 UploadSignatureResponse
+	DecodeJSON(t, rec2, &resp2)
+
+	if resp1.CloudName != resp2.CloudName {
+		t.Errorf("Cloud names should match: %q vs %q", resp1.CloudName, resp2.CloudName)
+	}
+	if resp1.APIKey != resp2.APIKey {
+		t.Errorf("API keys should match: %q vs %q", resp1.APIKey, resp2.APIKey)
+	}
+}
+
+func TestHandleTestCloudinaryConnection(t *testing.T) {
+	t.Run("returns error when no credentials exist", func(t *testing.T) {
+		ts := NewTestServer(t)
+		defer ts.Close()
+
+		userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+		rec, req := makeAuthRequest(t, http.MethodPost, "/api/cloudinary/test", nil, userID, nil)
+		ts.HandleTestCloudinaryConnection(rec, req)
+
+		AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+		AssertError(t, rec, http.StatusBadRequest, "no Cloudinary credentials configured", "no_credentials")
+	})
+
+	t.Run("tests connection with stored credentials and updates status", func(t *testing.T) {
+		ts := NewTestServer(t)
+		defer ts.Close()
+
+		userID := ts.CreateTestUser(t, "user@example.com", "password123")
+		createTestCloudinaryCredential(t, ts, userID, "fake-cloud", "fake-key", "fake-secret")
+
+		rec, req := makeAuthRequest(t, http.MethodPost, "/api/cloudinary/test", nil, userID, nil)
+		ts.HandleTestCloudinaryConnection(rec, req)
+
+		// With fake credentials, the external API call will fail, but the handler
+		// should still return 200 with the updated credential status
+		AssertStatusCode(t, rec.Code, http.StatusOK)
+
+		var cred CloudinaryCredential
+		DecodeJSON(t, rec, &cred)
+
+		// Should have updated status to "error" since credentials are fake
+		if cred.Status != "error" {
+			t.Errorf("Expected status 'error' for fake credentials, got %q", cred.Status)
+		}
+		if cred.LastError == "" {
+			t.Error("Expected non-empty last_error for failed connection")
+		}
+		if cred.ConsecutiveFailures != 1 {
+			t.Errorf("Expected consecutive_failures=1, got %d", cred.ConsecutiveFailures)
+		}
+		if cred.LastCheckedAt == nil {
+			t.Error("Expected last_checked_at to be set")
+		}
+	})
+}
+
+func TestHandleTestCloudinaryConnection_SuspendedAfterMultipleFailures(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	createTestCloudinaryCredential(t, ts, userID, "fake-cloud", "fake-key", "fake-secret")
+
+	// Set consecutive_failures to 4 so next failure triggers suspension
+	ctx := context.Background()
+	_, err := ts.DB.ExecContext(ctx,
+		`UPDATE cloudinary_credentials SET consecutive_failures = 4 WHERE user_id = ?`, userID)
+	if err != nil {
+		t.Fatalf("Failed to update consecutive_failures: %v", err)
+	}
+
+	rec, req := makeAuthRequest(t, http.MethodPost, "/api/cloudinary/test", nil, userID, nil)
+	ts.HandleTestCloudinaryConnection(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var cred CloudinaryCredential
+	DecodeJSON(t, rec, &cred)
+
+	if cred.Status != "suspended" {
+		t.Errorf("Expected status 'suspended' after 5 consecutive failures, got %q", cred.Status)
+	}
+	if cred.ConsecutiveFailures != 5 {
+		t.Errorf("Expected consecutive_failures=5, got %d", cred.ConsecutiveFailures)
+	}
+}
+
+func TestHandleUpdateAttachment_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+	projectID := createTestProjectForCloudinary(t, ts, userID)
+	taskID := createTestTaskForCloudinary(t, ts, projectID)
+	attachID := createTestAttachment(t, ts, taskID, userID, projectID, "image", "photo.jpg", "Alt")
+
+	attachmentIDStr := fmt.Sprintf("%d", attachID)
+	rec, req := makeAuthRequest(t, http.MethodPatch, "/api/attachments/"+attachmentIDStr, "not-json", userID,
+		map[string]string{"id": attachmentIDStr})
+	ts.HandleUpdateAttachment(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "bad_request")
+}
+

@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHandleSignup(t *testing.T) {
@@ -525,5 +527,194 @@ func TestCompleteAuthFlow(t *testing.T) {
 
 	if user2.ID != user.ID {
 		t.Errorf("User ID mismatch: got %d, want %d", user2.ID, user.ID)
+	}
+}
+
+func TestHandleSignup_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodPost, "/api/auth/signup", "not-json", nil)
+	ts.HandleSignup(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_request")
+}
+
+func TestHandleSignup_UsedInvite(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+	code := ts.CreateTestInvite(t, inviterID)
+
+	// Mark the invite as used
+	ctx := context.Background()
+	_, err := ts.DB.ExecContext(ctx,
+		`UPDATE invites SET used_at = CURRENT_TIMESTAMP, invitee_id = ? WHERE code = ?`,
+		inviterID, code,
+	)
+	if err != nil {
+		t.Fatalf("Failed to mark invite as used: %v", err)
+	}
+
+	req := SignupRequest{
+		Email:      "newuser@example.com",
+		Password:   "password123",
+		InviteCode: code,
+	}
+
+	rec, httpReq := MakeRequest(t, http.MethodPost, "/api/auth/signup", req, nil)
+	ts.HandleSignup(rec, httpReq)
+
+	AssertError(t, rec, http.StatusBadRequest, "this invite has already been used", "invite_used")
+}
+
+func TestHandleSignup_ExpiredInvite(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+	code := ts.CreateTestInvite(t, inviterID)
+
+	// Set the invite expiry to the past
+	ctx := context.Background()
+	pastTime := time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
+	_, err := ts.DB.ExecContext(ctx,
+		`UPDATE invites SET expires_at = ? WHERE code = ?`,
+		pastTime, code,
+	)
+	if err != nil {
+		t.Fatalf("Failed to update invite expiry: %v", err)
+	}
+
+	req := SignupRequest{
+		Email:      "newuser@example.com",
+		Password:   "password123",
+		InviteCode: code,
+	}
+
+	rec, httpReq := MakeRequest(t, http.MethodPost, "/api/auth/signup", req, nil)
+	ts.HandleSignup(rec, httpReq)
+
+	AssertError(t, rec, http.StatusBadRequest, "this invite has expired", "invite_expired")
+}
+
+func TestHandleLogin_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodPost, "/api/auth/login", "not-json", nil)
+	ts.HandleLogin(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_request")
+}
+
+func TestValidatePasswordStrength(t *testing.T) {
+	tests := []struct {
+		name     string
+		password string
+		wantErr  string
+	}{
+		{"valid", "password123", ""},
+		{"empty", "", "password is required"},
+		{"too short", "pass1", "at least 8 characters"},
+		{"no digit", "passwordonly", "at least one digit"},
+		{"no letter", "12345678", "at least one letter"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePasswordStrength(tt.password)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected error containing %q, got nil", tt.wantErr)
+				} else if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("Expected error containing %q, got %q", tt.wantErr, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestHandleMe_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/me", nil, nil)
+	ts.HandleMe(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "user not authenticated", "unauthorized")
+}
+
+func TestHandleSignup_PasswordNoDigit(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+	code := ts.CreateTestInvite(t, inviterID)
+
+	req := SignupRequest{
+		Email:      "newuser@example.com",
+		Password:   "passwordonly",
+		InviteCode: code,
+	}
+
+	rec, httpReq := MakeRequest(t, http.MethodPost, "/api/auth/signup", req, nil)
+	ts.HandleSignup(rec, httpReq)
+
+	AssertError(t, rec, http.StatusBadRequest, "at least one digit", "validation_error")
+}
+
+func TestHandleSignup_PasswordNoLetter(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	inviterID := ts.CreateTestUser(t, "inviter@example.com", "password123")
+	code := ts.CreateTestInvite(t, inviterID)
+
+	req := SignupRequest{
+		Email:      "newuser@example.com",
+		Password:   "12345678",
+		InviteCode: code,
+	}
+
+	rec, httpReq := MakeRequest(t, http.MethodPost, "/api/auth/signup", req, nil)
+	ts.HandleSignup(rec, httpReq)
+
+	AssertError(t, rec, http.StatusBadRequest, "at least one letter", "validation_error")
+}
+
+func TestValidateSignupRequest(t *testing.T) {
+	tests := []struct {
+		name    string
+		req     SignupRequest
+		wantErr string
+	}{
+		{"valid", SignupRequest{Email: "user@example.com", Password: "password123"}, ""},
+		{"empty email", SignupRequest{Email: "", Password: "password123"}, "email is required"},
+		{"invalid email", SignupRequest{Email: "notanemail", Password: "password123"}, "invalid email format"},
+		{"email no dot", SignupRequest{Email: "user@nodot", Password: "password123"}, "invalid email format"},
+		{"empty password", SignupRequest{Email: "user@example.com", Password: ""}, "password is required"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSignupRequest(tt.req)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Expected no error, got %v", err)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("Expected error containing %q, got nil", tt.wantErr)
+				} else if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("Expected error containing %q, got %q", tt.wantErr, err.Error())
+				}
+			}
+		})
 	}
 }

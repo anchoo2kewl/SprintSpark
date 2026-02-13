@@ -491,3 +491,177 @@ func TestHandleListSwimLanesInvalidProjectID(t *testing.T) {
 
 	AssertError(t, rec, http.StatusBadRequest, "invalid project ID", "invalid_input")
 }
+
+func TestHandleCreateSwimLaneInvalidProjectID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	body := CreateSwimLaneRequest{Name: "Lane", Color: "#FF0000", Position: 0}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/projects/abc/swim-lanes", body, userID,
+		map[string]string{"projectId": "abc"})
+	ts.HandleCreateSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid project ID", "invalid_input")
+}
+
+func TestHandleCreateSwimLaneInvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Test Project")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), "not-json", userID,
+		map[string]string{"projectId": fmt.Sprintf("%d", projectID)})
+	ts.HandleCreateSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_input")
+}
+
+func TestHandleUpdateSwimLaneInvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	newName := "Updated"
+	body := UpdateSwimLaneRequest{Name: &newName}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/swim-lanes/abc", body, userID,
+		map[string]string{"id": "abc"})
+	ts.HandleUpdateSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid swim lane ID", "invalid_input")
+}
+
+func TestHandleUpdateSwimLaneInvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Test Project")
+	laneIDs := createDefaultSwimLanes(t, ts, projectID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/swim-lanes/%d", laneIDs[0]), "not-json", userID,
+		map[string]string{"id": fmt.Sprintf("%d", laneIDs[0])})
+	ts.HandleUpdateSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_input")
+}
+
+func TestHandleUpdateSwimLaneEmptyName(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Test Project")
+	laneIDs := createDefaultSwimLanes(t, ts, projectID)
+
+	emptyName := ""
+	body := UpdateSwimLaneRequest{Name: &emptyName}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/swim-lanes/%d", laneIDs[0]), body, userID,
+		map[string]string{"id": fmt.Sprintf("%d", laneIDs[0])})
+	ts.HandleUpdateSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "swim lane name cannot be empty", "invalid_input")
+}
+
+func TestHandleUpdateSwimLaneNameTooLong(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Test Project")
+	laneIDs := createDefaultSwimLanes(t, ts, projectID)
+
+	longName := strings.Repeat("x", 51)
+	body := UpdateSwimLaneRequest{Name: &longName}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/swim-lanes/%d", laneIDs[0]), body, userID,
+		map[string]string{"id": fmt.Sprintf("%d", laneIDs[0])})
+	ts.HandleUpdateSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "swim lane name is too long", "invalid_input")
+}
+
+func TestHandleUpdateSwimLaneNegativePosition(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Test Project")
+	laneIDs := createDefaultSwimLanes(t, ts, projectID)
+
+	negPos := -1
+	body := UpdateSwimLaneRequest{Position: &negPos}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/swim-lanes/%d", laneIDs[0]), body, userID,
+		map[string]string{"id": fmt.Sprintf("%d", laneIDs[0])})
+	ts.HandleUpdateSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "position cannot be negative", "invalid_input")
+}
+
+func TestHandleDeleteSwimLaneInvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, "/api/swim-lanes/abc", nil, userID,
+		map[string]string{"id": "abc"})
+	ts.HandleDeleteSwimLane(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid swim lane ID", "invalid_input")
+}
+
+func TestHandleListSwimLanesEmpty(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Empty Project")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodGet, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), nil, userID,
+		map[string]string{"projectId": fmt.Sprintf("%d", projectID)})
+	ts.HandleListSwimLanes(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var lanes []SwimLane
+	DecodeJSON(t, rec, &lanes)
+
+	if len(lanes) != 0 {
+		t.Errorf("Expected 0 swim lanes, got %d", len(lanes))
+	}
+}
+
+func TestHandleCreateSwimLaneNegativePosition(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Test Project")
+
+	body := CreateSwimLaneRequest{
+		Name:     "Backlog",
+		Color:    "#FF0000",
+		Position: -5,
+	}
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), body, userID,
+		map[string]string{"projectId": fmt.Sprintf("%d", projectID)})
+	ts.HandleCreateSwimLane(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusCreated)
+
+	var lane SwimLane
+	DecodeJSON(t, rec, &lane)
+
+	// Negative position should be clamped to 0
+	if lane.Position != 0 {
+		t.Errorf("Expected position 0 (clamped from -5), got %d", lane.Position)
+	}
+}

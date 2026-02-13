@@ -564,3 +564,276 @@ func TestHandleDeleteTag(t *testing.T) {
 		AssertStatusCode(t, rec.Code, http.StatusNotFound)
 	})
 }
+
+// --- Additional coverage tests for sprint/tag error branches ---
+
+func TestHandleCreateSprint_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTeamForUser(t, ts, userID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/sprints", "not-json", userID, nil)
+	ts.HandleCreateSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateSprint_InvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTeamForUser(t, ts, userID)
+
+	body := UpdateSprintRequest{Name: stringPtr("Updated")}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/sprints/abc", body, userID,
+		map[string]string{"id": "abc"})
+	ts.HandleUpdateSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateSprint_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	teamID := createTeamForUser(t, ts, userID)
+	sprintID := createTestSprint(t, ts, userID, teamID, "Sprint", "planned")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/sprints/%d", sprintID), "not-json", userID,
+		map[string]string{"id": fmt.Sprintf("%d", sprintID)})
+	ts.HandleUpdateSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateSprint_NoFields(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	teamID := createTeamForUser(t, ts, userID)
+	sprintID := createTestSprint(t, ts, userID, teamID, "Sprint", "planned")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/sprints/%d", sprintID), UpdateSprintRequest{}, userID,
+		map[string]string{"id": fmt.Sprintf("%d", sprintID)})
+	ts.HandleUpdateSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateSprint_InvalidStatus(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	teamID := createTeamForUser(t, ts, userID)
+	sprintID := createTestSprint(t, ts, userID, teamID, "Sprint", "planned")
+
+	body := UpdateSprintRequest{Status: stringPtr("invalid")}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/sprints/%d", sprintID), body, userID,
+		map[string]string{"id": fmt.Sprintf("%d", sprintID)})
+	ts.HandleUpdateSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateSprint_Forbidden(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	user1ID := ts.CreateTestUser(t, "user1@example.com", "password123")
+	user2ID := ts.CreateTestUser(t, "user2@example.com", "password123")
+	team1ID := createTeamForUser(t, ts, user1ID)
+	createTeamForUser(t, ts, user2ID)
+	sprintID := createTestSprint(t, ts, user1ID, team1ID, "Sprint", "planned")
+
+	body := UpdateSprintRequest{Name: stringPtr("Hacked")}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/sprints/%d", sprintID), body, user2ID,
+		map[string]string{"id": fmt.Sprintf("%d", sprintID)})
+	ts.HandleUpdateSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusForbidden)
+}
+
+func TestHandleDeleteSprint_InvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTeamForUser(t, ts, userID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, "/api/sprints/abc", nil, userID,
+		map[string]string{"id": "abc"})
+	ts.HandleDeleteSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleDeleteSprint_Forbidden(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	user1ID := ts.CreateTestUser(t, "user1@example.com", "password123")
+	user2ID := ts.CreateTestUser(t, "user2@example.com", "password123")
+	team1ID := createTeamForUser(t, ts, user1ID)
+	createTeamForUser(t, ts, user2ID)
+	sprintID := createTestSprint(t, ts, user1ID, team1ID, "Sprint", "planned")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, fmt.Sprintf("/api/sprints/%d", sprintID), nil, user2ID,
+		map[string]string{"id": fmt.Sprintf("%d", sprintID)})
+	ts.HandleDeleteSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusForbidden)
+}
+
+func TestHandleCreateTag_MissingName(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTeamForUser(t, ts, userID)
+
+	body := CreateTagRequest{Name: ""}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/tags", body, userID, nil)
+	ts.HandleCreateTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleCreateTag_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTeamForUser(t, ts, userID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/tags", "not-json", userID, nil)
+	ts.HandleCreateTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateTag_InvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTeamForUser(t, ts, userID)
+
+	body := UpdateTagRequest{Name: stringPtr("Updated")}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, "/api/tags/abc", body, userID,
+		map[string]string{"id": "abc"})
+	ts.HandleUpdateTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateTag_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	teamID := createTeamForUser(t, ts, userID)
+	tagID := createTestTag(t, ts, userID, teamID, "tag", "#FF0000")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/tags/%d", tagID), "not-json", userID,
+		map[string]string{"id": fmt.Sprintf("%d", tagID)})
+	ts.HandleUpdateTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateTag_NoFields(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	teamID := createTeamForUser(t, ts, userID)
+	tagID := createTestTag(t, ts, userID, teamID, "tag", "#FF0000")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/tags/%d", tagID), UpdateTagRequest{}, userID,
+		map[string]string{"id": fmt.Sprintf("%d", tagID)})
+	ts.HandleUpdateTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleUpdateTag_Forbidden(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	user1ID := ts.CreateTestUser(t, "user1@example.com", "password123")
+	user2ID := ts.CreateTestUser(t, "user2@example.com", "password123")
+	team1ID := createTeamForUser(t, ts, user1ID)
+	createTeamForUser(t, ts, user2ID)
+	tagID := createTestTag(t, ts, user1ID, team1ID, "tag", "#FF0000")
+
+	body := UpdateTagRequest{Name: stringPtr("Hacked")}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/tags/%d", tagID), body, user2ID,
+		map[string]string{"id": fmt.Sprintf("%d", tagID)})
+	ts.HandleUpdateTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusForbidden)
+}
+
+func TestHandleDeleteTag_InvalidID(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	createTeamForUser(t, ts, userID)
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, "/api/tags/abc", nil, userID,
+		map[string]string{"id": "abc"})
+	ts.HandleDeleteTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusBadRequest)
+}
+
+func TestHandleDeleteTag_Forbidden(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	user1ID := ts.CreateTestUser(t, "user1@example.com", "password123")
+	user2ID := ts.CreateTestUser(t, "user2@example.com", "password123")
+	team1ID := createTeamForUser(t, ts, user1ID)
+	createTeamForUser(t, ts, user2ID)
+	tagID := createTestTag(t, ts, user1ID, team1ID, "tag", "#FF0000")
+
+	rec, req := ts.MakeAuthRequest(t, http.MethodDelete, fmt.Sprintf("/api/tags/%d", tagID), nil, user2ID,
+		map[string]string{"id": fmt.Sprintf("%d", tagID)})
+	ts.HandleDeleteTag(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusForbidden)
+}
+
+func TestHandleUpdateSprint_UpdateGoal(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "test@example.com", "password123")
+	teamID := createTeamForUser(t, ts, userID)
+	sprintID := createTestSprint(t, ts, userID, teamID, "Sprint", "planned")
+
+	body := UpdateSprintRequest{
+		Goal:      stringPtr("New goal"),
+		StartDate: stringPtr("2024-01-01"),
+		EndDate:   stringPtr("2024-01-15"),
+	}
+	rec, req := ts.MakeAuthRequest(t, http.MethodPatch, fmt.Sprintf("/api/sprints/%d", sprintID), body, userID,
+		map[string]string{"id": fmt.Sprintf("%d", sprintID)})
+	ts.HandleUpdateSprint(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var sprint Sprint
+	DecodeJSON(t, rec, &sprint)
+
+	if sprint.Goal != "New goal" {
+		t.Errorf("Expected goal 'New goal', got %q", sprint.Goal)
+	}
+}

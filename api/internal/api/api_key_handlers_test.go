@@ -248,3 +248,111 @@ func TestHandleDeleteAPIKey(t *testing.T) {
 func intPtr(i int) *int {
 	return &i
 }
+
+func TestHandleCreateAPIKey_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodPost, "/api/api-keys", CreateAPIKeyRequest{Name: "Test"}, nil)
+	ts.HandleCreateAPIKey(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "unauthorized", "unauthorized")
+}
+
+func TestHandleCreateAPIKey_InvalidBody(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := MakeRequest(t, http.MethodPost, "/api/api-keys", "not-json", nil)
+	ctx := context.WithValue(req.Context(), UserIDKey, userID)
+	req = req.WithContext(ctx)
+	ts.HandleCreateAPIKey(rec, req)
+
+	AssertError(t, rec, http.StatusBadRequest, "invalid request body", "invalid_request")
+}
+
+func TestHandleCreateAPIKey_NameTooLong(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	longName := ""
+	for i := 0; i < 101; i++ {
+		longName += "a"
+	}
+	req := CreateAPIKeyRequest{Name: longName}
+
+	rec, httpReq := MakeRequest(t, http.MethodPost, "/api/api-keys", req, nil)
+	ctx := context.WithValue(httpReq.Context(), UserIDKey, userID)
+	httpReq = httpReq.WithContext(ctx)
+	ts.HandleCreateAPIKey(rec, httpReq)
+
+	AssertError(t, rec, http.StatusBadRequest, "name must be 100 characters or less", "validation_error")
+}
+
+func TestHandleCreateAPIKey_ExpiresInNegative(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	neg := -1
+	req := CreateAPIKeyRequest{Name: "Test", ExpiresIn: &neg}
+
+	rec, httpReq := MakeRequest(t, http.MethodPost, "/api/api-keys", req, nil)
+	ctx := context.WithValue(httpReq.Context(), UserIDKey, userID)
+	httpReq = httpReq.WithContext(ctx)
+	ts.HandleCreateAPIKey(rec, httpReq)
+
+	AssertError(t, rec, http.StatusBadRequest, "expires_in must be positive", "validation_error")
+}
+
+func TestHandleCreateAPIKey_ExpiresInTooLarge(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	big := 366
+	req := CreateAPIKeyRequest{Name: "Test", ExpiresIn: &big}
+
+	rec, httpReq := MakeRequest(t, http.MethodPost, "/api/api-keys", req, nil)
+	ctx := context.WithValue(httpReq.Context(), UserIDKey, userID)
+	httpReq = httpReq.WithContext(ctx)
+	ts.HandleCreateAPIKey(rec, httpReq)
+
+	AssertError(t, rec, http.StatusBadRequest, "expires_in cannot exceed 365 days", "validation_error")
+}
+
+func TestHandleListAPIKeys_Unauthenticated(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/api-keys", nil, nil)
+	ts.HandleListAPIKeys(rec, req)
+
+	AssertError(t, rec, http.StatusUnauthorized, "unauthorized", "unauthorized")
+}
+
+func TestHandleListAPIKeys_Empty(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "user@example.com", "password123")
+
+	rec, req := MakeRequest(t, http.MethodGet, "/api/api-keys", nil, nil)
+	ctx := context.WithValue(req.Context(), UserIDKey, userID)
+	req = req.WithContext(ctx)
+	ts.HandleListAPIKeys(rec, req)
+
+	AssertStatusCode(t, rec.Code, http.StatusOK)
+
+	var keys []APIKeyResponse
+	DecodeJSON(t, rec, &keys)
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 keys, got %d", len(keys))
+	}
+}
