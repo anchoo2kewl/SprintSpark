@@ -24,12 +24,16 @@ STAGING_DEPLOY_PATH="/home/ubuntu/sprintspark-staging"
 STAGING_DOMAIN="sprintspark.biswas.me"
 STAGING_API_PORT=8082
 STAGING_WEB_PORT=8086
+STAGING_MCP_PORT=8084
+STAGING_MCP_DOMAIN="mcp.sprintspark.biswas.me"
 
 # Production environment
 PROD_DEPLOY_PATH="/home/ubuntu/sprintspark"
 PROD_DOMAIN="taskai.cc"
 PROD_API_PORT=8081
 PROD_WEB_PORT=8085
+PROD_MCP_PORT=8083
+PROD_MCP_DOMAIN="mcp.taskai.cc"
 
 # Local development settings
 LOCAL_WEB_PORT=8084
@@ -44,6 +48,8 @@ resolve_env() {
             REMOTE_DOMAIN="$PROD_DOMAIN"
             REMOTE_API_PORT="$PROD_API_PORT"
             REMOTE_WEB_PORT="$PROD_WEB_PORT"
+            REMOTE_MCP_PORT="$PROD_MCP_PORT"
+            REMOTE_MCP_DOMAIN="$PROD_MCP_DOMAIN"
             ENV_LABEL="PRODUCTION"
             ;;
         staging|*)
@@ -51,6 +57,8 @@ resolve_env() {
             REMOTE_DOMAIN="$STAGING_DOMAIN"
             REMOTE_API_PORT="$STAGING_API_PORT"
             REMOTE_WEB_PORT="$STAGING_WEB_PORT"
+            REMOTE_MCP_PORT="$STAGING_MCP_PORT"
+            REMOTE_MCP_DOMAIN="$STAGING_MCP_DOMAIN"
             ENV_LABEL="STAGING"
             ;;
     esac
@@ -316,6 +324,14 @@ env_health() {
         echo -e "${GREEN}✓ Web UI${NC} - Healthy (https://$REMOTE_DOMAIN/)"
     else
         echo -e "${RED}✗ Web UI${NC} - Not responding"
+    fi
+
+    # Check MCP
+    print_status "Checking MCP server..."
+    if curl -f -s "https://$REMOTE_MCP_DOMAIN/health" | grep -q "ok"; then
+        echo -e "${GREEN}✓ MCP${NC} - Healthy (https://$REMOTE_MCP_DOMAIN/health)"
+    else
+        echo -e "${YELLOW}⚠ MCP${NC} - Not responding (https://$REMOTE_MCP_DOMAIN/health)"
     fi
 
     # Check database via SSH

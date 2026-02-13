@@ -1,0 +1,37 @@
+---
+# Setup SSL certificate with Let's Encrypt for the MCP subdomain
+
+- name: Obtain SSL certificate for {{ mcp_domain }}
+  command: >
+    certbot --nginx -d {{ mcp_domain }}
+    --non-interactive --agree-tos
+    --email anshuman@biswas.me
+    --redirect
+  args:
+    creates: "/etc/letsencrypt/live/{{ mcp_domain }}/fullchain.pem"
+  register: certbot_mcp_result
+
+- name: Check if SSL cert exists for {{ mcp_domain }}
+  stat:
+    path: "/etc/letsencrypt/live/{{ mcp_domain }}/fullchain.pem"
+  register: mcp_ssl_cert
+
+- name: Create Nginx SSL configuration for {{ mcp_domain }}
+  template:
+    src: ../templates/nginx-mcp-ssl.conf.j2
+    dest: "/etc/nginx/sites-available/{{ mcp_domain }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when: mcp_ssl_cert.stat.exists
+
+- name: Test Nginx configuration (MCP SSL)
+  command: nginx -t
+  register: nginx_mcp_ssl_test
+  changed_when: false
+
+- name: Reload Nginx (MCP SSL)
+  systemd:
+    name: nginx
+    state: reloaded
+  when: nginx_mcp_ssl_test.rc == 0

@@ -20,11 +20,13 @@
         domain: "{{ (target_env == 'staging') | ternary(staging_domain, production_domain) }}"
         api_host_port: "{{ (target_env == 'staging') | ternary(staging_api_port, production_api_port) }}"
         web_host_port: "{{ (target_env == 'staging') | ternary(staging_web_port, production_web_port) }}"
+        mcp_host_port: "{{ (target_env == 'staging') | ternary(staging_mcp_port, production_mcp_port) }}"
+        mcp_domain: "{{ (target_env == 'staging') | ternary(staging_mcp_domain, production_mcp_domain) }}"
         env_name: "{{ target_env }}"
 
     - name: Display deployment target
       debug:
-        msg: "Deploying to {{ env_name }} — {{ domain }} (API:{{ api_host_port }}, Web:{{ web_host_port }})"
+        msg: "Deploying to {{ env_name }} — {{ domain }} (API:{{ api_host_port }}, Web:{{ web_host_port }}, MCP:{{ mcp_host_port }})"
 
   tasks:
     - name: Update apt cache
@@ -106,6 +108,12 @@
 
     - name: Setup SSL with Let's Encrypt
       import_tasks: tasks/ssl-setup.yml
+
+    - name: Configure MCP Nginx
+      import_tasks: tasks/mcp-nginx-config.yml
+
+    - name: Setup MCP SSL with Let's Encrypt
+      import_tasks: tasks/mcp-ssl-setup.yml
 
     - name: Setup Git deployment
       import_tasks: tasks/git-deployment.yml

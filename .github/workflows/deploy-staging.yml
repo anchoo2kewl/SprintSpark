@@ -96,6 +96,21 @@ jobs:
               sleep 2
             done
 
+            # Health check MCP (staging port 8084)
+            echo "-> Checking MCP health..."
+            for i in $(seq 1 30); do
+              if curl -sf http://127.0.0.1:8084/health > /dev/null 2>&1; then
+                echo "OK: MCP is healthy"
+                break
+              fi
+              if [ $i -eq 30 ]; then
+                echo "FAIL: MCP health check failed"
+                docker compose logs mcp | tail -20
+                exit 1
+              fi
+              sleep 2
+            done
+
             echo "-> Cleaning up old Docker images..."
             docker image prune -f
 

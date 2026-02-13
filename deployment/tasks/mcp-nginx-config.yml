@@ -1,0 +1,27 @@
+---
+# Configure Nginx for the MCP server subdomain
+
+- name: Create Nginx configuration for {{ mcp_domain }} (pre-SSL)
+  template:
+    src: ../templates/nginx-mcp-pre-ssl.conf.j2
+    dest: "/etc/nginx/sites-available/{{ mcp_domain }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable Nginx site for {{ mcp_domain }}
+  file:
+    src: "/etc/nginx/sites-available/{{ mcp_domain }}"
+    dest: "/etc/nginx/sites-enabled/{{ mcp_domain }}"
+    state: link
+
+- name: Test Nginx configuration (MCP)
+  command: nginx -t
+  register: nginx_mcp_test
+  changed_when: false
+
+- name: Reload Nginx (MCP)
+  systemd:
+    name: nginx
+    state: reloaded
+  when: nginx_mcp_test.rc == 0

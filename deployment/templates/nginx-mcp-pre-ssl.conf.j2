@@ -1,0 +1,19 @@
+# Nginx configuration for {{ mcp_domain }} (pre-SSL)
+# This is temporary config for Let's Encrypt verification
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ mcp_domain }};
+
+    # Let's Encrypt verification
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Temporary response
+    location / {
+        return 200 'MCP server is ready for SSL setup';
+        add_header Content-Type text/plain;
+    }
+}
