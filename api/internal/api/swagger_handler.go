@@ -12,7 +12,7 @@ func (s *Server) HandleSwaggerUI(w http.ResponseWriter, r *http.Request) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SprintSpark API Documentation</title>
+    <title>TaskAI API Documentation</title>
     <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css">
     <style>
         html {
@@ -88,7 +88,7 @@ func (s *Server) HandleOpenAPIYAML(w http.ResponseWriter, r *http.Request) {
 	// Check if user wants to download
 	download := r.URL.Query().Get("download")
 	if download == "true" || strings.Contains(r.Header.Get("Accept"), "application/octet-stream") {
-		w.Header().Set("Content-Disposition", "attachment; filename=\"sprintspark-openapi.yaml\"")
+		w.Header().Set("Content-Disposition", "attachment; filename=\"taskai-openapi.yaml\"")
 		w.Header().Set("Content-Type", "application/octet-stream")
 	} else {
 		w.Header().Set("Content-Type", "application/yaml")

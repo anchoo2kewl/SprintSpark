@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: SprintSpark API
+  title: TaskAI API
   description: |
-    SprintSpark is a lightweight project management system with task tracking,
-    sprints, swim lanes, team collaboration, and GitHub integration.
+    TaskAI is an AI-native project management system with MCP server support,
+    task tracking, sprints, swim lanes, team collaboration, and GitHub integration.
 
     ## Authentication
     Most endpoints require authentication via one of:
@@ -18,14 +18,14 @@ info:
     All errors return JSON: `{"error": "message", "code": "error_code"}`
   version: 0.1.0
   contact:
-    name: SprintSpark Team
+    name: TaskAI Team
   license:
     name: MIT
 
 servers:
   - url: http://localhost:8080
     description: Local development server
-  - url: https://sprintspark.biswas.me
+  - url: https://taskai.cc
     description: Production server
 
 tags:
@@ -79,7 +79,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "SprintSpark API"
+                    example: "TaskAI API"
                   version:
                     type: string
                     example: "0.1.0"

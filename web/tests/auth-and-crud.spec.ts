@@ -21,7 +21,7 @@ import {
   verifyTaskDueDate,
 } from './helpers';
 
-test.describe('SprintSpark - Complete User Journey', () => {
+test.describe('TaskAI - Complete User Journey', () => {
   // Generate unique test user for each test run
   const testUser = generateTestUser();
   const project1 = generateProject();

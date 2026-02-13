@@ -5,7 +5,7 @@
 
 ## 🎯 Project Identity
 
-**SprintSpark** - A lightweight project management system  
+**TaskAI** - An AI-native project management system
 **Stack:** Go + SQLite + React + TypeScript  
 **Quality Bar:** Every commit deployable to production
 

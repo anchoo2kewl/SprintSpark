@@ -30,7 +30,7 @@ if (import.meta.env.DEV) {
 }
 
 // Database collections type
-export type SprintSparkCollections = {
+export type TaskAICollections = {
   users: RxCollection<UserDocument>
   projects: RxCollection<ProjectDocument>
   tasks: RxCollection<TaskDocument>
@@ -39,16 +39,16 @@ export type SprintSparkCollections = {
   syncqueue: RxCollection<SyncQueueDocument>
 }
 
-export type SprintSparkDatabase = RxDatabase<SprintSparkCollections>
+export type TaskAIDatabase = RxDatabase<TaskAICollections>
 
 // Singleton database instance
-let dbInstance: SprintSparkDatabase | null = null
+let dbInstance: TaskAIDatabase | null = null
 
 /**
  * Initialize the RxDB database
  * Creates IndexedDB with all collections
  */
-export async function initDatabase(userId: number): Promise<SprintSparkDatabase> {
+export async function initDatabase(userId: number): Promise<TaskAIDatabase> {
   // Return existing instance if already initialized
   if (dbInstance) {
     return dbInstance
@@ -56,8 +56,8 @@ export async function initDatabase(userId: number): Promise<SprintSparkDatabase>
 
   try {
     // Create database with AJV validator for dev mode
-    const db = await createRxDatabase<SprintSparkCollections>({
-      name: `sprintspark_${userId}`, // Separate DB per user
+    const db = await createRxDatabase<TaskAICollections>({
+      name: `taskai_${userId}`, // Separate DB per user
       storage: wrappedValidateAjvStorage({ storage: getRxStorageDexie() }),
       multiInstance: false, // Single tab support (can enable later)
       eventReduce: true, // Performance optimization
@@ -107,7 +107,7 @@ export async function initDatabase(userId: number): Promise<SprintSparkDatabase>
  * Get the current database instance
  * Throws if database not initialized
  */
-export function getDatabase(): SprintSparkDatabase {
+export function getDatabase(): TaskAIDatabase {
   if (!dbInstance) {
     throw new Error('Database not initialized. Call initDatabase() first.')
   }

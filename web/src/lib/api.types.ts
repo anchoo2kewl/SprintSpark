@@ -1613,7 +1613,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @example SprintSpark API */
+                        /** @example TaskAI API */
                         message?: string;
                         /** @example 0.1.0 */
                         version?: string;

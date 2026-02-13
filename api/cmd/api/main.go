@@ -27,7 +27,7 @@ func main() {
 	logger := config.MustInitLogger(cfg.Env, cfg.LogLevel)
 	defer logger.Sync() // Flush any buffered log entries
 
-	logger.Info("Starting SprintSpark API",
+	logger.Info("Starting TaskAI API",
 		zap.String("env", cfg.Env),
 		zap.String("port", cfg.Port),
 	)
@@ -80,7 +80,7 @@ func main() {
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"message":"SprintSpark API","version":"0.1.0"}`)
+		fmt.Fprintf(w, `{"message":"TaskAI API","version":"0.1.0"}`)
 	})
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {

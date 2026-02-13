@@ -90,7 +90,7 @@ func NewTestServer(t *testing.T) *TestServer {
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"message":"SprintSpark API","version":"0.1.0"}`)
+		fmt.Fprintf(w, `{"message":"TaskAI API","version":"0.1.0"}`)
 	})
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {

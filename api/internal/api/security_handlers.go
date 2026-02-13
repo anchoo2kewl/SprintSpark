@@ -114,7 +114,7 @@ func (s *Server) Handle2FASetup(w http.ResponseWriter, r *http.Request) {
 
 	// Generate TOTP key
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "SprintSpark",
+		Issuer:      "TaskAI",
 		AccountName: email,
 		SecretSize:  32,
 	})

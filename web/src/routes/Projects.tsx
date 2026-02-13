@@ -19,7 +19,7 @@ export default function Projects() {
           </svg>
         </div>
         <h2 className="text-2xl font-semibold text-dark-text-primary mb-3 tracking-tight">
-          Welcome to SprintSpark
+          Welcome to TaskAI
         </h2>
         <p className="text-sm text-dark-text-tertiary mb-8 leading-relaxed">
           Select a project from the sidebar to view its tasks, or create a new

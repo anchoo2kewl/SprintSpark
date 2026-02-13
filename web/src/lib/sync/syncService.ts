@@ -4,7 +4,7 @@
  */
 
 import { api } from '../api'
-import type { SprintSparkDatabase } from '../db'
+import type { TaskAIDatabase } from '../db'
 import type { ProjectDocument, TaskDocument, SprintDocument, TagDocument } from '../db/schema'
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline'
@@ -17,7 +17,7 @@ export interface SyncState {
 }
 
 export class SyncService {
-  private db: SprintSparkDatabase
+  private db: TaskAIDatabase
   private syncInterval: number | null = null
   private listeners: Array<(state: SyncState) => void> = []
   private state: SyncState = {
@@ -27,7 +27,7 @@ export class SyncService {
     pendingOperations: 0,
   }
 
-  constructor(db: SprintSparkDatabase) {
+  constructor(db: TaskAIDatabase) {
     this.db = db
   }
 

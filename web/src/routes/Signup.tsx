@@ -72,14 +72,14 @@ export default function Signup() {
           <div className="text-center">
             <img
               src="/logo.svg"
-              alt="SprintSpark"
+              alt="TaskAI"
               className="mx-auto h-16 w-16 mb-4"
             />
             <h2 className="text-xl font-semibold text-dark-text-primary tracking-tight">
               Create your account
             </h2>
             <p className="mt-2 text-xs text-dark-text-tertiary">
-              Get started with SprintSpark
+              Get started with TaskAI
             </p>
           </div>
         </CardHeader>

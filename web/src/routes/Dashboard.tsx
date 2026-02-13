@@ -34,10 +34,10 @@ export default function Dashboard() {
           <div className="flex items-center gap-2.5">
             <img
               src="/logo.svg"
-              alt="SprintSpark"
+              alt="TaskAI"
               className="w-5 h-5"
             />
-            <h1 className="text-sm font-semibold text-dark-text-primary tracking-tight">SprintSpark</h1>
+            <h1 className="text-sm font-semibold text-dark-text-primary tracking-tight">TaskAI</h1>
           </div>
 
           <div className="flex items-center gap-4">

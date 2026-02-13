@@ -41,7 +41,7 @@ func buildTestRouter(server *Server) chi.Router {
 
 	// Public routes
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"message":"SprintSpark API","version":"0.1.0"}`)
+		fmt.Fprintf(w, `{"message":"TaskAI API","version":"0.1.0"}`)
 	})
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {

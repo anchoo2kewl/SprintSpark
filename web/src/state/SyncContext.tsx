@@ -5,13 +5,13 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 // Temporarily disabled due to RxDB schema validation errors
-// import { initDatabase, destroyDatabase, type SprintSparkDatabase } from '../lib/db'
-import { destroyDatabase, type SprintSparkDatabase } from '../lib/db'
+// import { initDatabase, destroyDatabase, type TaskAIDatabase } from '../lib/db'
+import { destroyDatabase, type TaskAIDatabase } from '../lib/db'
 import { SyncService, type SyncState } from '../lib/sync/syncService'
 import { useAuth } from './AuthContext'
 
 interface SyncContextValue {
-  db: SprintSparkDatabase | null
+  db: TaskAIDatabase | null
   syncService: SyncService | null
   syncState: SyncState
   isInitialized: boolean
@@ -24,7 +24,7 @@ const SyncContext = createContext<SyncContextValue | undefined>(undefined)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [db, setDb] = useState<SprintSparkDatabase | null>(null)
+  const [db, setDb] = useState<TaskAIDatabase | null>(null)
   const [syncService, setSyncService] = useState<SyncService | null>(null)
   const [syncState, setSyncState] = useState<SyncState>({
     status: 'idle',
