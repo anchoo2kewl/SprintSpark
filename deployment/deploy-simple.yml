@@ -115,6 +115,18 @@
     - name: Setup MCP SSL with Let's Encrypt
       import_tasks: tasks/mcp-ssl-setup.yml
 
+    - name: Setup SonarQube
+      import_tasks: tasks/sonarqube-setup.yml
+      when: target_env == 'production'
+
+    - name: Configure SonarQube Nginx
+      import_tasks: tasks/sonarqube-nginx-config.yml
+      when: target_env == 'production'
+
+    - name: Setup SonarQube SSL
+      import_tasks: tasks/sonarqube-ssl-setup.yml
+      when: target_env == 'production'
+
     - name: Setup Git deployment
       import_tasks: tasks/git-deployment.yml
 

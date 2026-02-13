@@ -334,6 +334,16 @@ env_health() {
         echo -e "${YELLOW}⚠ MCP${NC} - Not responding (https://$REMOTE_MCP_DOMAIN/health)"
     fi
 
+    # Check SonarQube (production only)
+    if [ "$env" = "production" ]; then
+        print_status "Checking SonarQube..."
+        if curl -f -s "https://sonar.taskai.cc/api/system/status" | grep -q '"UP"'; then
+            echo -e "${GREEN}✓ SonarQube${NC} - Healthy (https://sonar.taskai.cc)"
+        else
+            echo -e "${YELLOW}⚠ SonarQube${NC} - Not responding (https://sonar.taskai.cc)"
+        fi
+    fi
+
     # Check database via SSH
     print_status "Checking database..."
     if ssh "$REMOTE_SERVER" "cd '$REMOTE_DEPLOY_PATH' && docker compose exec -T api sh -c 'wget -q -O- http://localhost:8080/api/health'" 2>/dev/null | grep -q "ok"; then

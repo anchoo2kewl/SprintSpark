@@ -1,0 +1,37 @@
+---
+# Setup SSL certificate with Let's Encrypt for the SonarQube subdomain
+
+- name: Obtain SSL certificate for {{ sonarqube_domain }}
+  command: >
+    certbot --nginx -d {{ sonarqube_domain }}
+    --non-interactive --agree-tos
+    --email anshuman@biswas.me
+    --redirect
+  args:
+    creates: "/etc/letsencrypt/live/{{ sonarqube_domain }}/fullchain.pem"
+  register: certbot_sonar_result
+
+- name: Check if SSL cert exists for {{ sonarqube_domain }}
+  stat:
+    path: "/etc/letsencrypt/live/{{ sonarqube_domain }}/fullchain.pem"
+  register: sonar_ssl_cert
+
+- name: Create Nginx SSL configuration for {{ sonarqube_domain }}
+  template:
+    src: ../templates/nginx-sonar-ssl.conf.j2
+    dest: "/etc/nginx/sites-available/{{ sonarqube_domain }}"
+    owner: root
+    group: root
+    mode: '0644'
+  when: sonar_ssl_cert.stat.exists
+
+- name: Test Nginx configuration (SonarQube SSL)
+  command: nginx -t
+  register: nginx_sonar_ssl_test
+  changed_when: false
+
+- name: Reload Nginx (SonarQube SSL)
+  systemd:
+    name: nginx
+    state: reloaded
+  when: nginx_sonar_ssl_test.rc == 0

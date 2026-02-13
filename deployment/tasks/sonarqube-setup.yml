@@ -1,0 +1,63 @@
+---
+# Setup SonarQube via Docker Compose on the production server
+
+- name: Set vm.max_map_count for SonarQube (Elasticsearch requirement)
+  sysctl:
+    name: vm.max_map_count
+    value: "524288"
+    state: present
+    reload: yes
+
+- name: Set fs.file-max for SonarQube
+  sysctl:
+    name: fs.file-max
+    value: "131072"
+    state: present
+    reload: yes
+
+- name: Create SonarQube directory
+  file:
+    path: /home/{{ app_user }}/sonarqube
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+
+- name: Copy SonarQube docker-compose.yml
+  copy:
+    src: ../sonarqube/docker-compose.yml
+    dest: /home/{{ app_user }}/sonarqube/docker-compose.yml
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0644'
+
+- name: Create SonarQube .env file
+  copy:
+    content: |
+      SONAR_DB_PASSWORD={{ sonarqube_db_password }}
+    dest: /home/{{ app_user }}/sonarqube/.env
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0600'
+
+- name: Start SonarQube with Docker Compose
+  become_user: "{{ app_user }}"
+  command: docker compose up -d
+  args:
+    chdir: /home/{{ app_user }}/sonarqube
+
+- name: Wait for SonarQube to be ready
+  uri:
+    url: http://127.0.0.1:9000/api/system/status
+    method: GET
+    return_content: yes
+    status_code: [200]
+  register: sonarqube_status
+  retries: 30
+  delay: 10
+  until: sonarqube_status.status == 200 and sonarqube_status.json.status == "UP"
+  ignore_errors: yes
+
+- name: Display SonarQube status
+  debug:
+    msg: "SonarQube status: {{ sonarqube_status.json.status | default('not available yet') }} ({{ sonarqube_status.json.version | default('unknown') }})"

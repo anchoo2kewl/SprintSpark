@@ -1,0 +1,27 @@
+---
+# Configure Nginx for the SonarQube subdomain
+
+- name: Create Nginx configuration for {{ sonarqube_domain }} (pre-SSL)
+  template:
+    src: ../templates/nginx-sonar-pre-ssl.conf.j2
+    dest: "/etc/nginx/sites-available/{{ sonarqube_domain }}"
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable Nginx site for {{ sonarqube_domain }}
+  file:
+    src: "/etc/nginx/sites-available/{{ sonarqube_domain }}"
+    dest: "/etc/nginx/sites-enabled/{{ sonarqube_domain }}"
+    state: link
+
+- name: Test Nginx configuration (SonarQube)
+  command: nginx -t
+  register: nginx_sonar_test
+  changed_when: false
+
+- name: Reload Nginx (SonarQube)
+  systemd:
+    name: nginx
+    state: reloaded
+  when: nginx_sonar_test.rc == 0

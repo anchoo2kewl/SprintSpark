@@ -1,0 +1,26 @@
+---
+# Deploy SonarQube only (production)
+# Usage: ansible-playbook -i inventory.yml deploy-sonarqube.yml
+
+- name: Deploy SonarQube
+  hosts: production
+  become: yes
+  gather_facts: yes
+
+  vars:
+    target_env: production
+    app_user: "{{ ansible_user }}"
+
+  tasks:
+    - name: Display deployment info
+      debug:
+        msg: "Deploying SonarQube to {{ sonarqube_domain }}"
+
+    - name: Setup SonarQube
+      import_tasks: tasks/sonarqube-setup.yml
+
+    - name: Configure SonarQube Nginx
+      import_tasks: tasks/sonarqube-nginx-config.yml
+
+    - name: Setup SonarQube SSL
+      import_tasks: tasks/sonarqube-ssl-setup.yml

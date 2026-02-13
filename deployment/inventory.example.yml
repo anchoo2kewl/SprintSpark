@@ -25,6 +25,10 @@ all:
     production_api_port: 8081
     production_web_port: 8085
 
+    # SonarQube (production only)
+    sonarqube_domain: sonar.taskai.cc
+    sonarqube_db_password: "CHANGE_ME_STRONG_PASSWORD"
+
     # Cloudflare configuration
     cloudflare_email: "YOUR_CLOUDFLARE_EMAIL"
     cloudflare_api_key: "YOUR_CLOUDFLARE_GLOBAL_API_KEY"
