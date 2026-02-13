@@ -1,7 +1,7 @@
 # Nginx configuration for {{ sonarqube_domain }} (SonarQube with SSL)
 
 # Rate limiting zone for SonarQube
-limit_req_zone $binary_remote_addr zone={{ sonarqube_domain | replace('.', '_') }}_sonar:10m rate=60r/m;
+limit_req_zone $binary_remote_addr zone={{ sonarqube_domain | replace('.', '_') }}_sonar:10m rate=10r/s;
 
 # HTTP -> HTTPS redirect
 server {
@@ -58,7 +58,7 @@ server {
 
     # Proxy to SonarQube
     location / {
-        limit_req zone={{ sonarqube_domain | replace('.', '_') }}_sonar burst=20 nodelay;
+        limit_req zone={{ sonarqube_domain | replace('.', '_') }}_sonar burst=100 nodelay;
 
         proxy_pass http://127.0.0.1:9000;
         proxy_http_version 1.1;

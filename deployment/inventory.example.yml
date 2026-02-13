@@ -28,6 +28,7 @@ all:
     # SonarQube (production only)
     sonarqube_domain: sonar.taskai.cc
     sonarqube_db_password: "CHANGE_ME_STRONG_PASSWORD"
+    sonarqube_admin_password: "CHANGE_ME_SONARQUBE_ADMIN_PASSWORD"
 
     # Cloudflare configuration
     cloudflare_email: "YOUR_CLOUDFLARE_EMAIL"

@@ -56,8 +56,109 @@
   retries: 30
   delay: 10
   until: sonarqube_status.status == 200 and sonarqube_status.json.status == "UP"
-  ignore_errors: yes
 
 - name: Display SonarQube status
   debug:
-    msg: "SonarQube status: {{ sonarqube_status.json.status | default('not available yet') }} ({{ sonarqube_status.json.version | default('unknown') }})"
+    msg: "SonarQube {{ sonarqube_status.json.version }} is {{ sonarqube_status.json.status }}"
+
+# --- Configure SonarQube (idempotent) ---
+
+- name: Check if admin password already changed
+  uri:
+    url: http://127.0.0.1:9000/api/authentication/validate
+    method: GET
+    user: admin
+    password: "{{ sonarqube_admin_password }}"
+    force_basic_auth: yes
+    status_code: [200]
+  register: admin_auth_check
+  ignore_errors: yes
+
+- name: Change default admin password
+  uri:
+    url: http://127.0.0.1:9000/api/users/change_password
+    method: POST
+    user: admin
+    password: admin
+    force_basic_auth: yes
+    body_format: form-urlencoded
+    body:
+      login: admin
+      previousPassword: admin
+      password: "{{ sonarqube_admin_password }}"
+    status_code: [204]
+  when: admin_auth_check.json is not defined or admin_auth_check.json.valid != true
+
+- name: Check if TaskAI project exists
+  uri:
+    url: "http://127.0.0.1:9000/api/projects/search?projects=taskai"
+    method: GET
+    user: admin
+    password: "{{ sonarqube_admin_password }}"
+    force_basic_auth: yes
+    status_code: [200]
+  register: project_check
+
+- name: Create TaskAI project
+  uri:
+    url: http://127.0.0.1:9000/api/projects/create
+    method: POST
+    user: admin
+    password: "{{ sonarqube_admin_password }}"
+    force_basic_auth: yes
+    body_format: form-urlencoded
+    body:
+      name: TaskAI
+      project: taskai
+    status_code: [200]
+  when: project_check.json.paging.total == 0
+
+- name: Check if CI token already exists
+  uri:
+    url: "http://127.0.0.1:9000/api/user_tokens/search"
+    method: GET
+    user: admin
+    password: "{{ sonarqube_admin_password }}"
+    force_basic_auth: yes
+    status_code: [200]
+  register: token_check
+
+- name: Set token exists flag
+  set_fact:
+    ci_token_exists: "{{ token_check.json.userTokens | selectattr('name', 'equalto', 'ci-token') | list | length > 0 }}"
+
+- name: Generate CI user token
+  uri:
+    url: http://127.0.0.1:9000/api/user_tokens/generate
+    method: POST
+    user: admin
+    password: "{{ sonarqube_admin_password }}"
+    force_basic_auth: yes
+    body_format: form-urlencoded
+    body:
+      name: ci-token
+      type: GLOBAL_ANALYSIS_TOKEN
+    status_code: [200]
+  register: token_result
+  when: not ci_token_exists
+
+- name: Save token to file on server
+  copy:
+    content: "{{ token_result.json.token }}"
+    dest: /home/{{ app_user }}/sonarqube/.sonar-token
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0600'
+  when: not ci_token_exists
+
+- name: Display SonarQube token
+  debug:
+    msg: >
+      SonarQube configured! Token: {{ token_result.json.token }}
+      — Add this as SONAR_TOKEN secret in GitHub.
+  when: not ci_token_exists
+
+- name: Display existing token notice
+  debug:
+    msg: "SonarQube CI token already exists. Token saved at /home/{{ app_user }}/sonarqube/.sonar-token"
+  when: ci_token_exists
