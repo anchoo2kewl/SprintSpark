@@ -71,9 +71,9 @@ export default function ProjectDetail() {
       console.error('Failed to load swim lanes:', err)
       // Fallback to default swim lanes if fetch fails
       setSwimLanes([
-        { id: 0, project_id: Number(projectId), name: 'To Do', color: '#6B7280', position: 0, created_at: '', updated_at: '' },
-        { id: 1, project_id: Number(projectId), name: 'In Progress', color: '#3B82F6', position: 1, created_at: '', updated_at: '' },
-        { id: 2, project_id: Number(projectId), name: 'Done', color: '#10B981', position: 2, created_at: '', updated_at: '' },
+        { id: 0, project_id: Number(projectId), name: 'To Do', color: '#6B7280', position: 0, status_category: 'todo', created_at: '', updated_at: '' },
+        { id: 1, project_id: Number(projectId), name: 'In Progress', color: '#3B82F6', position: 1, status_category: 'in_progress', created_at: '', updated_at: '' },
+        { id: 2, project_id: Number(projectId), name: 'Done', color: '#10B981', position: 2, status_category: 'done', created_at: '', updated_at: '' },
       ])
     } finally {
       setLoadingSwimLanes(false)
@@ -125,16 +125,9 @@ export default function ProjectDetail() {
     const swimLane = swimLanes.find(l => l.id === newSwimLaneId)
     if (!swimLane) return
 
-    // Map swim lane names to status for backward compatibility
-    let newStatus: 'todo' | 'in_progress' | 'done' = task.status as 'todo' | 'in_progress' | 'done'
-    if (swimLane.name === 'To Do') newStatus = 'todo'
-    else if (swimLane.name === 'In Progress') newStatus = 'in_progress'
-    else if (swimLane.name === 'Done') newStatus = 'done'
-
     try {
-      // Optimistic update - UI updates instantly, syncs in background
+      // Backend auto-syncs status from swim lane's status_category
       await updateTask(taskId, {
-        status: newStatus,
         swim_lane_id: newSwimLaneId,
       })
     } catch (err) {
@@ -416,7 +409,8 @@ function DraggableTask({ task, projectId }: {
   } : undefined
 
   const handleClick = () => {
-    navigate(`/app/projects/${projectId}/tasks/${task.id}`, {
+    const taskIdentifier = task.task_number || task.id
+    navigate(`/app/projects/${projectId}/tasks/${taskIdentifier}`, {
       state: { backgroundLocation: location },
     })
   }
@@ -449,7 +443,10 @@ function TaskCard({ task, isDragging }: {
         isDragging ? 'shadow-linear-lg rotate-1' : ''
       } ${task.status === 'done' ? 'opacity-60' : ''}`}
     >
-      <h4 className="text-sm font-medium text-dark-text-primary hover:text-primary-400 transition-colors">{task.title}</h4>
+      <div className="flex items-center gap-2">
+        {task.task_number && <span className="text-xs font-mono text-dark-text-tertiary">#{task.task_number}</span>}
+        <h4 className="text-sm font-medium text-dark-text-primary hover:text-primary-400 transition-colors">{task.title}</h4>
+      </div>
       {task.assignee_id && (
         <div className="flex items-center gap-1.5 text-xs text-dark-text-tertiary mt-2">
           <div className="w-4 h-4 rounded-full bg-primary-500/10 flex items-center justify-center">

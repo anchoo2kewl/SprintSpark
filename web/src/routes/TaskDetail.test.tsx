@@ -4,7 +4,7 @@ import TaskDetail from './TaskDetail'
 
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', () => ({
-  useParams: () => ({ projectId: '7', taskId: '1' }),
+  useParams: () => ({ projectId: '7', taskNumber: '1' }),
   useNavigate: () => mockNavigate,
 }))
 
@@ -19,6 +19,7 @@ vi.mock('remark-gfm', () => ({
 
 const mocks = vi.hoisted(() => ({
   getTasks: vi.fn(),
+  getTaskByNumber: vi.fn(),
   updateTask: vi.fn(),
   getSprints: vi.fn(),
   getSwimLanes: vi.fn(),
@@ -36,41 +37,30 @@ vi.mock('../lib/api', () => ({
   apiClient: mocks,
 }))
 
-const tasks = [
-  {
-    id: 1,
-    project_id: 7,
-    title: 'Fix bug in login',
-    description: 'The login form crashes on empty submit',
-    status: 'in_progress',
-    priority: 'high',
-    swim_lane_id: 2,
-    assignee_id: null,
-    sprint_id: null,
-    due_date: '2024-02-01',
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-15T00:00:00Z',
-  },
-  {
-    id: 2,
-    project_id: 7,
-    title: 'Another task',
-    description: '',
-    status: 'todo',
-    priority: 'low',
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-  },
-]
+const task1 = {
+  id: 1,
+  project_id: 7,
+  task_number: 1,
+  title: 'Fix bug in login',
+  description: 'The login form crashes on empty submit',
+  status: 'in_progress',
+  priority: 'high',
+  swim_lane_id: 2,
+  assignee_id: null,
+  sprint_id: null,
+  due_date: '2024-02-01',
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-15T00:00:00Z',
+}
 
 describe('TaskDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.getTasks.mockResolvedValue(tasks)
+    mocks.getTaskByNumber.mockResolvedValue(task1)
     mocks.getSprints.mockResolvedValue([])
     mocks.getSwimLanes.mockResolvedValue([
-      { id: 1, project_id: 7, name: 'To Do', color: '#6B7280', position: 0 },
-      { id: 2, project_id: 7, name: 'In Progress', color: '#3B82F6', position: 1 },
+      { id: 1, project_id: 7, name: 'To Do', color: '#6B7280', position: 0, status_category: 'todo' },
+      { id: 2, project_id: 7, name: 'In Progress', color: '#3B82F6', position: 1, status_category: 'in_progress' },
     ])
     mocks.getTaskComments.mockResolvedValue([])
     mocks.getProjectMembers.mockResolvedValue([])
@@ -78,7 +68,7 @@ describe('TaskDetail', () => {
   })
 
   it('shows loading state initially', () => {
-    mocks.getTasks.mockReturnValue(new Promise(() => {}))
+    mocks.getTaskByNumber.mockReturnValue(new Promise(() => {}))
     render(<TaskDetail />)
     expect(screen.queryByText('Fix bug in login')).not.toBeInTheDocument()
   })
@@ -117,7 +107,7 @@ describe('TaskDetail', () => {
   })
 
   it('shows error when task not found', async () => {
-    mocks.getTasks.mockResolvedValue([])
+    mocks.getTaskByNumber.mockRejectedValue(new Error('Task not found'))
     render(<TaskDetail />)
     await waitFor(() => {
       expect(screen.getByText('Task not found')).toBeInTheDocument()
@@ -125,7 +115,7 @@ describe('TaskDetail', () => {
   })
 
   it('shows error on API failure', async () => {
-    mocks.getTasks.mockRejectedValue(new Error('Network error'))
+    mocks.getTaskByNumber.mockRejectedValue(new Error('Network error'))
     render(<TaskDetail />)
     await waitFor(() => {
       expect(screen.getByText('Network error')).toBeInTheDocument()

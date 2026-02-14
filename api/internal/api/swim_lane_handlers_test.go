@@ -18,20 +18,21 @@ func createDefaultSwimLanes(t *testing.T, ts *TestServer, projectID int64) [3]in
 	defer cancel()
 
 	defaults := []struct {
-		name     string
-		color    string
-		position int
+		name           string
+		color          string
+		position       int
+		statusCategory string
 	}{
-		{"To Do", "#6B7280", 0},
-		{"In Progress", "#3B82F6", 1},
-		{"Done", "#10B981", 2},
+		{"To Do", "#6B7280", 0, "todo"},
+		{"In Progress", "#3B82F6", 1, "in_progress"},
+		{"Done", "#10B981", 2, "done"},
 	}
 
 	var ids [3]int64
 	for i, sl := range defaults {
 		result, err := ts.DB.ExecContext(ctx,
-			`INSERT INTO swim_lanes (project_id, name, color, position) VALUES (?, ?, ?, ?)`,
-			projectID, sl.name, sl.color, sl.position,
+			`INSERT INTO swim_lanes (project_id, name, color, position, status_category) VALUES (?, ?, ?, ?, ?)`,
+			projectID, sl.name, sl.color, sl.position, sl.statusCategory,
 		)
 		if err != nil {
 			t.Fatalf("Failed to create swim lane %q: %v", sl.name, err)
@@ -91,9 +92,10 @@ func TestHandleCreateSwimLane(t *testing.T) {
 	createDefaultSwimLanes(t, ts, projectID)
 
 	body := CreateSwimLaneRequest{
-		Name:     "Review",
-		Color:    "#F59E0B",
-		Position: 3,
+		Name:           "Review",
+		Color:          "#F59E0B",
+		Position:       3,
+		StatusCategory: "in_progress",
 	}
 
 	rec, req := ts.MakeAuthRequest(t, http.MethodPost, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), body, userID,
@@ -115,6 +117,9 @@ func TestHandleCreateSwimLane(t *testing.T) {
 	if lane.Position != 3 {
 		t.Errorf("Expected position 3, got %d", lane.Position)
 	}
+	if lane.StatusCategory != "in_progress" {
+		t.Errorf("Expected status_category 'in_progress', got %q", lane.StatusCategory)
+	}
 	if lane.ProjectID != projectID {
 		t.Errorf("Expected project_id %d, got %d", projectID, lane.ProjectID)
 	}
@@ -131,8 +136,9 @@ func TestHandleCreateSwimLaneDefaultColor(t *testing.T) {
 	projectID := ts.CreateTestProject(t, userID, "Test Project")
 
 	body := CreateSwimLaneRequest{
-		Name:     "Backlog",
-		Position: 0,
+		Name:           "Backlog",
+		Position:       0,
+		StatusCategory: "todo",
 	}
 
 	rec, req := ts.MakeAuthRequest(t, http.MethodPost, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), body, userID,
@@ -159,15 +165,27 @@ func TestHandleCreateSwimLaneValidation(t *testing.T) {
 	}{
 		{
 			name:       "missing name",
-			body:       CreateSwimLaneRequest{Name: "", Color: "#FF0000", Position: 0},
+			body:       CreateSwimLaneRequest{Name: "", Color: "#FF0000", Position: 0, StatusCategory: "todo"},
 			wantStatus: http.StatusBadRequest,
 			wantError:  "swim lane name is required",
 		},
 		{
 			name:       "name too long",
-			body:       CreateSwimLaneRequest{Name: strings.Repeat("x", 51), Color: "#FF0000", Position: 0},
+			body:       CreateSwimLaneRequest{Name: strings.Repeat("x", 51), Color: "#FF0000", Position: 0, StatusCategory: "todo"},
 			wantStatus: http.StatusBadRequest,
 			wantError:  "swim lane name is too long",
+		},
+		{
+			name:       "missing status_category",
+			body:       CreateSwimLaneRequest{Name: "Valid", Color: "#FF0000", Position: 0},
+			wantStatus: http.StatusBadRequest,
+			wantError:  "status_category is required",
+		},
+		{
+			name:       "invalid status_category",
+			body:       CreateSwimLaneRequest{Name: "Valid", Color: "#FF0000", Position: 0, StatusCategory: "invalid"},
+			wantStatus: http.StatusBadRequest,
+			wantError:  "invalid status_category",
 		},
 	}
 
@@ -202,8 +220,8 @@ func TestHandleCreateSwimLaneMaxLimit(t *testing.T) {
 	// Create 6 swim lanes (the maximum)
 	for i := 0; i < 6; i++ {
 		_, err := ts.DB.ExecContext(ctx,
-			`INSERT INTO swim_lanes (project_id, name, color, position) VALUES (?, ?, ?, ?)`,
-			projectID, fmt.Sprintf("Lane %d", i), "#AABBCC", i,
+			`INSERT INTO swim_lanes (project_id, name, color, position, status_category) VALUES (?, ?, ?, ?, ?)`,
+			projectID, fmt.Sprintf("Lane %d", i), "#AABBCC", i, "todo",
 		)
 		if err != nil {
 			t.Fatalf("Failed to create swim lane %d: %v", i, err)
@@ -211,9 +229,10 @@ func TestHandleCreateSwimLaneMaxLimit(t *testing.T) {
 	}
 
 	body := CreateSwimLaneRequest{
-		Name:     "Seventh Lane",
-		Color:    "#FF0000",
-		Position: 6,
+		Name:           "Seventh Lane",
+		Color:          "#FF0000",
+		Position:       6,
+		StatusCategory: "todo",
 	}
 
 	rec, req := ts.MakeAuthRequest(t, http.MethodPost, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), body, userID,
@@ -371,8 +390,8 @@ func TestHandleDeleteSwimLaneMinimumLimit(t *testing.T) {
 
 	// Create exactly 2 swim lanes (the minimum)
 	result1, err := ts.DB.ExecContext(ctx,
-		`INSERT INTO swim_lanes (project_id, name, color, position) VALUES (?, ?, ?, ?)`,
-		projectID, "To Do", "#6B7280", 0,
+		`INSERT INTO swim_lanes (project_id, name, color, position, status_category) VALUES (?, ?, ?, ?, ?)`,
+		projectID, "To Do", "#6B7280", 0, "todo",
 	)
 	if err != nil {
 		t.Fatalf("Failed to create swim lane: %v", err)
@@ -383,8 +402,8 @@ func TestHandleDeleteSwimLaneMinimumLimit(t *testing.T) {
 	}
 
 	_, err = ts.DB.ExecContext(ctx,
-		`INSERT INTO swim_lanes (project_id, name, color, position) VALUES (?, ?, ?, ?)`,
-		projectID, "Done", "#10B981", 1,
+		`INSERT INTO swim_lanes (project_id, name, color, position, status_category) VALUES (?, ?, ?, ?, ?)`,
+		projectID, "Done", "#10B981", 1, "done",
 	)
 	if err != nil {
 		t.Fatalf("Failed to create swim lane: %v", err)
@@ -426,9 +445,10 @@ func TestHandleCreateSwimLaneUnauthorized(t *testing.T) {
 	projectID := ts.CreateTestProject(t, user1ID, "User1 Project")
 
 	body := CreateSwimLaneRequest{
-		Name:     "Hacked Lane",
-		Color:    "#FF0000",
-		Position: 0,
+		Name:           "Hacked Lane",
+		Color:          "#FF0000",
+		Position:       0,
+		StatusCategory: "todo",
 	}
 
 	rec, req := ts.MakeAuthRequest(t, http.MethodPost, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), body, user2ID,
@@ -497,7 +517,7 @@ func TestHandleCreateSwimLaneInvalidProjectID(t *testing.T) {
 	defer ts.Close()
 
 	userID := ts.CreateTestUser(t, "test@example.com", "password123")
-	body := CreateSwimLaneRequest{Name: "Lane", Color: "#FF0000", Position: 0}
+	body := CreateSwimLaneRequest{Name: "Lane", Color: "#FF0000", Position: 0, StatusCategory: "todo"}
 
 	rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/projects/abc/swim-lanes", body, userID,
 		map[string]string{"projectId": "abc"})
@@ -646,9 +666,10 @@ func TestHandleCreateSwimLaneNegativePosition(t *testing.T) {
 	projectID := ts.CreateTestProject(t, userID, "Test Project")
 
 	body := CreateSwimLaneRequest{
-		Name:     "Backlog",
-		Color:    "#FF0000",
-		Position: -5,
+		Name:           "Backlog",
+		Color:          "#FF0000",
+		Position:       -5,
+		StatusCategory: "todo",
 	}
 
 	rec, req := ts.MakeAuthRequest(t, http.MethodPost, fmt.Sprintf("/api/projects/%d/swim-lanes", projectID), body, userID,

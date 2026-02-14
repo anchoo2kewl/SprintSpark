@@ -49,9 +49,9 @@ const teamMembers = [
 ]
 
 const swimLanes = [
-  { id: 1, project_id: 42, name: 'To Do', color: '#6B7280', position: 0, created_at: '', updated_at: '' },
-  { id: 2, project_id: 42, name: 'In Progress', color: '#3B82F6', position: 1, created_at: '', updated_at: '' },
-  { id: 3, project_id: 42, name: 'Done', color: '#10B981', position: 2, created_at: '', updated_at: '' },
+  { id: 1, project_id: 42, name: 'To Do', color: '#6B7280', position: 0, status_category: 'todo' as const, created_at: '', updated_at: '' },
+  { id: 2, project_id: 42, name: 'In Progress', color: '#3B82F6', position: 1, status_category: 'in_progress' as const, created_at: '', updated_at: '' },
+  { id: 3, project_id: 42, name: 'Done', color: '#10B981', position: 2, status_category: 'done' as const, created_at: '', updated_at: '' },
 ]
 
 describe('ProjectSettings', () => {
@@ -110,9 +110,9 @@ describe('ProjectSettings', () => {
     it('displays current swim lanes', async () => {
       render(<ProjectSettings />)
       await waitFor(() => {
-        expect(screen.getByText('To Do')).toBeInTheDocument()
-        expect(screen.getByText('In Progress')).toBeInTheDocument()
-        expect(screen.getByText('Done')).toBeInTheDocument()
+        expect(screen.getAllByText('To Do').length).toBeGreaterThanOrEqual(1)
+        expect(screen.getAllByText('In Progress').length).toBeGreaterThanOrEqual(1)
+        expect(screen.getAllByText('Done').length).toBeGreaterThanOrEqual(1)
         expect(screen.getByText('Current Swim Lanes (3)')).toBeInTheDocument()
       })
     })
@@ -135,6 +135,7 @@ describe('ProjectSettings', () => {
           name: 'Review',
           color: '#6B7280',
           position: 3,
+          status_category: 'todo',
         })
       })
     })
@@ -199,7 +200,8 @@ describe('ProjectSettings', () => {
       const editButtons = screen.getAllByTitle('Edit')
       await user.click(editButtons[0])
 
-      expect(screen.getByDisplayValue('To Do')).toBeInTheDocument()
+      const editInputs = screen.getAllByDisplayValue('To Do')
+      expect(editInputs.length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('Save')).toBeInTheDocument()
     })
   })

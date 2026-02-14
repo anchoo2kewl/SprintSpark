@@ -15,6 +15,7 @@ export interface Project {
 export interface Task {
   id: string;
   project_id: string;
+  task_number: number;
   title: string;
   description: string;
   status: string;
@@ -31,6 +32,7 @@ export interface SwimLane {
   name: string;
   color: string;
   position: number;
+  status_category: string;
   created_at: string;
   updated_at: string;
   [key: string]: unknown;
@@ -104,6 +106,10 @@ export class TaskAIClient {
     if (params?.limit) qs.set("limit", String(params.limit));
     const suffix = qs.toString() ? `?${qs}` : "";
     return this.request(`/api/projects/${encodeURIComponent(projectId)}/tasks${suffix}`);
+  }
+
+  async getTaskByNumber(projectId: string, taskNumber: number): Promise<Task> {
+    return this.request<Task>(`/api/projects/${encodeURIComponent(projectId)}/tasks/${taskNumber}`);
   }
 
   async listSwimLanes(projectId: string): Promise<SwimLane[]> {

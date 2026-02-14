@@ -218,9 +218,16 @@ func (ts *TestServer) CreateTestTask(t *testing.T, projectID int64, title string
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Get next task_number for this project
+	var nextNumber int64
+	err := ts.DB.QueryRowContext(ctx, `SELECT COALESCE(MAX(task_number), 0) + 1 FROM tasks WHERE project_id = ?`, projectID).Scan(&nextNumber)
+	if err != nil {
+		t.Fatalf("Failed to get next task number: %v", err)
+	}
+
 	result, err := ts.DB.ExecContext(ctx,
-		`INSERT INTO tasks (project_id, title, status, priority) VALUES (?, ?, 'todo', 'medium')`,
-		projectID, title,
+		`INSERT INTO tasks (project_id, task_number, title, status, priority) VALUES (?, ?, ?, 'todo', 'medium')`,
+		projectID, nextNumber, title,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create test task: %v", err)

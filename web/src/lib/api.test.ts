@@ -540,8 +540,8 @@ describe('ApiClient', () => {
 
   describe('createSwimLane', () => {
     it('sends POST with swim lane data', async () => {
-      mockResponse({ id: 1, name: 'In Progress', color: '#00F', position: 1 })
-      await apiClient.createSwimLane(5, { name: 'In Progress', color: '#00F', position: 1 })
+      mockResponse({ id: 1, name: 'In Progress', color: '#00F', position: 1, status_category: 'in_progress' })
+      await apiClient.createSwimLane(5, { name: 'In Progress', color: '#00F', position: 1, status_category: 'in_progress' })
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/projects/5/swim-lanes'),

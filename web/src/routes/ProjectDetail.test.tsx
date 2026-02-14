@@ -61,9 +61,9 @@ const project = {
 }
 
 const swimLanes = [
-  { id: 1, project_id: 7, name: 'To Do', color: '#6B7280', position: 0, created_at: '', updated_at: '' },
-  { id: 2, project_id: 7, name: 'In Progress', color: '#3B82F6', position: 1, created_at: '', updated_at: '' },
-  { id: 3, project_id: 7, name: 'Done', color: '#10B981', position: 2, created_at: '', updated_at: '' },
+  { id: 1, project_id: 7, name: 'To Do', color: '#6B7280', position: 0, status_category: 'todo' as const, created_at: '', updated_at: '' },
+  { id: 2, project_id: 7, name: 'In Progress', color: '#3B82F6', position: 1, status_category: 'in_progress' as const, created_at: '', updated_at: '' },
+  { id: 3, project_id: 7, name: 'Done', color: '#10B981', position: 2, status_category: 'done' as const, created_at: '', updated_at: '' },
 ]
 
 describe('ProjectDetail', () => {

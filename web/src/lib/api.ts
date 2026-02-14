@@ -7,7 +7,7 @@ export type AuthResponse = components['schemas']['AuthResponse']
 export type SignupRequest = components['schemas']['SignupRequest']
 export type LoginRequest = components['schemas']['LoginRequest']
 export type Project = components['schemas']['Project']
-export type Task = components['schemas']['Task']
+export type Task = components['schemas']['Task'] & { task_number?: number }
 export type ApiError = components['schemas']['Error']
 // Types with required fields for commonly used API responses
 export interface TaskComment {
@@ -204,6 +204,7 @@ export interface SwimLane {
   name: string
   color: string
   position: number
+  status_category: 'todo' | 'in_progress' | 'done'
   created_at: string
   updated_at: string
 }
@@ -212,12 +213,14 @@ export interface CreateSwimLaneRequest {
   name: string
   color: string
   position: number
+  status_category: 'todo' | 'in_progress' | 'done'
 }
 
 export interface UpdateSwimLaneRequest {
   name?: string
   color?: string
   position?: number
+  status_category?: 'todo' | 'in_progress' | 'done'
 }
 
 // Helper types for API responses (using available operations)
@@ -432,6 +435,10 @@ class ApiClient {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
+  }
+
+  async getTaskByNumber(projectId: number, taskNumber: number): Promise<Task> {
+    return this.request<Task>(`/api/projects/${projectId}/tasks/${taskNumber}`)
   }
 
   async deleteTask(id: number): Promise<void> {

@@ -504,6 +504,50 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/projects/{projectId}/tasks/{taskNumber}:
+    get:
+      summary: Get Task by Number
+      description: Get a single task by its project-scoped task number
+      tags: [Tasks]
+      operationId: getTaskByNumber
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectIdPath"
+        - name: taskNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: Project-scoped task number
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "400":
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/tasks/{id}:
     patch:
       summary: Update Task
@@ -2391,6 +2435,11 @@ components:
           type: integer
           format: int64
           example: 1
+        task_number:
+          type: integer
+          format: int64
+          example: 1
+          description: "Project-scoped task number (starts from 1 per project)"
         title:
           type: string
           example: "Implement feature"
@@ -2463,6 +2512,11 @@ components:
         position:
           type: integer
           example: 0
+        status_category:
+          type: string
+          enum: [todo, in_progress, done]
+          example: "todo"
+          description: "Maps this swim lane to a task status category"
         created_at:
           type: string
           format: date-time

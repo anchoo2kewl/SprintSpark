@@ -14,6 +14,7 @@ import (
 type Task struct {
 	ID             int64     `json:"id"`
 	ProjectID      int64     `json:"project_id"`
+	TaskNumber     int64     `json:"task_number"`
 	Title          string    `json:"title"`
 	Description    *string   `json:"description,omitempty"`
 	Status         string    `json:"status"`
@@ -85,7 +86,7 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 
 	// First, fetch all tasks with assignee, sprint, and swim lane names
 	query := `
-		SELECT t.id, t.project_id, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
+		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
 		       t.sprint_id, s.name as sprint_name,
 		       t.priority, t.assignee_id, u.name as assignee_name,
 		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
@@ -111,7 +112,8 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var t Task
 		var priority sql.NullString
-		if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
+		var taskNumber sql.NullInt64
+		if err := rows.Scan(&t.ID, &t.ProjectID, &taskNumber, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
 			&t.SprintID, &t.SprintName, &priority, &t.AssigneeID, &t.AssigneeName,
 			&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to scan task", "internal_error")
@@ -120,6 +122,9 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		t.Priority = "medium" // default
 		if priority.Valid {
 			t.Priority = priority.String
+		}
+		if taskNumber.Valid {
+			t.TaskNumber = taskNumber.Int64
 		}
 		t.Tags = []Tag{} // Initialize empty tags array
 
@@ -223,26 +228,21 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If swim_lane_id is not provided, find the default swim lane for the status
+	// Sync swim_lane_id and status
 	var swimLaneID *int64
 	if req.SwimLaneID != nil {
 		swimLaneID = req.SwimLaneID
-	} else {
-		// Map status to swim lane name
-		var laneName string
-		switch status {
-		case "todo":
-			laneName = "To Do"
-		case "in_progress":
-			laneName = "In Progress"
-		case "done":
-			laneName = "Done"
+		// Derive status from the swim lane's status_category
+		var category string
+		laneQuery := `SELECT status_category FROM swim_lanes WHERE id = ? AND project_id = ?`
+		if err := s.db.QueryRowContext(ctx, laneQuery, *req.SwimLaneID, projectID).Scan(&category); err == nil && category != "" {
+			status = category
 		}
-
-		// Find swim lane by name
+	} else {
+		// Find first swim lane matching the status category
 		var laneID int64
-		laneQuery := `SELECT id FROM swim_lanes WHERE project_id = ? AND name = ? LIMIT 1`
-		if err := s.db.QueryRowContext(ctx, laneQuery, projectID, laneName).Scan(&laneID); err == nil {
+		laneQuery := `SELECT id FROM swim_lanes WHERE project_id = ? AND status_category = ? ORDER BY position ASC LIMIT 1`
+		if err := s.db.QueryRowContext(ctx, laneQuery, projectID, status).Scan(&laneID); err == nil {
 			swimLaneID = &laneID
 		}
 	}
@@ -259,12 +259,28 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Assign task_number atomically using a transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to start transaction", "internal_error")
+		return
+	}
+	defer tx.Rollback()
+
+	// Get next task_number for this project
+	var nextNumber int64
+	err = tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(task_number), 0) + 1 FROM tasks WHERE project_id = ?`, projectID).Scan(&nextNumber)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to get next task number", "internal_error")
+		return
+	}
+
 	query := `
-		INSERT INTO tasks (project_id, title, description, status, swim_lane_id, due_date, sprint_id, priority, assignee_id, estimated_hours, actual_hours, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO tasks (project_id, task_number, title, description, status, swim_lane_id, due_date, sprint_id, priority, assignee_id, estimated_hours, actual_hours, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 
-	result, err := s.db.ExecContext(ctx, query, projectID, req.Title, req.Description, status, swimLaneID, req.DueDate, req.SprintID, priority, req.AssigneeID, req.EstimatedHours, req.ActualHours)
+	result, err := tx.ExecContext(ctx, query, projectID, nextNumber, req.Title, req.Description, status, swimLaneID, req.DueDate, req.SprintID, priority, req.AssigneeID, req.EstimatedHours, req.ActualHours)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to create task", "internal_error")
 		return
@@ -279,7 +295,7 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	// Add tags if provided
 	if len(req.TagIDs) > 0 {
 		for _, tagID := range req.TagIDs {
-			_, err := s.db.ExecContext(ctx, "INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)", taskID, tagID)
+			_, err := tx.ExecContext(ctx, "INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)", taskID, tagID)
 			if err != nil {
 				// Continue even if tag insertion fails
 				continue
@@ -287,11 +303,16 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err := tx.Commit(); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to commit task creation", "internal_error")
+		return
+	}
+
 	// Fetch the created task with assignee, sprint, and swim lane names
 	var t Task
 	var priorityVal sql.NullString
 	fetchQuery := `
-		SELECT t.id, t.project_id, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
+		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
 		       t.sprint_id, s.name as sprint_name,
 		       t.priority, t.assignee_id, u.name as assignee_name,
 		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
@@ -302,7 +323,7 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		WHERE t.id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
+		&t.ID, &t.ProjectID, &t.TaskNumber, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
 		&t.SprintID, &t.SprintName, &priorityVal, &t.AssigneeID, &t.AssigneeName,
 		&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
 	)
@@ -400,16 +421,46 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		args = append(args, *req.Description)
 	}
 
-	if req.Status != nil {
+	// Swim lane/status sync: if swim_lane_id changes, derive status; if status changes, find matching lane
+	if req.SwimLaneID != nil && req.Status == nil {
+		// Swim lane changed — derive status from lane's status_category
+		var category string
+		laneQuery := `SELECT status_category FROM swim_lanes WHERE id = ? AND project_id = ?`
+		if err := s.db.QueryRowContext(ctx, laneQuery, *req.SwimLaneID, projectID).Scan(&category); err == nil && category != "" {
+			query += ", status = ?"
+			args = append(args, category)
+		}
+		query += ", swim_lane_id = ?"
+		args = append(args, *req.SwimLaneID)
+	} else if req.Status != nil && req.SwimLaneID == nil {
+		// Status changed — find first swim lane with matching status_category
 		if *req.Status != "todo" && *req.Status != "in_progress" && *req.Status != "done" {
 			respondError(w, http.StatusBadRequest, "invalid status (must be: todo, in_progress, or done)", "invalid_input")
 			return
 		}
 		query += ", status = ?"
 		args = append(args, *req.Status)
-	}
-
-	if req.SwimLaneID != nil {
+		var laneID int64
+		laneQuery := `SELECT id FROM swim_lanes WHERE project_id = ? AND status_category = ? ORDER BY position ASC LIMIT 1`
+		if err := s.db.QueryRowContext(ctx, laneQuery, projectID, *req.Status).Scan(&laneID); err == nil {
+			query += ", swim_lane_id = ?"
+			args = append(args, laneID)
+		}
+	} else if req.Status != nil && req.SwimLaneID != nil {
+		// Both provided — trust swim_lane_id, derive status from it
+		if *req.Status != "todo" && *req.Status != "in_progress" && *req.Status != "done" {
+			respondError(w, http.StatusBadRequest, "invalid status (must be: todo, in_progress, or done)", "invalid_input")
+			return
+		}
+		var category string
+		laneQuery := `SELECT status_category FROM swim_lanes WHERE id = ? AND project_id = ?`
+		if err := s.db.QueryRowContext(ctx, laneQuery, *req.SwimLaneID, projectID).Scan(&category); err == nil && category != "" {
+			query += ", status = ?"
+			args = append(args, category)
+		} else {
+			query += ", status = ?"
+			args = append(args, *req.Status)
+		}
 		query += ", swim_lane_id = ?"
 		args = append(args, *req.SwimLaneID)
 	}
@@ -461,7 +512,7 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 	var t Task
 	var priorityVal sql.NullString
 	fetchQuery := `
-		SELECT t.id, t.project_id, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
+		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
 		       t.sprint_id, s.name as sprint_name,
 		       t.priority, t.assignee_id, u.name as assignee_name,
 		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
@@ -472,7 +523,7 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		WHERE t.id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, taskID).Scan(
-		&t.ID, &t.ProjectID, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
+		&t.ID, &t.ProjectID, &t.TaskNumber, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
 		&t.SprintID, &t.SprintName, &priorityVal, &t.AssigneeID, &t.AssigneeName,
 		&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
 	)
@@ -561,6 +612,88 @@ func (s *Server) HandleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// HandleGetTaskByNumber returns a single task by project-scoped task number
+func (s *Server) HandleGetTaskByNumber(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	userID := r.Context().Value(UserIDKey).(int64)
+	projectID, err := strconv.ParseInt(chi.URLParam(r, "projectId"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid project ID", "invalid_input")
+		return
+	}
+	taskNumber, err := strconv.ParseInt(chi.URLParam(r, "taskNumber"), 10, 64)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "invalid task number", "invalid_input")
+		return
+	}
+
+	// Verify user has access to this project
+	hasAccess, err := s.checkProjectAccess(ctx, userID, projectID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to verify project access", "internal_error")
+		return
+	}
+	if !hasAccess {
+		respondError(w, http.StatusForbidden, "access denied", "forbidden")
+		return
+	}
+
+	var t Task
+	var priorityVal sql.NullString
+	fetchQuery := `
+		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status, t.swim_lane_id, sl.name as swim_lane_name, t.due_date,
+		       t.sprint_id, s.name as sprint_name,
+		       t.priority, t.assignee_id, u.name as assignee_name,
+		       t.estimated_hours, t.actual_hours, t.created_at, t.updated_at
+		FROM tasks t
+		LEFT JOIN users u ON t.assignee_id = u.id
+		LEFT JOIN sprints s ON t.sprint_id = s.id
+		LEFT JOIN swim_lanes sl ON t.swim_lane_id = sl.id
+		WHERE t.project_id = ? AND t.task_number = ?
+	`
+	err = s.db.QueryRowContext(ctx, fetchQuery, projectID, taskNumber).Scan(
+		&t.ID, &t.ProjectID, &t.TaskNumber, &t.Title, &t.Description, &t.Status, &t.SwimLaneID, &t.SwimLaneName, &t.DueDate,
+		&t.SprintID, &t.SprintName, &priorityVal, &t.AssigneeID, &t.AssigneeName,
+		&t.EstimatedHours, &t.ActualHours, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		respondError(w, http.StatusNotFound, "task not found", "not_found")
+		return
+	}
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to fetch task", "internal_error")
+		return
+	}
+
+	t.Priority = "medium"
+	if priorityVal.Valid {
+		t.Priority = priorityVal.String
+	}
+
+	// Fetch tags
+	tagQuery := `
+		SELECT tg.id, tg.user_id, tg.name, tg.color, tg.created_at
+		FROM tags tg
+		JOIN task_tags tt ON tg.id = tt.tag_id
+		WHERE tt.task_id = ?
+	`
+	tagRows, err := s.db.QueryContext(ctx, tagQuery, t.ID)
+	if err == nil {
+		defer tagRows.Close()
+		t.Tags = []Tag{}
+		for tagRows.Next() {
+			var tag Tag
+			if err := tagRows.Scan(&tag.ID, &tag.UserID, &tag.Name, &tag.Color, &tag.CreatedAt); err == nil {
+				t.Tags = append(t.Tags, tag)
+			}
+		}
+	}
+
+	respondJSON(w, http.StatusOK, t)
 }
 
 // checkProjectAccess verifies that a user has access to a project via project_members table

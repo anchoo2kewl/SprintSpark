@@ -13,25 +13,28 @@ import (
 )
 
 type SwimLane struct {
-	ID        int64     `json:"id"`
-	ProjectID int64     `json:"project_id"`
-	Name      string    `json:"name"`
-	Color     string    `json:"color"`
-	Position  int       `json:"position"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID             int64     `json:"id"`
+	ProjectID      int64     `json:"project_id"`
+	Name           string    `json:"name"`
+	Color          string    `json:"color"`
+	Position       int       `json:"position"`
+	StatusCategory string    `json:"status_category"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type CreateSwimLaneRequest struct {
-	Name     string `json:"name"`
-	Color    string `json:"color"`
-	Position int    `json:"position"`
+	Name           string `json:"name"`
+	Color          string `json:"color"`
+	Position       int    `json:"position"`
+	StatusCategory string `json:"status_category"`
 }
 
 type UpdateSwimLaneRequest struct {
-	Name     *string `json:"name,omitempty"`
-	Color    *string `json:"color,omitempty"`
-	Position *int    `json:"position,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	Color          *string `json:"color,omitempty"`
+	Position       *int    `json:"position,omitempty"`
+	StatusCategory *string `json:"status_category,omitempty"`
 }
 
 // HandleListSwimLanes returns all swim lanes for a project
@@ -61,7 +64,7 @@ func (s *Server) HandleListSwimLanes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		SELECT id, project_id, name, color, position, created_at, updated_at
+		SELECT id, project_id, name, color, position, status_category, created_at, updated_at
 		FROM swim_lanes
 		WHERE project_id = ?
 		ORDER BY position ASC
@@ -78,7 +81,7 @@ func (s *Server) HandleListSwimLanes(w http.ResponseWriter, r *http.Request) {
 	swimLanes := []SwimLane{}
 	for rows.Next() {
 		var sl SwimLane
-		if err := rows.Scan(&sl.ID, &sl.ProjectID, &sl.Name, &sl.Color, &sl.Position, &sl.CreatedAt, &sl.UpdatedAt); err != nil {
+		if err := rows.Scan(&sl.ID, &sl.ProjectID, &sl.Name, &sl.Color, &sl.Position, &sl.StatusCategory, &sl.CreatedAt, &sl.UpdatedAt); err != nil {
 			s.logger.Error("Failed to scan swim lane", zap.Error(err))
 			respondError(w, http.StatusInternalServerError, "failed to scan swim lane", "internal_error")
 			return
@@ -141,6 +144,16 @@ func (s *Server) HandleCreateSwimLane(w http.ResponseWriter, r *http.Request) {
 		req.Color = "#6B7280" // default gray
 	}
 
+	// Validate status_category
+	if req.StatusCategory == "" {
+		respondError(w, http.StatusBadRequest, "status_category is required (must be: todo, in_progress, or done)", "invalid_input")
+		return
+	}
+	if req.StatusCategory != "todo" && req.StatusCategory != "in_progress" && req.StatusCategory != "done" {
+		respondError(w, http.StatusBadRequest, "invalid status_category (must be: todo, in_progress, or done)", "invalid_input")
+		return
+	}
+
 	// Check swim lane count limit (max 6)
 	var count int
 	countQuery := `SELECT COUNT(*) FROM swim_lanes WHERE project_id = ?`
@@ -160,11 +173,11 @@ func (s *Server) HandleCreateSwimLane(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-		INSERT INTO swim_lanes (project_id, name, color, position, created_at, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO swim_lanes (project_id, name, color, position, status_category, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 
-	result, err := s.db.ExecContext(ctx, query, projectID, req.Name, req.Color, req.Position)
+	result, err := s.db.ExecContext(ctx, query, projectID, req.Name, req.Color, req.Position, req.StatusCategory)
 	if err != nil {
 		s.logger.Error("Failed to create swim lane", zap.Error(err), zap.Int64("projectID", projectID), zap.String("name", req.Name))
 		respondError(w, http.StatusInternalServerError, "failed to create swim lane", "internal_error")
@@ -181,12 +194,12 @@ func (s *Server) HandleCreateSwimLane(w http.ResponseWriter, r *http.Request) {
 	// Fetch the created swim lane
 	var sl SwimLane
 	fetchQuery := `
-		SELECT id, project_id, name, color, position, created_at, updated_at
+		SELECT id, project_id, name, color, position, status_category, created_at, updated_at
 		FROM swim_lanes
 		WHERE id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, swimLaneID).Scan(
-		&sl.ID, &sl.ProjectID, &sl.Name, &sl.Color, &sl.Position, &sl.CreatedAt, &sl.UpdatedAt,
+		&sl.ID, &sl.ProjectID, &sl.Name, &sl.Color, &sl.Position, &sl.StatusCategory, &sl.CreatedAt, &sl.UpdatedAt,
 	)
 	if err != nil {
 		s.logger.Error("Failed to fetch created swim lane", zap.Error(err), zap.Int64("swimLaneID", swimLaneID))
@@ -274,6 +287,15 @@ func (s *Server) HandleUpdateSwimLane(w http.ResponseWriter, r *http.Request) {
 		args = append(args, *req.Position)
 	}
 
+	if req.StatusCategory != nil {
+		if *req.StatusCategory != "todo" && *req.StatusCategory != "in_progress" && *req.StatusCategory != "done" {
+			respondError(w, http.StatusBadRequest, "invalid status_category (must be: todo, in_progress, or done)", "invalid_input")
+			return
+		}
+		query += ", status_category = ?"
+		args = append(args, *req.StatusCategory)
+	}
+
 	query += " WHERE id = ?"
 	args = append(args, swimLaneID)
 
@@ -287,12 +309,12 @@ func (s *Server) HandleUpdateSwimLane(w http.ResponseWriter, r *http.Request) {
 	// Fetch the updated swim lane
 	var sl SwimLane
 	fetchQuery := `
-		SELECT id, project_id, name, color, position, created_at, updated_at
+		SELECT id, project_id, name, color, position, status_category, created_at, updated_at
 		FROM swim_lanes
 		WHERE id = ?
 	`
 	err = s.db.QueryRowContext(ctx, fetchQuery, swimLaneID).Scan(
-		&sl.ID, &sl.ProjectID, &sl.Name, &sl.Color, &sl.Position, &sl.CreatedAt, &sl.UpdatedAt,
+		&sl.ID, &sl.ProjectID, &sl.Name, &sl.Color, &sl.Position, &sl.StatusCategory, &sl.CreatedAt, &sl.UpdatedAt,
 	)
 	if err != nil {
 		s.logger.Error("Failed to fetch updated swim lane", zap.Error(err), zap.Int64("swimLaneID", swimLaneID))

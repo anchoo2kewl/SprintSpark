@@ -100,6 +100,7 @@ export const projectSchema: RxJsonSchema<ProjectDocument> = {
 export type TaskDocument = {
   id: number
   project_id: number
+  task_number?: number
   title: string
   description?: string
   status: 'todo' | 'in_progress' | 'done'
@@ -131,6 +132,9 @@ export const taskSchema: RxJsonSchema<TaskDocument> = {
       maxLength: 100,
     },
     project_id: {
+      type: 'number',
+    },
+    task_number: {
       type: 'number',
     },
     title: {

@@ -244,6 +244,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{projectId}/tasks/{taskNumber}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Task by Number
+         * @description Get a single task by its project-scoped task number
+         */
+        get: operations["getTaskByNumber"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tasks/{id}": {
         parameters: {
             query?: never;
@@ -1145,6 +1165,12 @@ export interface components {
              * @example 1
              */
             project_id?: number;
+            /**
+             * Format: int64
+             * @description Project-scoped task number (starts from 1 per project)
+             * @example 1
+             */
+            task_number?: number;
             /** @example Implement feature */
             title?: string;
             /** @example Task description in markdown */
@@ -1200,6 +1226,12 @@ export interface components {
             color?: string;
             /** @example 0 */
             position?: number;
+            /**
+             * @description Maps this swim lane to a task status category
+             * @example todo
+             * @enum {string}
+             */
+            status_category?: "todo" | "in_progress" | "done";
             /** Format: date-time */
             created_at?: string;
             /** Format: date-time */
@@ -2100,6 +2132,52 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTaskByNumber: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project ID */
+                projectId: components["parameters"]["ProjectIdPath"];
+                /** @description Project-scoped task number */
+                taskNumber: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            /** @description Invalid parameters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Task not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             500: components["responses"]["InternalError"];
         };
     };

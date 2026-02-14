@@ -26,16 +26,16 @@ func TestHandleListTasks(t *testing.T) {
 	defer cancel()
 
 	_, err := ts.DB.ExecContext(ctx,
-		`INSERT INTO tasks (project_id, title, description, status, priority) VALUES (?, ?, ?, ?, ?)`,
-		projectID, "Task 1", "Description 1", "todo", "high",
+		`INSERT INTO tasks (project_id, task_number, title, description, status, priority) VALUES (?, ?, ?, ?, ?, ?)`,
+		projectID, 1, "Task 1", "Description 1", "todo", "high",
 	)
 	if err != nil {
 		t.Fatalf("Failed to create task: %v", err)
 	}
 
 	_, err = ts.DB.ExecContext(ctx,
-		`INSERT INTO tasks (project_id, title, description, status, priority) VALUES (?, ?, ?, ?, ?)`,
-		projectID, "Task 2", "Description 2", "in_progress", "medium",
+		`INSERT INTO tasks (project_id, task_number, title, description, status, priority) VALUES (?, ?, ?, ?, ?, ?)`,
+		projectID, 2, "Task 2", "Description 2", "in_progress", "medium",
 	)
 	if err != nil {
 		t.Fatalf("Failed to create task: %v", err)

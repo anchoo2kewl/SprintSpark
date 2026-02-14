@@ -47,7 +47,7 @@ function createServer(client: TaskAIClient): McpServer {
   // --- list_swim_lanes ---
   server.tool(
     "list_swim_lanes",
-    "List swim lanes (columns) for a project",
+    "List swim lanes (columns) for a project. Each lane has a status_category (todo, in_progress, done) that determines task status.",
     { project_id: z.string().describe("Project ID") },
     async ({ project_id }) => {
       const lanes = await client.listSwimLanes(project_id);
@@ -58,7 +58,7 @@ function createServer(client: TaskAIClient): McpServer {
   // --- list_tasks ---
   server.tool(
     "list_tasks",
-    "List tasks in a project (optional status/search filter)",
+    "List tasks in a project (optional status/search filter). Each task includes a task_number which is the project-scoped identifier.",
     {
       project_id: z.string().describe("Project ID"),
       query: z.string().optional().describe("Search query"),
@@ -69,6 +69,20 @@ function createServer(client: TaskAIClient): McpServer {
     async ({ project_id, query, status, page, limit }) => {
       const result = await client.listTasks(project_id, { query, status, page, limit });
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  // --- get_task ---
+  server.tool(
+    "get_task",
+    "Get a single task by its project-scoped task number",
+    {
+      project_id: z.string().describe("Project ID"),
+      task_number: z.number().describe("Task number within the project (e.g. 1, 2, 3)"),
+    },
+    async ({ project_id, task_number }) => {
+      const task = await client.getTaskByNumber(project_id, task_number);
+      return { content: [{ type: "text", text: JSON.stringify(task, null, 2) }] };
     }
   );
 

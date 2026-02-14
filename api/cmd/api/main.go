@@ -148,6 +148,7 @@ func main() {
 			// Task routes
 			r.Get("/projects/{projectId}/tasks", server.HandleListTasks)
 			r.Post("/projects/{projectId}/tasks", server.HandleCreateTask)
+			r.Get("/projects/{projectId}/tasks/{taskNumber}", server.HandleGetTaskByNumber)
 			r.Patch("/tasks/{id}", server.HandleUpdateTask)
 			r.Delete("/tasks/{id}", server.HandleDeleteTask)
 

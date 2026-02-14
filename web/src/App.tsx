@@ -42,7 +42,7 @@ function AppRoutes() {
           <Route index element={<Projects />} />
           <Route path="projects/:projectId" element={<ProjectDetail />} />
           <Route path="projects/:projectId/settings" element={<ProjectSettings />} />
-          <Route path="projects/:projectId/tasks/:taskId" element={<TaskDetail />} />
+          <Route path="projects/:projectId/tasks/:taskNumber" element={<TaskDetail />} />
           <Route path="sprints" element={<Sprints />} />
           <Route path="tags" element={<Tags />} />
           <Route path="assets" element={<Assets />} />
@@ -58,7 +58,7 @@ function AppRoutes() {
       {bgLocation && (
         <Routes>
           <Route
-            path="/app/projects/:projectId/tasks/:taskId"
+            path="/app/projects/:projectId/tasks/:taskNumber"
             element={<TaskDetailModal />}
           />
         </Routes>

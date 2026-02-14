@@ -182,21 +182,22 @@ func (s *Server) HandleCreateProject(w http.ResponseWriter, r *http.Request) {
 
 	// Create default swim lanes for the new project
 	defaultSwimLanes := []struct {
-		name     string
-		color    string
-		position int
+		name           string
+		color          string
+		position       int
+		statusCategory string
 	}{
-		{"To Do", "#6B7280", 0},
-		{"In Progress", "#3B82F6", 1},
-		{"Done", "#10B981", 2},
+		{"To Do", "#6B7280", 0, "todo"},
+		{"In Progress", "#3B82F6", 1, "in_progress"},
+		{"Done", "#10B981", 2, "done"},
 	}
 
 	for _, sl := range defaultSwimLanes {
 		swimLaneQuery := `
-			INSERT INTO swim_lanes (project_id, name, color, position, created_at, updated_at)
-			VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			INSERT INTO swim_lanes (project_id, name, color, position, status_category, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		`
-		_, err = s.db.ExecContext(ctx, swimLaneQuery, projectID, sl.name, sl.color, sl.position)
+		_, err = s.db.ExecContext(ctx, swimLaneQuery, projectID, sl.name, sl.color, sl.position, sl.statusCategory)
 		if err != nil {
 			// Rollback by deleting the project if swim lane creation fails
 			s.db.ExecContext(ctx, "DELETE FROM projects WHERE id = ?", projectID)

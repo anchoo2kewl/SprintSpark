@@ -71,6 +71,7 @@ export default function ProjectSettings() {
   const [editLaneColor, setEditLaneColor] = useState('')
   const [newLaneName, setNewLaneName] = useState('')
   const [newLaneColor, setNewLaneColor] = useState('#6B7280')
+  const [newLaneStatusCategory, setNewLaneStatusCategory] = useState<'todo' | 'in_progress' | 'done'>('todo')
   const [swimLaneError, setSwimLaneError] = useState('')
   const [swimLaneSuccess, setSwimLaneSuccess] = useState('')
 
@@ -156,10 +157,12 @@ export default function ProjectSettings() {
         name: newLaneName.trim(),
         color: newLaneColor,
         position: swimLanes.length,
+        status_category: newLaneStatusCategory,
       })
       setSwimLaneSuccess('Swim lane created successfully')
       setNewLaneName('')
       setNewLaneColor('#6B7280')
+      setNewLaneStatusCategory('todo')
       loadSwimLanes()
     } catch (error: unknown) {
       setSwimLaneError(error instanceof Error ? error.message : 'Failed to create swim lane')
@@ -534,6 +537,20 @@ export default function ProjectSettings() {
                         className="w-full h-[42px] px-2 py-1 bg-dark-bg-secondary border border-dark-border-subtle rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors cursor-pointer"
                       />
                     </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-dark-text-primary mb-1">
+                      Status Category <span className="text-danger-400">*</span>
+                    </label>
+                    <select
+                      value={newLaneStatusCategory}
+                      onChange={(e) => setNewLaneStatusCategory(e.target.value as 'todo' | 'in_progress' | 'done')}
+                      className="w-full md:w-48 px-3 py-2 bg-dark-bg-secondary border border-dark-border-subtle text-dark-text-primary rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-colors"
+                    >
+                      <option value="todo">To Do</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="done">Done</option>
+                    </select>
                   </div>
                   <div className="mt-4">
                     <Button onClick={handleAddSwimLane} disabled={!newLaneName.trim()} size="sm">

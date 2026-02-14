@@ -11,7 +11,7 @@ interface TaskDetailProps {
 }
 
 export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
-  const { projectId, taskId } = useParams()
+  const { projectId, taskNumber } = useParams()
   const navigate = useNavigate()
   const [task, setTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
@@ -53,10 +53,15 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     loadTask()
     loadSprints()
     loadSwimLanes()
-    loadComments()
     loadMembers()
-    loadAttachments()
-  }, [projectId, taskId])
+  }, [projectId, taskNumber])
+
+  useEffect(() => {
+    if (task?.id) {
+      loadComments(task.id)
+      loadAttachments(task.id)
+    }
+  }, [task?.id])
 
   useEffect(() => {
     if (editingField === 'title') titleRef.current?.focus()
@@ -72,10 +77,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
   const loadTask = async () => {
     try {
       setLoading(true)
-      const tasks = await apiClient.getTasks(Number(projectId))
-      const found = tasks.find((t: Task) => t.id === Number(taskId))
-      if (found) setTask(found)
-      else setError('Task not found')
+      const found = await apiClient.getTaskByNumber(Number(projectId), Number(taskNumber))
+      setTask(found)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load task')
     } finally {
@@ -94,16 +97,20 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     } catch { /* ignore */ }
   }
 
-  const loadComments = async () => {
-    try { setComments(await apiClient.getTaskComments(Number(taskId))) } catch { /* ignore */ }
+  const loadComments = async (id?: number) => {
+    const taskId = id ?? task?.id
+    if (!taskId) return
+    try { setComments(await apiClient.getTaskComments(taskId)) } catch { /* ignore */ }
   }
 
   const loadMembers = async () => {
     try { setMembers(await apiClient.getProjectMembers(Number(projectId))) } catch { /* ignore */ }
   }
 
-  const loadAttachments = async () => {
-    try { setAttachments(await apiClient.getTaskAttachments(Number(taskId))) } catch { /* ignore */ }
+  const loadAttachments = async (id?: number) => {
+    const taskId = id ?? task?.id
+    if (!taskId) return
+    try { setAttachments(await apiClient.getTaskAttachments(taskId)) } catch { /* ignore */ }
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,7 +151,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       if (file.type.startsWith('video/')) fileType = 'video'
       else if (file.type === 'application/pdf') fileType = 'pdf'
 
-      await apiClient.createTaskAttachment(Number(taskId), {
+      await apiClient.createTaskAttachment(task!.id!, {
         filename: file.name,
         alt_name: altText,
         file_type: fileType,
@@ -168,7 +175,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
       message: 'Are you sure you want to delete this attachment? This cannot be undone.',
       onConfirm: async () => {
         try {
-          await apiClient.deleteTaskAttachment(Number(taskId), attachmentId)
+          await apiClient.deleteTaskAttachment(task!.id!, attachmentId)
           await loadAttachments()
         } catch (err: unknown) {
           setError(err instanceof Error ? err.message : 'Failed to delete attachment')
@@ -236,14 +243,8 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
           update.description = value?.trim() || ''
           break
         case 'swim_lane_id': {
-          const lid = Number(value)
-          update.swim_lane_id = lid
-          const lane = swimLanes.find(l => l.id === lid)
-          if (lane) {
-            if (lane.name === 'To Do') update.status = 'todo'
-            else if (lane.name === 'In Progress') update.status = 'in_progress'
-            else if (lane.name === 'Done') update.status = 'done'
-          }
+          // Backend auto-syncs status from swim lane's status_category
+          update.swim_lane_id = Number(value)
           break
         }
         case 'priority':
@@ -299,7 +300,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
     if (!newComment.trim()) return
     try {
       setPostingComment(true)
-      await apiClient.createTaskComment(Number(taskId), newComment.trim())
+      await apiClient.createTaskComment(task!.id!, newComment.trim())
       setNewComment('')
       await loadComments()
     } catch (err: unknown) {
@@ -420,6 +421,11 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
               </svg>
             </button>
           </div>
+
+          {/* Task number */}
+          {task.task_number && (
+            <span className="text-sm font-mono text-dark-text-tertiary mb-1">#{task.task_number}</span>
+          )}
 
           {/* Title - inline editable */}
           {editingField === 'title' ? (
@@ -921,7 +927,7 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
         <ImagePickerModal
           onSelect={insertImageMarkdown}
           onClose={() => setImagePickerTarget(null)}
-          taskId={Number(taskId)}
+          taskId={task!.id!}
           onUploadComplete={loadAttachments}
         />
       )}
