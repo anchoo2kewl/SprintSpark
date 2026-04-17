@@ -302,6 +302,37 @@ export class TaskAIClient {
     return this.request<WikiPageContent>(`/api/wiki/pages/${encodeURIComponent(pageId)}/content`);
   }
 
+  async getWikiPagePdf(pageId: string): Promise<{ data: string; filename: string }> {
+    const url = `${this.baseURL}/api/wiki/pages/${encodeURIComponent(pageId)}/pdf`;
+    const headers: Record<string, string> = { Authorization: `ApiKey ${this.apiKey}` };
+    if (this.agentName) headers["X-Agent-Name"] = this.agentName;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`API error ${res.status}: ${text}`);
+    }
+    const buf = await res.arrayBuffer();
+    const data = Buffer.from(buf).toString("base64");
+    const cd = res.headers.get("Content-Disposition") || "";
+    const filename = cd.match(/filename="(.+)"/)?.[1] || "wiki-page.pdf";
+    return { data, filename };
+  }
+
+  async getWikiPageMarkdown(pageId: string): Promise<{ content: string; filename: string }> {
+    const url = `${this.baseURL}/api/wiki/pages/${encodeURIComponent(pageId)}/markdown`;
+    const headers: Record<string, string> = { Authorization: `ApiKey ${this.apiKey}` };
+    if (this.agentName) headers["X-Agent-Name"] = this.agentName;
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`API error ${res.status}: ${text}`);
+    }
+    const content = await res.text();
+    const cd = res.headers.get("Content-Disposition") || "";
+    const filename = cd.match(/filename="(.+)"/)?.[1] || "wiki-page.md";
+    return { content, filename };
+  }
+
   async createWikiPage(projectId: string, title: string): Promise<WikiPage> {
     return this.request<WikiPage>(`/api/projects/${encodeURIComponent(projectId)}/wiki/pages`, {
       method: "POST",

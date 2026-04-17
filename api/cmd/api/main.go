@@ -458,6 +458,8 @@ func main() {
 			r.Get("/wiki/pages/{pageId}/versions", server.HandleListWikiPageVersions)
 			r.Get("/wiki/pages/{pageId}/versions/{versionNumber}", server.HandleGetWikiPageVersion)
 			r.Post("/wiki/pages/{pageId}/versions/{versionNumber}/restore", server.HandleRestoreWikiPageVersion)
+			r.Get("/wiki/pages/{pageId}/pdf", server.HandleWikiPagePDF)
+			r.Get("/wiki/pages/{pageId}/markdown", server.HandleWikiPageMarkdown)
 			r.Post("/wiki/preview", server.HandleWikiPreview)
 
 			// Wiki WebSocket route for real-time collaboration

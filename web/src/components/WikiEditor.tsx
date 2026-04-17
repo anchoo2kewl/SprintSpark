@@ -897,6 +897,9 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
   const [lastEditedAt, setLastEditedAt] = useState<string>(page.updated_at)
 
   // ── Version history state ─────────────────────────────────────
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false)
+  const [downloadLoading, setDownloadLoading] = useState<'pdf' | 'md' | null>(null)
+  const downloadMenuRef = useRef<HTMLDivElement>(null)
   const [showVersionHistory, setShowVersionHistory] = useState(false)
   const [versions, setVersions] = useState<WikiPageVersion[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
@@ -1395,7 +1398,43 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
     }
   }, [page.id, user?.name])
 
-  // ── Fullscreen overlay ───────────────────────────────────────
+  // ── Download handlers ─────────────────────────────────────────
+
+  const handleDownloadPdf = useCallback(async () => {
+    setDownloadLoading('pdf')
+    try {
+      await apiClient.downloadWikiPagePdf(page.id)
+    } catch {
+      // ignore — browser download handles errors
+    } finally {
+      setDownloadLoading(null)
+      setShowDownloadMenu(false)
+    }
+  }, [page.id])
+
+  const handleDownloadMarkdown = useCallback(async () => {
+    setDownloadLoading('md')
+    try {
+      await apiClient.downloadWikiPageMarkdown(page.id)
+    } catch {
+      // ignore
+    } finally {
+      setDownloadLoading(null)
+      setShowDownloadMenu(false)
+    }
+  }, [page.id])
+
+  // Close download menu on outside click
+  useEffect(() => {
+    if (!showDownloadMenu) return
+    const handler = (e: MouseEvent) => {
+      if (downloadMenuRef.current && !downloadMenuRef.current.contains(e.target as Node)) {
+        setShowDownloadMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showDownloadMenu])
 
   // ── Fullscreen overlay ───────────────────────────────────────
 
@@ -1647,6 +1686,41 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
+                <div className="relative" ref={downloadMenuRef}>
+                  <button
+                    onClick={() => setShowDownloadMenu(prev => !prev)}
+                    className="px-3 py-2 rounded text-sm font-medium transition-colors bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-tertiary/80"
+                    title="Download"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  {showDownloadMenu && (
+                    <div className="absolute right-0 top-full mt-1 w-44 bg-dark-bg-elevated border border-dark-border-medium rounded-lg shadow-linear-lg py-1 z-50">
+                      <button
+                        onClick={handleDownloadPdf}
+                        disabled={downloadLoading === 'pdf'}
+                        className="w-full text-left px-3 py-2 text-sm text-dark-text-secondary hover:bg-dark-bg-tertiary hover:text-dark-text-primary transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        {downloadLoading === 'pdf' ? 'Generating...' : 'Download PDF'}
+                      </button>
+                      <button
+                        onClick={handleDownloadMarkdown}
+                        disabled={downloadLoading === 'md'}
+                        className="w-full text-left px-3 py-2 text-sm text-dark-text-secondary hover:bg-dark-bg-tertiary hover:text-dark-text-primary transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        {downloadLoading === 'md' ? 'Downloading...' : 'Download Markdown'}
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => setIsFullscreen(true)}
                   className="px-3 py-2 rounded text-sm font-medium transition-colors bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-tertiary/80"

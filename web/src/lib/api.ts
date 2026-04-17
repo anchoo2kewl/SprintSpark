@@ -1844,6 +1844,32 @@ class ApiClient {
     )
   }
 
+  async downloadWikiPagePdf(pageId: number): Promise<void> {
+    const headers: Record<string, string> = {}
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+    const res = await fetch(`${this.baseURL}/api/wiki/pages/${pageId}/pdf`, { headers })
+    if (!res.ok) throw new Error(`PDF download failed: ${res.status}`)
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'wiki-page.pdf'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  async downloadWikiPageMarkdown(pageId: number): Promise<void> {
+    const headers: Record<string, string> = {}
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
+    const res = await fetch(`${this.baseURL}/api/wiki/pages/${pageId}/markdown`, { headers })
+    if (!res.ok) throw new Error(`Markdown download failed: ${res.status}`)
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'wiki-page.md'
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   async searchWiki(query: string, projectId?: number, limit?: number): Promise<{ results: WikiSearchResult[]; total: number }> {
     return this.request('/api/wiki/search', {
       method: 'POST',

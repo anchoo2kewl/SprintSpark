@@ -488,6 +488,41 @@ function createServer(client: TaskAIClient, cachedUser?: User): McpServer {
     }
   );
 
+  // --- download_wiki_pdf ---
+  server.tool(
+    "download_wiki_pdf",
+    "Generate and download a wiki page as PDF (rendered like the web view). Returns base64-encoded PDF data.",
+    {
+      page_id: z.string().describe("Wiki page ID"),
+    },
+    async ({ page_id }) => {
+      const result = await client.getWikiPagePdf(page_id);
+      return {
+        content: [
+          { type: "text", text: `PDF generated: ${result.filename} (${Math.round(result.data.length * 3 / 4 / 1024)} KB)` },
+          { type: "resource", resource: { uri: `data:application/pdf;base64,${result.data}`, mimeType: "application/pdf", text: result.data } },
+        ],
+      };
+    }
+  );
+
+  // --- download_wiki_markdown ---
+  server.tool(
+    "download_wiki_markdown",
+    "Download a wiki page as raw Markdown file",
+    {
+      page_id: z.string().describe("Wiki page ID"),
+    },
+    async ({ page_id }) => {
+      const result = await client.getWikiPageMarkdown(page_id);
+      return {
+        content: [
+          { type: "text", text: `Markdown file: ${result.filename}\n\n${result.content}` },
+        ],
+      };
+    }
+  );
+
   // --- autocomplete_wiki_pages ---
   server.tool(
     "autocomplete_wiki_pages",

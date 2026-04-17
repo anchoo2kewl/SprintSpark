@@ -35,8 +35,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 # Production stage
 FROM alpine:3.19
 
-# Install CA certificates, pg_dump (for backup), and create non-root user
-RUN apk --no-cache add ca-certificates tzdata postgresql-client && \
+# Install CA certificates, pg_dump (for backup), chromium (for PDF generation), and create non-root user
+RUN apk --no-cache add ca-certificates tzdata postgresql-client chromium && \
     addgroup -g 1001 -S taskai && \
     adduser -u 1001 -S taskai -G taskai
 
