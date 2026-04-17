@@ -2,14 +2,14 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/go-chi/chi/v5"
@@ -103,6 +103,10 @@ a[data-graph-type] {
   vertical-align: middle;
 }
 
+/* Draw diagram screenshots */
+.draw-screenshot { margin: 1.5em 0; text-align: center; }
+.draw-screenshot img { max-width: 100%; height: auto; border-radius: 4px; }
+
 /* Print-specific */
 @media print {
   body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -111,11 +115,8 @@ a[data-graph-type] {
   .prose tr { break-inside: avoid; }
   .prose h2, .prose h3, .prose h4 { break-after: avoid; }
   .prose img { break-inside: avoid; }
+  .draw-screenshot { break-inside: avoid; }
 }
-
-/* Draw diagrams rendered as inline SVG */
-.draw-svg-inline { margin: 1.5em 0; max-width: 100%; }
-.draw-svg-inline svg { max-width: 100%; height: auto; }
 
 /* Hide unsupported embeds */
 .godraw-embed { display: none; }
@@ -139,7 +140,7 @@ const pdfHTMLTemplate = `<!DOCTYPE html>
 // HandleWikiPagePDF generates a PDF of a wiki page that visually matches
 // the web rendering. Uses headless Chromium via chromedp.
 func (s *Server) HandleWikiPagePDF(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
 	userID := r.Context().Value(UserIDKey).(int64)
@@ -149,7 +150,7 @@ func (s *Server) HandleWikiPagePDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, err := s.fetchWikiPageWithAccess(ctx, userID, pageID)
+	pg, err := s.fetchWikiPageWithAccess(ctx, userID, pageID)
 	if err != nil {
 		s.handleWikiPageError(w, err, pageID)
 		return
@@ -159,17 +160,26 @@ func (s *Server) HandleWikiPagePDF(w http.ResponseWriter, r *http.Request) {
 	renderedHTML := stripDrawEditMode(
 		wiki.RenderContent(
 			preprocessFigmaShortcodes(
-				preprocessGraphLinksForPreview(page.Content),
+				preprocessGraphLinksForPreview(pg.Content),
 			),
 		),
 	)
 
-	// Replace godraw-embed divs with inline transparent SVGs fetched from go-draw.
-	renderedHTML = s.inlineDrawSVGs(ctx, renderedHTML)
+	// Create a shared chromedp allocator for all browser work (screenshots + PDF).
+	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.NoSandbox,
+		chromedp.DisableGPU,
+		chromedp.Flag("disable-dev-shm-usage", true),
+	)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, allocOpts...)
+	defer allocCancel()
 
-	htmlDoc := fmt.Sprintf(pdfHTMLTemplate, page.Title, pdfCSS, page.Title, renderedHTML)
+	// Screenshot each draw diagram from the canvas viewer for pixel-perfect output.
+	renderedHTML = s.inlineDrawScreenshots(allocCtx, renderedHTML)
 
-	pdfBytes, err := renderHTMLToPDF(ctx, htmlDoc)
+	htmlDoc := fmt.Sprintf(pdfHTMLTemplate, pg.Title, pdfCSS, pg.Title, renderedHTML)
+
+	pdfBytes, err := renderHTMLToPDF(allocCtx, htmlDoc)
 	if err != nil {
 		s.logger.Error("Failed to generate wiki PDF",
 			zap.Int64("page_id", pageID),
@@ -179,7 +189,7 @@ func (s *Server) HandleWikiPagePDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := page.Slug + ".pdf"
+	filename := pg.Slug + ".pdf"
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(pdfBytes)))
@@ -252,83 +262,89 @@ func (s *Server) handleWikiPageError(w http.ResponseWriter, err error, pageID in
 // errForbidden is a sentinel for access-denied conditions.
 var errForbidden = fmt.Errorf("forbidden")
 
-// inlineDrawSVGs replaces godraw-embed divs with inline SVG content fetched
-// from the go-draw export endpoint. Uses transparent background for clean
-// embedding in the PDF.
-func (s *Server) inlineDrawSVGs(ctx context.Context, html string) string {
-	// Remove embed.js script tags (not needed for static SVGs).
-	html = drawScriptRe.ReplaceAllString(html, "")
+// inlineDrawScreenshots replaces godraw-embed divs with PNG screenshots
+// captured from the actual canvas viewer via headless Chrome. This gives
+// pixel-perfect output matching the web rendering.
+func (s *Server) inlineDrawScreenshots(allocCtx context.Context, htmlContent string) string {
+	// Remove embed.js script tags (not needed — we're replacing with images).
+	htmlContent = drawScriptRe.ReplaceAllString(htmlContent, "")
 
-	// Replace each godraw-embed div with its SVG.
-	html = drawEmbedRe.ReplaceAllStringFunc(html, func(match string) string {
+	// Collect draw IDs to avoid repeated regex matching.
+	matches := drawEmbedRe.FindAllStringSubmatch(htmlContent, -1)
+	if len(matches) == 0 {
+		return htmlContent
+	}
+
+	// Capture screenshots for each unique draw ID.
+	screenshots := make(map[string]string) // drawID → base64 PNG data URI
+	for _, m := range matches {
+		drawID := m[1]
+		if _, done := screenshots[drawID]; done {
+			continue
+		}
+
+		dataURI, err := s.captureDrawScreenshot(allocCtx, drawID)
+		if err != nil {
+			s.logger.Warn("Failed to capture draw screenshot for PDF",
+				zap.String("draw_id", drawID),
+				zap.Error(err),
+			)
+			screenshots[drawID] = "" // mark as failed
+			continue
+		}
+		screenshots[drawID] = dataURI
+	}
+
+	// Replace each godraw-embed div with the screenshot image.
+	htmlContent = drawEmbedRe.ReplaceAllStringFunc(htmlContent, func(match string) string {
 		m := drawEmbedRe.FindStringSubmatch(match)
 		if len(m) < 2 {
 			return match
 		}
-		drawID := m[1]
-
-		svgContent, err := s.fetchDrawSVG(ctx, drawID)
-		if err != nil {
-			s.logger.Warn("Failed to fetch draw SVG for PDF",
-				zap.String("draw_id", drawID),
-				zap.Error(err),
-			)
-			return "" // silently omit broken diagrams
+		dataURI := screenshots[m[1]]
+		if dataURI == "" {
+			return "" // omit failed diagrams
 		}
-
-		return fmt.Sprintf(`<div class="draw-svg-inline">%s</div>`, svgContent)
+		return fmt.Sprintf(`<div class="draw-screenshot"><img src="%s"></div>`, dataURI)
 	})
 
-	return html
+	return htmlContent
 }
 
-// fetchDrawSVG fetches the SVG export of a drawing from the local go-draw
-// endpoint with a transparent background.
-func (s *Server) fetchDrawSVG(ctx context.Context, drawID string) (string, error) {
-	url := fmt.Sprintf("http://localhost:%s/draw/%s/export.svg?bg=transparent", s.config.Port, drawID)
+// captureDrawScreenshot navigates to the go-draw viewer page for the given
+// drawing and captures a PNG screenshot of the canvas element.
+func (s *Server) captureDrawScreenshot(allocCtx context.Context, drawID string) (string, error) {
+	tabCtx, tabCancel := chromedp.NewContext(allocCtx)
+	defer tabCancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+	viewerURL := fmt.Sprintf("http://localhost:%s/draw/%s?theme=light", s.config.Port, drawID)
+
+	var pngBuf []byte
+	if err := chromedp.Run(tabCtx,
+		// Set a wide viewport so the canvas has room to render.
+		emulation.SetDeviceMetricsOverride(1400, 900, 1.0, false),
+		chromedp.Navigate(viewerURL),
+		// Wait for the canvas element to appear.
+		chromedp.WaitVisible("canvas", chromedp.ByQuery),
+		// Give the canvas a moment to finish drawing.
+		chromedp.Sleep(500*time.Millisecond),
+		// Screenshot just the canvas element.
+		chromedp.Screenshot("canvas", &pngBuf, chromedp.NodeVisible, chromedp.ByQuery),
+	); err != nil {
+		return "", fmt.Errorf("chromedp screenshot: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("fetch SVG: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("SVG export returned %d", resp.StatusCode)
+	if len(pngBuf) == 0 {
+		return "", fmt.Errorf("empty screenshot")
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read SVG body: %w", err)
-	}
-
-	// Strip the XML declaration if present — we're embedding inline.
-	svg := strings.TrimSpace(string(body))
-	if strings.HasPrefix(svg, "<?xml") {
-		if idx := strings.Index(svg, "?>"); idx != -1 {
-			svg = strings.TrimSpace(svg[idx+2:])
-		}
-	}
-
-	return svg, nil
+	dataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngBuf)
+	return dataURI, nil
 }
 
 // renderHTMLToPDF launches headless Chromium to print the given HTML to PDF.
-func renderHTMLToPDF(ctx context.Context, htmlContent string) ([]byte, error) {
-	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.NoSandbox,
-		chromedp.DisableGPU,
-		chromedp.Flag("disable-dev-shm-usage", true),
-	)
-
-	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, allocOpts...)
-	defer allocCancel()
-
+// It expects an already-created allocator context (to share the browser pool).
+func renderHTMLToPDF(allocCtx context.Context, htmlContent string) ([]byte, error) {
 	taskCtx, taskCancel := chromedp.NewContext(allocCtx)
 	defer taskCancel()
 
@@ -342,9 +358,8 @@ func renderHTMLToPDF(ctx context.Context, htmlContent string) ([]byte, error) {
 			}
 			return page.SetDocumentContent(frameTree.Frame.ID, htmlContent).Do(ctx)
 		}),
-		// Wait for all images to load before printing.
+		// Wait for all images (including data URI screenshots) to decode.
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			// Poll until all <img> elements have loaded or 5s elapsed.
 			deadline := time.Now().Add(5 * time.Second)
 			for time.Now().Before(deadline) {
 				var allLoaded bool
@@ -358,7 +373,7 @@ func renderHTMLToPDF(ctx context.Context, htmlContent string) ([]byte, error) {
 						return true;
 					})()
 				`, &allLoaded).Do(ctx); err != nil {
-					return nil // ignore eval errors, proceed to print
+					return nil
 				}
 				if allLoaded {
 					break
@@ -367,7 +382,6 @@ func renderHTMLToPDF(ctx context.Context, htmlContent string) ([]byte, error) {
 			}
 			return nil
 		}),
-		// Small extra pause for final layout.
 		chromedp.Sleep(100*time.Millisecond),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var err error
