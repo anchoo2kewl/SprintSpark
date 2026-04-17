@@ -67,6 +67,8 @@ github.com/anchoo2kewl/go-draw v0.9.17 h1:EH1GuqdV+6W+gC1mtEDI+Q+7tux+GFxpgLGgfh
 github.com/anchoo2kewl/go-draw v0.9.17/go.mod h1:46A+iuRBWucLLoa9z5U4+agNNQQ/Am0gFJhInW6SOJI=
 github.com/anchoo2kewl/go-draw v0.9.18 h1:SCGRcvAoH5BaEdUF5Y1lHpKu4xdREk0Pkb78aUj5dtI=
 github.com/anchoo2kewl/go-draw v0.9.18/go.mod h1:46A+iuRBWucLLoa9z5U4+agNNQQ/Am0gFJhInW6SOJI=
+github.com/anchoo2kewl/go-draw v0.9.19 h1:xYNC+sbnOAS2mZdyLQznwOAal2xsbN+Jcil6JMM2yqQ=
+github.com/anchoo2kewl/go-draw v0.9.19/go.mod h1:46A+iuRBWucLLoa9z5U4+agNNQQ/Am0gFJhInW6SOJI=
 github.com/anchoo2kewl/go-login v0.2.1 h1:u7YzEEeCUlAvxBTb19yVVHcAH0LtCaW5/wtqbDTb7RA=
 github.com/anchoo2kewl/go-login v0.2.1/go.mod h1:EyE+DCIMUFTm95JcDtlgqYBOypCBmok/0gO15fCvHvY=
 github.com/anchoo2kewl/go-wiki v0.1.8 h1:r9t1+NNYTEc+ERlrofVwj4WkWIZSituv6HTLAS7nc/Y=
