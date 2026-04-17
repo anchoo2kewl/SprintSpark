@@ -1,0 +1,31 @@
+<task-notification>
+<task-id>b0b6oorr2</task-id>
+<tool-use-id>toolu_012JCkxN1CUFDurusDpv1Evo</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-anshumanbiswas-play-taskai/affc255e-c712-4765-bd09-c841a86fbb86/tasks/b0b6oorr2.output</output-file>
+<status>completed</status>
+<summary>Background command "Deploy to staging via script" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+When I select one thing, how come it selects everything? [Image #1]
+
+---
+
+also, notcied PDF does not have images, check
+/Users/anshumanbiswas/Downloads/elastio-data-model-assets-policies-posture.pdf
+https://taskai.cc/app/projects/2?tab=wiki&page=65
+
+---
+
+<task-notification>
+<task-id>be5n0lc8b</task-id>
+<tool-use-id>toolu_01PXHNcggzS5b5cTna5o2jEh</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-anshumanbiswas-play-taskai/affc255e-c712-4765-bd09-c841a86fbb86/tasks/be5n0lc8b.output</output-file>
+<status>completed</status>
+<summary>Background command "Deploy fix to staging" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+How do I ungroup? [Image #2] Also, /Users/anshumanbiswas/Downloads/elastio-data-model-assets-policies-posture.pdf look at how misformed the diagrams are on PDF [Image #3]
