@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "ac32ca637a2b",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "api/internal/api/wiki_download_handler.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ac/32ca637a2b/0/metadata.json",
+      "transcript": "/ac/32ca637a2b/0/full.jsonl",
+      "content_hash": "/ac/32ca637a2b/0/content_hash.txt",
+      "prompt": "/ac/32ca637a2b/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 58,
+    "cache_creation_tokens": 56222,
+    "cache_read_tokens": 6176985,
+    "output_tokens": 14832,
+    "api_call_count": 48
+  }
+}
