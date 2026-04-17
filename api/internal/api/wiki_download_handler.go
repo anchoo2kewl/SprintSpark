@@ -342,8 +342,33 @@ func renderHTMLToPDF(ctx context.Context, htmlContent string) ([]byte, error) {
 			}
 			return page.SetDocumentContent(frameTree.Frame.ID, htmlContent).Do(ctx)
 		}),
-		// Give the browser a moment to lay out styles.
-		chromedp.Sleep(200*time.Millisecond),
+		// Wait for all images to load before printing.
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			// Poll until all <img> elements have loaded or 5s elapsed.
+			deadline := time.Now().Add(5 * time.Second)
+			for time.Now().Before(deadline) {
+				var allLoaded bool
+				if err := chromedp.Evaluate(`
+					(function() {
+						var imgs = document.querySelectorAll('img');
+						if (imgs.length === 0) return true;
+						for (var i = 0; i < imgs.length; i++) {
+							if (!imgs[i].complete) return false;
+						}
+						return true;
+					})()
+				`, &allLoaded).Do(ctx); err != nil {
+					return nil // ignore eval errors, proceed to print
+				}
+				if allLoaded {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			return nil
+		}),
+		// Small extra pause for final layout.
+		chromedp.Sleep(100*time.Millisecond),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			var err error
 			pdfBuf, _, err = page.PrintToPDF().
