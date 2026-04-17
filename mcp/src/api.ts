@@ -303,19 +303,44 @@ export class TaskAIClient {
   }
 
   async getWikiPagePdf(pageId: string): Promise<{ data: string; filename: string }> {
-    const url = `${this.baseURL}/api/wiki/pages/${encodeURIComponent(pageId)}/pdf`;
-    const headers: Record<string, string> = { Authorization: `ApiKey ${this.apiKey}` };
+    const headers: Record<string, string> = {
+      Authorization: `ApiKey ${this.apiKey}`,
+      "Content-Type": "application/json",
+    };
     if (this.agentName) headers["X-Agent-Name"] = this.agentName;
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`API error ${res.status}: ${text}`);
+
+    // Start async job
+    const startRes = await fetch(`${this.baseURL}/api/wiki/pages/${encodeURIComponent(pageId)}/pdf`, {
+      method: "POST",
+      headers,
+    });
+    if (!startRes.ok) throw new Error(`PDF start failed ${startRes.status}: ${await startRes.text()}`);
+    const { job_id } = (await startRes.json()) as { job_id: string };
+
+    // Poll until done (max 2 min)
+    const pollHeaders: Record<string, string> = { Authorization: `ApiKey ${this.apiKey}` };
+    const deadline = Date.now() + 120_000;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const pollRes = await fetch(
+        `${this.baseURL}/api/wiki/pages/${encodeURIComponent(pageId)}/pdf/${job_id}`,
+        { headers: pollHeaders },
+      );
+      if (!pollRes.ok) throw new Error(`PDF poll failed ${pollRes.status}`);
+
+      const ct = pollRes.headers.get("Content-Type") || "";
+      if (ct.includes("application/pdf")) {
+        const buf = await pollRes.arrayBuffer();
+        const data = Buffer.from(buf).toString("base64");
+        const cd = pollRes.headers.get("Content-Disposition") || "";
+        const filename = cd.match(/filename="(.+)"/)?.[1] || "wiki-page.pdf";
+        return { data, filename };
+      }
+
+      const status = (await pollRes.json()) as { status: string; error?: string };
+      if (status.status === "failed") throw new Error(status.error || "PDF generation failed");
     }
-    const buf = await res.arrayBuffer();
-    const data = Buffer.from(buf).toString("base64");
-    const cd = res.headers.get("Content-Disposition") || "";
-    const filename = cd.match(/filename="(.+)"/)?.[1] || "wiki-page.pdf";
-    return { data, filename };
+    throw new Error("PDF generation timed out");
   }
 
   async getWikiPageMarkdown(pageId: string): Promise<{ content: string; filename: string }> {

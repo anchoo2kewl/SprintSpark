@@ -1845,16 +1845,45 @@ class ApiClient {
   }
 
   async downloadWikiPagePdf(pageId: number): Promise<void> {
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`
-    const res = await fetch(`${this.baseURL}/api/wiki/pages/${pageId}/pdf`, { headers })
-    if (!res.ok) throw new Error(`PDF download failed: ${res.status}`)
-    const blob = await res.blob()
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'wiki-page.pdf'
-    a.click()
-    URL.revokeObjectURL(a.href)
+
+    // 1. Start async job
+    const startRes = await fetch(`${this.baseURL}/api/wiki/pages/${pageId}/pdf`, {
+      method: 'POST',
+      headers,
+    })
+    if (!startRes.ok) throw new Error(`PDF generation failed: ${startRes.status}`)
+    const { job_id } = await startRes.json() as { job_id: string }
+
+    // 2. Poll until done (max 2 minutes)
+    const pollHeaders: Record<string, string> = {}
+    if (this.token) pollHeaders['Authorization'] = `Bearer ${this.token}`
+    const deadline = Date.now() + 120_000
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 1000))
+      const pollRes = await fetch(`${this.baseURL}/api/wiki/pages/${pageId}/pdf/${job_id}`, {
+        headers: pollHeaders,
+      })
+      if (!pollRes.ok) throw new Error(`PDF poll failed: ${pollRes.status}`)
+
+      const contentType = pollRes.headers.get('Content-Type') || ''
+      if (contentType.includes('application/pdf')) {
+        // 3. PDF is ready — download it
+        const blob = await pollRes.blob()
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = pollRes.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'wiki-page.pdf'
+        a.click()
+        URL.revokeObjectURL(a.href)
+        return
+      }
+
+      // Still JSON — check status
+      const status = await pollRes.json() as { status: string; error?: string }
+      if (status.status === 'failed') throw new Error(status.error || 'PDF generation failed')
+    }
+    throw new Error('PDF generation timed out')
   }
 
   async downloadWikiPageMarkdown(pageId: number): Promise<void> {
