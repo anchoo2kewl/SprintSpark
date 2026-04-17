@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "06ee5a6c7981",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "api/Dockerfile",
+    "api/cmd/api/main.go",
+    "api/go.mod",
+    "api/go.sum",
+    "api/internal/api/wiki_download_handler.go",
+    "mcp/src/api.ts",
+    "mcp/src/index.ts",
+    "web/src/components/WikiEditor.tsx",
+    "web/src/lib/api.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/06/ee5a6c7981/0/metadata.json",
+      "transcript": "/06/ee5a6c7981/0/full.jsonl",
+      "content_hash": "/06/ee5a6c7981/0/content_hash.txt",
+      "prompt": "/06/ee5a6c7981/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 67,
+    "cache_creation_tokens": 94710,
+    "cache_read_tokens": 4372283,
+    "output_tokens": 25569,
+    "api_call_count": 56
+  }
+}

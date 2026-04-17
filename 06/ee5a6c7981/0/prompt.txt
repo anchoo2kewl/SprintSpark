@@ -1,0 +1,5 @@
+please allow downloading wiki as PDF, should look exactly as it looks on the web, allow generating PDF via API/MCP
+
+---
+
+please have the draw diagrams  shown up as transparent svgs
