@@ -1,0 +1,9 @@
+Please add a very detailed implementation and idea explanation in our dogfood wiki, https://taskai.cc/app/projects/1?tab=wiki, add references to MemPalace (use go-reference scheme), and go-draw diagrams to explain the architecure and the ollama sidecar etc
+
+---
+
+Please fix some diagrams the text are spilling from the boxes
+
+---
+
+OK, can we please address this   One caveat: CI deploys overwrite the prod docker-compose.yml, so the Ollama config needs re-patching after each deploy. Task #43 (feedback mechanism) is still open for future iteration.
