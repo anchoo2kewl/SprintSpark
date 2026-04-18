@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"path/filepath"
 	"strings"
 	"os/signal"
 	"syscall"
 	"time"
 
+	blog "github.com/anchoo2kewl/go-blog"
 	godraw "github.com/anchoo2kewl/go-draw"
 	godrawstore "github.com/anchoo2kewl/go-draw/store"
 	backup "github.com/anchoo2kewl/go-backup"
@@ -28,6 +30,7 @@ import (
 	"taskai/apm"
 	"taskai/internal/api"
 	"taskai/internal/auth"
+	"taskai/internal/blogsync"
 	"taskai/internal/collab"
 	"taskai/internal/config"
 	"taskai/internal/db"
@@ -694,6 +697,60 @@ func main() {
 	go server.StartSnapshotWorker(bgCtx)
 	go server.StartIndexingWorker(bgCtx)
 	go server.StartGitHubSyncWorker(bgCtx)
+
+	// Blog sync scheduler: pulls posts tagged with BlogSyncTag from the
+	// source blog and writes markdown files into BlogPostsDir. Runs once
+	// on boot (after a short delay) then every BlogSyncInterval.
+	if interval, err := time.ParseDuration(cfg.BlogSyncInterval); err == nil && interval > 0 {
+		syncCfg := blogsync.Config{
+			SourceURL: cfg.BlogSyncSourceURL,
+			Tag:       cfg.BlogSyncTag,
+			PostsDir:  cfg.BlogPostsDir,
+			Timeout:   30 * time.Second,
+		}
+		go blogsync.Run(bgCtx, syncCfg, interval, logger)
+		logger.Info("blog-sync scheduled",
+			zap.String("source", syncCfg.SourceURL),
+			zap.String("tag", syncCfg.Tag),
+			zap.Duration("interval", interval),
+			zap.String("dir", syncCfg.PostsDir),
+		)
+	} else {
+		logger.Info("blog-sync disabled", zap.String("interval", cfg.BlogSyncInterval))
+	}
+
+	// Blog engine (file-backed markdown, served at /blog/)
+	blogEngine, err := blog.New(
+		blog.WithBasePath("/blog"),
+		blog.WithPostsDir(cfg.BlogPostsDir),
+		blog.WithSiteTitle("TaskAI Blog"),
+		blog.WithSiteTagline("AI-native project management"),
+		blog.WithAuthorName("TaskAI Team"),
+		blog.WithAccentColor("#6366f1"),
+		blog.WithHomeLink("/", "\u2190 taskai.cc"),
+		blog.WithSiteURL("https://taskai.cc"),
+	)
+	if err != nil {
+		logger.Fatal("blog init failed", zap.Error(err))
+	}
+	r.Handle("/blog/*", blogEngine.Handler())
+	r.Handle("/blog", http.RedirectHandler("/blog/", http.StatusMovedPermanently))
+
+	// Blog images (e.g. go-draw SVGs cached by blogsync) are served from
+	// <BlogPostsDir>/_images at /blog-images/*. Separate from /blog/ so they
+	// don't clash with go-blog's catch-all post route.
+	blogImagesDir := filepath.Join(cfg.BlogPostsDir, "_images")
+	if mkErr := os.MkdirAll(blogImagesDir, 0o755); mkErr != nil {
+		logger.Warn("blog-images: cannot create dir",
+			zap.String("dir", blogImagesDir),
+			zap.Error(mkErr),
+		)
+	}
+	blogImagesFS := http.FileServer(http.Dir(blogImagesDir))
+	r.Handle("/blog-images/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=300, must-revalidate")
+		http.StripPrefix("/blog-images/", blogImagesFS).ServeHTTP(w, req)
+	}))
 
 	// Create HTTP server
 	addr := fmt.Sprintf(":%s", cfg.Port)

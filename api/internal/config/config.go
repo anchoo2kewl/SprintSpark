@@ -63,6 +63,12 @@ type Config struct {
 	// Embeddings (Ollama) — empty URL disables embeddings (graceful degradation)
 	OllamaURL      string
 	EmbeddingModel string
+
+	// Blog sync (pulls posts from anshumanbiswas.com, serves at /blog/)
+	BlogSyncSourceURL string
+	BlogSyncTag       string
+	BlogPostsDir      string
+	BlogSyncInterval  string // duration string, e.g. "24h"; "0" or "" disables
 }
 
 // Load reads configuration from environment variables
@@ -101,6 +107,11 @@ func Load() *Config {
 
 		OllamaURL:      getEnv("OLLAMA_URL", ""),
 		EmbeddingModel: getEnv("EMBEDDING_MODEL", "all-minilm:l6-v2"),
+
+		BlogSyncSourceURL: getEnv("BLOG_SYNC_SOURCE_URL", "https://anshumanbiswas.com"),
+		BlogSyncTag:       getEnv("BLOG_SYNC_TAG", "TaskAI"),
+		BlogPostsDir:      getEnv("BLOG_POSTS_DIR", "/data/blog-posts"),
+		BlogSyncInterval:  getEnv("BLOG_SYNC_INTERVAL", "24h"),
 	}
 
 	// Validate critical configuration

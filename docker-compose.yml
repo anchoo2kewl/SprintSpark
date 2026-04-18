@@ -115,6 +115,10 @@ services:
       # Continuous profiling — ships CPU/heap/goroutine/mutex profiles to dd-agent
       - DD_PROFILING_ENABLED=${DD_PROFILING_ENABLED:-false}
       - DD_AGENT_HOST=dd-agent
+      # Blog sync (pulls posts from anshumanbiswas.com tagged "TaskAI")
+      - BLOG_SYNC_SOURCE_URL=${BLOG_SYNC_SOURCE_URL:-https://anshumanbiswas.com}
+      - BLOG_SYNC_TAG=${BLOG_SYNC_TAG:-TaskAI}
+      - BLOG_SYNC_INTERVAL=${BLOG_SYNC_INTERVAL:-24h}
     labels:
       # Unified Service Tagging — links APM traces, logs, and infra metrics
       com.datadoghq.tags.service: "taskai"
@@ -125,6 +129,8 @@ services:
     volumes:
       # Mount SQLite database for persistence
       - taskai-data:/data
+      # Blog posts synced from anshumanbiswas.com
+      - blog-posts:/data/blog-posts
     networks:
       - taskai
     depends_on:
@@ -260,6 +266,10 @@ volumes:
 
   # Persistent volume for Postgres database
   postgres-data:
+    driver: local
+
+  # Persistent volume for blog posts synced from anshumanbiswas.com
+  blog-posts:
     driver: local
 
   # Persistent volume for Ollama models

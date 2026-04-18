@@ -55,6 +55,8 @@ github.com/anchoo2kewl/go-backup/gdrive v0.1.10 h1:SgWR7kVR4IoFVRJ86dTVr+1uDqmjV
 github.com/anchoo2kewl/go-backup/gdrive v0.1.10/go.mod h1:RHmv/5R1Ifj9FWbs8/vJuwHj44/mq+w6WyTic9Yiv5I=
 github.com/anchoo2kewl/go-backup/pgstore v0.1.10 h1:L5ZB0vgHewKu0rgb6BMkWb7rdtNyC0rPTpideyFxXV4=
 github.com/anchoo2kewl/go-backup/pgstore v0.1.10/go.mod h1:7IDce5I2k0M+LdcIUpJzAhEJdPCc/Xh+J5ySr+6GKAY=
+github.com/anchoo2kewl/go-blog v0.1.2 h1:8bvoj3RvPhtxPDzrlC7hPxxMPuWbL8A/5j1cxwO5RFo=
+github.com/anchoo2kewl/go-blog v0.1.2/go.mod h1:jv0UdFxq72du/chdN2RyzyHfxjt4v61VTaBnCrGPWsk=
 github.com/anchoo2kewl/go-draw v0.9.2 h1:eonfrgL3k1csbgCyGO3U3GrcKtdVJY182z0lqbxy5j4=
 github.com/anchoo2kewl/go-draw v0.9.2/go.mod h1:46A+iuRBWucLLoa9z5U4+agNNQQ/Am0gFJhInW6SOJI=
 github.com/anchoo2kewl/go-draw v0.9.14 h1:bSqPimbH0oGlSCFXk/GUBFE90bJbEmbnno1qa1yl3K4=

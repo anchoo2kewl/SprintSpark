@@ -425,6 +425,153 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Knowledge Spine ── */}
+      <section id="knowledge-spine" className="py-24 md:py-32 border-t border-dark-border-subtle relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] bg-violet-500/[0.04] rounded-full blur-[120px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-emerald-500/[0.04] rounded-full blur-[100px]" />
+        </div>
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 text-xs font-medium text-violet-400 bg-violet-500/10 border border-violet-500/20 rounded-full">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Knowledge Spine
+            </div>
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">
+              Your wiki becomes the
+              <br />
+              <span className="bg-gradient-to-r from-violet-400 via-purple-300 to-emerald-400 bg-clip-text text-transparent">
+                AI's memory
+              </span>
+            </h2>
+            <p className="mt-5 text-base text-dark-text-tertiary max-w-2xl mx-auto leading-relaxed">
+              Every wiki page you write is automatically vectorized and indexed. When an AI agent needs context — deployment patterns, API contracts, architecture decisions — it finds exactly the right knowledge in milliseconds, not by keyword matching, but by understanding what you mean.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {/* Automatic Embedding */}
+            <div className="group relative p-8 rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-violet-500/30 transition-all duration-300 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-11 h-11 bg-violet-500/10 rounded-xl flex items-center justify-center mb-5">
+                  <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-3 tracking-tight">Auto-Embedding Pipeline</h3>
+                <p className="text-sm text-dark-text-tertiary leading-relaxed">
+                  Every 2 minutes, updated wiki pages are split into blocks and vectorized using a local embedding model. Zero configuration — it just works.
+                </p>
+              </div>
+            </div>
+
+            {/* Semantic Search */}
+            <div className="group relative p-8 rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-emerald-500/30 transition-all duration-300 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-11 h-11 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-5">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-3 tracking-tight">Hybrid Search</h3>
+                <p className="text-sm text-dark-text-tertiary leading-relaxed">
+                  Combines full-text keyword search with vector similarity. "How does auth work" finds your "OAuth2 Login Flow" page — even without keyword overlap.
+                </p>
+              </div>
+            </div>
+
+            {/* Local & Private */}
+            <div className="group relative p-8 rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-amber-500/30 transition-all duration-300 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="relative">
+                <div className="w-11 h-11 bg-amber-500/10 rounded-xl flex items-center justify-center mb-5">
+                  <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-3 tracking-tight">100% Local</h3>
+                <p className="text-sm text-dark-text-tertiary leading-relaxed">
+                  Embeddings run on your own server via Ollama. No API keys, no cloud calls, no usage fees. Your knowledge never leaves your infrastructure.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Before/After comparison */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            <div className="p-6 rounded-2xl bg-dark-bg-primary border border-red-500/20">
+              <div className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-4">Without a Knowledge Spine</div>
+              <div className="space-y-3">
+                {[
+                  'LLM reads 50,000 tokens of raw code',
+                  'Misses relevant files buried in 200+ files',
+                  'Hallucinates function signatures',
+                  'Output: plausible but broken code',
+                ].map(item => (
+                  <div key={item} className="flex items-start gap-2 text-sm text-dark-text-tertiary">
+                    <svg className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-6 rounded-2xl bg-dark-bg-primary border border-emerald-500/20">
+              <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-4">With a Knowledge Spine</div>
+              <div className="space-y-3">
+                {[
+                  'LLM queries: "how does deployment work?"',
+                  'Vector search returns the 3 exact wiki sections',
+                  'Sees real APIs, real patterns, real conventions',
+                  'Output: production-quality code that fits',
+                ].map(item => (
+                  <div key={item} className="flex items-start gap-2 text-sm text-dark-text-tertiary">
+                    <svg className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Stats bar */}
+          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            {[
+              { value: '<50ms', label: 'Search latency' },
+              { value: '384', label: 'Vector dimensions' },
+              { value: '98%', label: 'Blocks embedded' },
+              { value: '$0', label: 'Additional cost' },
+            ].map(stat => (
+              <div key={stat.label} className="text-center p-4">
+                <div className="text-2xl font-bold text-dark-text-primary">{stat.value}</div>
+                <div className="text-xs text-dark-text-quaternary mt-1">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-10">
+            <a
+              href="https://anshumanbiswas.com/blog/knowledge-spine-ai-code-quality"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-violet-400 hover:text-violet-300 transition-colors"
+            >
+              Read the deep dive: The Knowledge Spine
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* ── AI Agents section ── */}
       <section id="ai" className="py-24 md:py-32 border-t border-dark-border-subtle">
         <div className="max-w-6xl mx-auto px-6">
