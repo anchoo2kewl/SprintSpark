@@ -207,64 +207,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Blog ── */}
-      {posts.length > 0 && (
-        <section className="py-20 md:py-28 border-t border-dark-border-subtle">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="flex items-center justify-between mb-12">
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">From the blog</h2>
-                <p className="mt-2 text-sm text-dark-text-tertiary">Building AI-native tools, one commit at a time.</p>
-              </div>
-              <a
-                href="/blog/"
-                className="text-sm text-primary-400 hover:text-primary-300 transition-colors hidden md:flex items-center gap-1"
-              >
-                All posts
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </a>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {posts.map(post => (
-                <a
-                  key={post.slug}
-                  href={`/blog/${post.slug}`}
-                  className="group rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-primary-500/30 transition-all duration-300 overflow-hidden"
-                >
-                  {post.cover && (
-                    <div className="aspect-[16/9] bg-dark-bg-secondary overflow-hidden">
-                      <img
-                        src={post.cover}
-                        alt={post.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
-                  )}
-                  <div className="p-6">
-                    <div className="text-xs text-dark-text-quaternary mb-3">{post.date}</div>
-                    <h3 className="text-base font-semibold tracking-tight mb-2 group-hover:text-primary-400 transition-colors leading-snug">
-                      {post.title}
-                    </h3>
-                    <p className="text-sm text-dark-text-tertiary leading-relaxed line-clamp-2">
-                      {post.excerpt}
-                    </p>
-                  </div>
-                </a>
-              ))}
-            </div>
-
-            <div className="mt-8 text-center md:hidden">
-              <a href="/blog/" className="text-sm text-primary-400 hover:text-primary-300 transition-colors">
-                View all posts →
-              </a>
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* ── Feature pillars ── */}
       <section id="features" className="py-24 md:py-32 border-t border-dark-border-subtle">
         <div className="max-w-6xl mx-auto px-6">
@@ -754,6 +696,64 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ── Blog ── */}
+      {posts.length > 0 && (
+        <section className="py-20 md:py-28 border-t border-dark-border-subtle">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="flex items-center justify-between mb-12">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">From the blog</h2>
+                <p className="mt-2 text-sm text-dark-text-tertiary">Building AI-native tools, one commit at a time.</p>
+              </div>
+              <a
+                href="/blog/"
+                className="text-sm text-primary-400 hover:text-primary-300 transition-colors hidden md:flex items-center gap-1"
+              >
+                All posts
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {posts.map(post => (
+                <a
+                  key={post.slug}
+                  href={`/blog/${post.slug}`}
+                  className="group rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-primary-500/30 transition-all duration-300 overflow-hidden"
+                >
+                  {post.cover && (
+                    <div className="aspect-[16/9] bg-dark-bg-secondary overflow-hidden">
+                      <img
+                        src={post.cover}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  )}
+                  <div className="p-6">
+                    <div className="text-xs text-dark-text-quaternary mb-3">{post.date}</div>
+                    <h3 className="text-base font-semibold tracking-tight mb-2 group-hover:text-primary-400 transition-colors leading-snug">
+                      {post.title}
+                    </h3>
+                    <p className="text-sm text-dark-text-tertiary leading-relaxed line-clamp-2">
+                      {post.excerpt}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            <div className="mt-8 text-center md:hidden">
+              <a href="/blog/" className="text-sm text-primary-400 hover:text-primary-300 transition-colors">
+                View all posts →
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── CTA ── */}
       <section className="py-24 md:py-32 border-t border-dark-border-subtle relative overflow-hidden">
