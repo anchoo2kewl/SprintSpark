@@ -3,6 +3,9 @@ package api
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -118,6 +121,7 @@ func (s *Server) indexPage(ctx context.Context, page *ent.WikiPage) error {
 	}
 
 	// Insert new blocks
+	var savedBlocks []*ent.WikiBlock
 	if len(blocks) > 0 {
 		bulk := make([]*ent.WikiBlockCreate, len(blocks))
 		for i, block := range blocks {
@@ -139,7 +143,7 @@ func (s *Server) indexPage(ctx context.Context, page *ent.WikiPage) error {
 			}
 		}
 
-		_, err = s.db.Client.WikiBlock.CreateBulk(bulk...).Save(ctx)
+		savedBlocks, err = s.db.Client.WikiBlock.CreateBulk(bulk...).Save(ctx)
 		if err != nil {
 			return err
 		}
@@ -151,5 +155,126 @@ func (s *Server) indexPage(ctx context.Context, page *ent.WikiPage) error {
 		zap.Int("block_count", len(blocks)),
 	)
 
+	// Generate and store embeddings (skip if embedding client is nil)
+	if s.embeddingClient != nil && len(savedBlocks) > 0 {
+		if err := s.embedBlocks(ctx, savedBlocks); err != nil {
+			s.logger.Warn("Failed to embed blocks (non-fatal)",
+				zap.Int64("page_id", page.ID),
+				zap.Error(err),
+			)
+		}
+	}
+
 	return nil
+}
+
+// embedBlocks generates and stores vector embeddings for wiki blocks.
+func (s *Server) embedBlocks(ctx context.Context, blocks []*ent.WikiBlock) error {
+	// Build embedding inputs: headings_path + plain_text for context-enriched vectors
+	texts := make([]string, len(blocks))
+	for i, block := range blocks {
+		var parts []string
+		if block.HeadingsPath != nil && *block.HeadingsPath != "" {
+			parts = append(parts, *block.HeadingsPath)
+		}
+		if block.PlainText != nil && *block.PlainText != "" {
+			parts = append(parts, *block.PlainText)
+		}
+		texts[i] = strings.Join(parts, "\n")
+	}
+
+	start := time.Now()
+	vectors, err := s.embeddingClient.EmbedBatch(ctx, texts)
+	if err != nil {
+		return fmt.Errorf("embed batch: %w", err)
+	}
+
+	s.logger.Debug("Generated embeddings",
+		zap.Int("count", len(vectors)),
+		zap.Duration("latency", time.Since(start)),
+	)
+
+	// Store embeddings via raw SQL (Ent doesn't support pgvector natively)
+	model := s.embeddingClient.Model()
+	now := time.Now()
+	for i, block := range blocks {
+		if vectors[i] == nil {
+			continue
+		}
+		vectorStr := float32SliceToVectorString(vectors[i])
+		_, err := s.db.ExecContext(ctx,
+			`UPDATE wiki_blocks SET embedding = $1::vector, embedding_model = $2, embedded_at = $3 WHERE id = $4`,
+			vectorStr, model, now, block.ID,
+		)
+		if err != nil {
+			s.logger.Warn("Failed to store embedding for block",
+				zap.Int64("block_id", block.ID),
+				zap.Error(err),
+			)
+		}
+	}
+
+	return nil
+}
+
+// HandleReindexWiki triggers re-indexing and embedding of all wiki pages.
+// This is useful after deploying embeddings for the first time or after model upgrades.
+func (s *Server) HandleReindexWiki(w http.ResponseWriter, r *http.Request) {
+	if s.embeddingClient == nil {
+		respondError(w, http.StatusServiceUnavailable, "embeddings not configured", "embeddings_disabled")
+		return
+	}
+
+	// Run in background so the HTTP request returns immediately
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+
+		pages, err := s.db.Client.WikiPage.Query().All(ctx)
+		if err != nil {
+			s.logger.Error("Reindex: failed to fetch pages", zap.Error(err))
+			return
+		}
+
+		s.logger.Info("Reindex: starting full wiki re-index",
+			zap.Int("page_count", len(pages)),
+		)
+
+		success, fail := 0, 0
+		for _, page := range pages {
+			if err := s.indexPage(ctx, page); err != nil {
+				s.logger.Error("Reindex: failed to index page",
+					zap.Int64("page_id", page.ID),
+					zap.Error(err),
+				)
+				fail++
+			} else {
+				success++
+			}
+		}
+
+		s.logger.Info("Reindex: completed",
+			zap.Int("success", success),
+			zap.Int("failed", fail),
+		)
+	}()
+
+	respondJSON(w, http.StatusAccepted, map[string]string{
+		"status":  "accepted",
+		"message": "re-indexing started in background",
+	})
+}
+
+// float32SliceToVectorString converts a float32 slice to pgvector string format: "[0.1,0.2,0.3]"
+func float32SliceToVectorString(v []float32) string {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, f := range v {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(fmt.Sprintf("%g", f))
+	}
+	b.WriteByte(']')
+	return b.String()
 }

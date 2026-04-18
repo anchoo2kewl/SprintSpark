@@ -31,6 +31,7 @@ import (
 	"taskai/internal/collab"
 	"taskai/internal/config"
 	"taskai/internal/db"
+	"taskai/internal/embeddings"
 	"taskai/internal/version"
 	"taskai/internal/yjs"
 )
@@ -142,6 +143,9 @@ func main() {
 	// Initialize Yjs processor client
 	yjsClient := yjs.NewClient(cfg.YJSProcessorURL, logger)
 
+	// Initialize embedding client (nil when OLLAMA_URL is empty — graceful degradation)
+	embeddingClient := embeddings.NewClient(cfg.OllamaURL, cfg.EmbeddingModel, logger)
+
 	// Initialize package-level logger for response helpers
 	api.SetLogger(logger)
 
@@ -150,6 +154,7 @@ func main() {
 	server.SetAuthService(authService)
 	server.SetCollabManager(collabManager)
 	server.SetYjsClient(yjsClient)
+	server.SetEmbeddingClient(embeddingClient)
 
 	// Setup router
 	r := chi.NewRouter()
@@ -474,6 +479,7 @@ func main() {
 			// Wiki search routes
 			r.Post("/wiki/search", server.HandleSearchWiki)
 			r.Get("/wiki/autocomplete", server.HandleAutocompletePages)
+			r.Post("/wiki/reindex", server.HandleReindexWiki)
 
 			// Wiki annotation routes
 			r.Get("/wiki/pages/{pageId}/annotations", server.HandleListWikiAnnotations)

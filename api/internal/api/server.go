@@ -12,6 +12,7 @@ import (
 	"taskai/internal/config"
 	"taskai/internal/db"
 	"taskai/internal/email"
+	"taskai/internal/embeddings"
 	"taskai/internal/yjs"
 )
 
@@ -23,8 +24,9 @@ type Server struct {
 	emailService  *email.BrevoService
 	emailMu       sync.RWMutex
 	auth          *auth.Service
-	collabManager *collab.Manager
-	yjsClient     *yjs.Client
+	collabManager   *collab.Manager
+	yjsClient       *yjs.Client
+	embeddingClient *embeddings.Client
 }
 
 // NewServer creates a new API server
@@ -49,6 +51,11 @@ func (s *Server) SetCollabManager(manager *collab.Manager) {
 // SetYjsClient sets the Yjs processor client
 func (s *Server) SetYjsClient(client *yjs.Client) {
 	s.yjsClient = client
+}
+
+// SetEmbeddingClient sets the embedding client (nil disables embeddings)
+func (s *Server) SetEmbeddingClient(client *embeddings.Client) {
+	s.embeddingClient = client
 }
 
 // getAppURL returns the application URL for use in email links

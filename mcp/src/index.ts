@@ -392,18 +392,32 @@ function createServer(client: TaskAIClient, cachedUser?: User): McpServer {
   // --- search_wiki ---
   server.tool(
     "search_wiki",
-    "Search wiki content across pages (full-text search)",
+    "Search wiki content across pages. Modes: 'fts' (full-text ranked, default), 'semantic' (vector similarity — finds conceptually related content even without keyword overlap), 'hybrid' (combines both for best results), 'keyword' (simple substring match). Use 'semantic' or 'hybrid' when the exact wording is unknown.",
     {
       query: z.string().describe("Search query"),
       project_id: z.string().optional().describe("Filter by project ID"),
       limit: z.number().optional().describe("Max results (default: 20, max: 100)"),
       recency_days: z.number().optional().describe("Only return pages updated in last N days"),
+      mode: z.enum(["fts", "semantic", "hybrid", "keyword"]).optional().describe("Search mode (default: fts)"),
       verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
     },
-    async ({ query, project_id, limit, recency_days, verbose }) => {
-      const result = await client.searchWiki({ query, project_id, limit, recency_days });
+    async ({ query, project_id, limit, recency_days, mode, verbose }) => {
+      const result = await client.searchWiki({ query, project_id, limit, recency_days, mode });
       const data = verbose ? result : { results: result.results.map(minimizeWikiBlock), total: result.total };
       return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
+  // --- reindex_wiki ---
+  server.tool(
+    "reindex_wiki",
+    "Trigger a full re-index of all wiki pages, generating vector embeddings for semantic search. Returns immediately — re-indexing runs in background. Use after first deployment of embeddings or after a model upgrade.",
+    {
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ verbose }) => {
+      const result = await client.reindexWiki();
+      return { content: [{ type: "text", text: formatResponse(result, verbose) }] };
     }
   );
 

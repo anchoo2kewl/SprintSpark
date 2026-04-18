@@ -217,10 +217,17 @@ export class TaskAIClient {
     project_id?: string;
     limit?: number;
     recency_days?: number;
+    mode?: string;
   }): Promise<{ results: WikiBlock[]; total: number }> {
     return this.request("/api/wiki/search", {
       method: "POST",
       body: JSON.stringify(params),
+    });
+  }
+
+  async reindexWiki(): Promise<{ status: string; message: string }> {
+    return this.request("/api/wiki/reindex", {
+      method: "POST",
     });
   }
 

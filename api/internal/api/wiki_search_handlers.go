@@ -2,9 +2,12 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -21,6 +24,7 @@ type SearchWikiRequest struct {
 	ProjectID   *int64 `json:"project_id,omitempty"`
 	Limit       int    `json:"limit,omitempty"`
 	RecencyDays *int   `json:"recency_days,omitempty"`
+	Mode        string `json:"mode,omitempty"` // "keyword" (ILIKE), "fts" (tsvector), "semantic" (vector), "hybrid" (fts+vector). Default: "fts"
 }
 
 // SearchResultBlock represents a search result block
@@ -71,13 +75,39 @@ func (s *Server) HandleSearchWiki(w http.ResponseWriter, r *http.Request) {
 		req.Limit = 100
 	}
 
+	// Default mode to "fts" (full-text search with tsvector ranking)
+	// Fall back to "keyword" on SQLite (no tsvector/pgvector support)
+	if req.Mode == "" {
+		if s.db.Driver == "postgres" {
+			req.Mode = "fts"
+		} else {
+			req.Mode = "keyword"
+		}
+	}
+
 	s.logger.Debug("Wiki search request",
 		zap.String("query", req.Query),
+		zap.String("mode", req.Mode),
 		zap.Int64("user_id", userID),
 	)
 
-	// Build query based on database driver
-	results, err := s.searchWikiBlocks(ctx, userID, req)
+	var results []SearchResultBlock
+	var err error
+
+	switch req.Mode {
+	case "semantic":
+		results, err = s.searchWikiSemantic(ctx, userID, req)
+	case "hybrid":
+		results, err = s.searchWikiHybrid(ctx, userID, req)
+	case "keyword":
+		results, err = s.searchWikiBlocks(ctx, userID, req)
+	default: // "fts"
+		results, err = s.searchWikiFTS(ctx, userID, req)
+		if err == nil && len(results) == 0 {
+			// Fall back to ILIKE if FTS returns nothing (handles partial words)
+			results, err = s.searchWikiBlocks(ctx, userID, req)
+		}
+	}
 	if err != nil {
 		s.logger.Error("Failed to search wiki",
 			zap.Error(err),
@@ -183,6 +213,254 @@ func (s *Server) searchWikiBlocks(ctx context.Context, userID int64, req SearchW
 	}
 
 	return results, nil
+}
+
+// searchWikiFTS uses PostgreSQL tsvector full-text search with ranking.
+func (s *Server) searchWikiFTS(ctx context.Context, userID int64, req SearchWikiRequest) ([]SearchResultBlock, error) {
+	accessibleProjects, err := s.getUserAccessibleProjects(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(accessibleProjects) == 0 {
+		return []SearchResultBlock{}, nil
+	}
+
+	// Build project filter
+	projectFilter, args := buildProjectFilter(req.ProjectID, accessibleProjects)
+
+	// plainto_tsquery handles user input safely (no special syntax needed)
+	nextArg := len(args) + 1
+	query := fmt.Sprintf(`
+		SELECT wb.id, wb.page_id, wb.block_type, wb.headings_path, wb.plain_text,
+		       wp.title AS page_title, wp.slug AS page_slug,
+		       ts_rank(wb.search_vector, plainto_tsquery('english', $%d)) AS rank
+		FROM wiki_blocks wb
+		JOIN wiki_pages wp ON wb.page_id = wp.id
+		WHERE wb.search_vector @@ plainto_tsquery('english', $%d)
+		  AND %s
+	`, nextArg, nextArg, projectFilter)
+	args = append(args, req.Query)
+	nextArg++
+
+	if req.RecencyDays != nil && *req.RecencyDays > 0 {
+		query += fmt.Sprintf(` AND wp.updated_at >= $%d`, nextArg)
+		args = append(args, time.Now().AddDate(0, 0, -*req.RecencyDays))
+	}
+
+	query += ` ORDER BY rank DESC LIMIT ` + strconv.Itoa(req.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanSearchResults(rows)
+}
+
+// searchWikiSemantic uses pgvector cosine similarity search.
+func (s *Server) searchWikiSemantic(ctx context.Context, userID int64, req SearchWikiRequest) ([]SearchResultBlock, error) {
+	if s.embeddingClient == nil {
+		// Fall back to FTS if embeddings are not available
+		return s.searchWikiFTS(ctx, userID, req)
+	}
+
+	accessibleProjects, err := s.getUserAccessibleProjects(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(accessibleProjects) == 0 {
+		return []SearchResultBlock{}, nil
+	}
+
+	// Embed the query
+	queryVector, err := s.embeddingClient.Embed(ctx, req.Query)
+	if err != nil {
+		s.logger.Warn("Embedding query failed, falling back to FTS",
+			zap.Error(err),
+		)
+		return s.searchWikiFTS(ctx, userID, req)
+	}
+
+	vectorStr := float32SliceToVectorString(queryVector)
+
+	// Build project filter
+	projectFilter, args := buildProjectFilter(req.ProjectID, accessibleProjects)
+	nextArg := len(args) + 1
+
+	query := fmt.Sprintf(`
+		SELECT wb.id, wb.page_id, wb.block_type, wb.headings_path, wb.plain_text,
+		       wp.title AS page_title, wp.slug AS page_slug,
+		       1 - (wb.embedding <=> $%d::vector) AS rank
+		FROM wiki_blocks wb
+		JOIN wiki_pages wp ON wb.page_id = wp.id
+		WHERE wb.embedding IS NOT NULL
+		  AND %s
+	`, nextArg, projectFilter)
+	args = append(args, vectorStr)
+	nextArg++
+
+	if req.RecencyDays != nil && *req.RecencyDays > 0 {
+		query += fmt.Sprintf(` AND wp.updated_at >= $%d`, nextArg)
+		args = append(args, time.Now().AddDate(0, 0, -*req.RecencyDays))
+	}
+
+	query += ` ORDER BY rank DESC LIMIT ` + strconv.Itoa(req.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanSearchResults(rows)
+}
+
+// searchWikiHybrid combines FTS and vector search with score fusion.
+func (s *Server) searchWikiHybrid(ctx context.Context, userID int64, req SearchWikiRequest) ([]SearchResultBlock, error) {
+	if s.embeddingClient == nil {
+		return s.searchWikiFTS(ctx, userID, req)
+	}
+
+	accessibleProjects, err := s.getUserAccessibleProjects(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(accessibleProjects) == 0 {
+		return []SearchResultBlock{}, nil
+	}
+
+	// Embed the query
+	queryVector, err := s.embeddingClient.Embed(ctx, req.Query)
+	if err != nil {
+		s.logger.Warn("Embedding query failed, falling back to FTS",
+			zap.Error(err),
+		)
+		return s.searchWikiFTS(ctx, userID, req)
+	}
+
+	vectorStr := float32SliceToVectorString(queryVector)
+
+	// Build project filter
+	projectFilter, args := buildProjectFilter(req.ProjectID, accessibleProjects)
+	nextArg := len(args) + 1
+
+	// Reciprocal Rank Fusion (RRF): merges FTS and vector rankings without needing score normalization.
+	// rrf_score = 1/(k+fts_rank) + 1/(k+vector_rank), k=60 is standard.
+	query := fmt.Sprintf(`
+		WITH fts AS (
+			SELECT wb.id, ROW_NUMBER() OVER (ORDER BY ts_rank(wb.search_vector, plainto_tsquery('english', $%d)) DESC) AS rn
+			FROM wiki_blocks wb
+			JOIN wiki_pages wp ON wb.page_id = wp.id
+			WHERE wb.search_vector @@ plainto_tsquery('english', $%d)
+			  AND %s
+		`, nextArg, nextArg, projectFilter)
+	args = append(args, req.Query)
+	nextArg++
+
+	if req.RecencyDays != nil && *req.RecencyDays > 0 {
+		query += fmt.Sprintf(` AND wp.updated_at >= $%d`, nextArg)
+		args = append(args, time.Now().AddDate(0, 0, -*req.RecencyDays))
+		nextArg++
+	}
+
+	query += fmt.Sprintf(`
+			LIMIT %d
+		),
+		vec AS (
+			SELECT wb.id, ROW_NUMBER() OVER (ORDER BY wb.embedding <=> $%d::vector) AS rn
+			FROM wiki_blocks wb
+			JOIN wiki_pages wp ON wb.page_id = wp.id
+			WHERE wb.embedding IS NOT NULL
+			  AND %s
+	`, req.Limit*2, nextArg, projectFilter)
+	args = append(args, vectorStr)
+	nextArg++
+
+	if req.RecencyDays != nil && *req.RecencyDays > 0 {
+		query += fmt.Sprintf(` AND wp.updated_at >= $%d`, nextArg)
+		args = append(args, time.Now().AddDate(0, 0, -*req.RecencyDays))
+	}
+
+	query += fmt.Sprintf(`
+			LIMIT %d
+		),
+		combined AS (
+			SELECT COALESCE(fts.id, vec.id) AS id,
+			       COALESCE(1.0/(60+fts.rn), 0) + COALESCE(1.0/(60+vec.rn), 0) AS rrf_score
+			FROM fts
+			FULL OUTER JOIN vec ON fts.id = vec.id
+		)
+		SELECT wb.id, wb.page_id, wb.block_type, wb.headings_path, wb.plain_text,
+		       wp.title AS page_title, wp.slug AS page_slug,
+		       c.rrf_score AS rank
+		FROM combined c
+		JOIN wiki_blocks wb ON wb.id = c.id
+		JOIN wiki_pages wp ON wb.page_id = wp.id
+		ORDER BY c.rrf_score DESC
+		LIMIT %d
+	`, req.Limit*2, req.Limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanSearchResults(rows)
+}
+
+// buildProjectFilter returns a SQL WHERE clause and args for project filtering.
+func buildProjectFilter(projectID *int64, accessibleProjects []int64) (string, []interface{}) {
+	if projectID != nil {
+		return "wp.project_id = $1", []interface{}{*projectID}
+	}
+	// Build IN clause: wp.project_id IN ($1, $2, ...)
+	placeholders := make([]string, len(accessibleProjects))
+	args := make([]interface{}, len(accessibleProjects))
+	for i, pid := range accessibleProjects {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = pid
+	}
+	return fmt.Sprintf("wp.project_id IN (%s)", strings.Join(placeholders, ",")), args
+}
+
+// scanSearchResults scans rows from FTS/semantic/hybrid queries into SearchResultBlock slices.
+func scanSearchResults(rows *sql.Rows) ([]SearchResultBlock, error) {
+	var results []SearchResultBlock
+	for rows.Next() {
+		var (
+			blockID      int64
+			pageID       int64
+			blockType    string
+			headingsPath sql.NullString
+			plainText    sql.NullString
+			pageTitle    string
+			pageSlug     string
+			rank         float64
+		)
+		if err := rows.Scan(&blockID, &pageID, &blockType, &headingsPath, &plainText, &pageTitle, &pageSlug, &rank); err != nil {
+			return nil, err
+		}
+		snippet := plainText.String
+		if len(snippet) > 200 {
+			snippet = snippet[:200] + "..."
+		}
+		results = append(results, SearchResultBlock{
+			PageID:       pageID,
+			PageTitle:    pageTitle,
+			PageSlug:     pageSlug,
+			BlockID:      blockID,
+			BlockType:    blockType,
+			HeadingsPath: headingsPath.String,
+			Snippet:      snippet,
+			Rank:         rank,
+		})
+	}
+	if results == nil {
+		results = []SearchResultBlock{}
+	}
+	return results, rows.Err()
 }
 
 // AutocompletePageRequest represents a page autocomplete request

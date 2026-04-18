@@ -59,6 +59,10 @@ type Config struct {
 
 	// Backup (Google Drive) — reuses GOOGLE_CLIENT_ID/SECRET from OAuth login
 	BackupEncryptionKey string // 64-char hex-encoded 32-byte AES key
+
+	// Embeddings (Ollama) — empty URL disables embeddings (graceful degradation)
+	OllamaURL      string
+	EmbeddingModel string
 }
 
 // Load reads configuration from environment variables
@@ -94,6 +98,9 @@ func Load() *Config {
 		OAuthErrorURL:           getEnv("OAUTH_ERROR_URL", "http://localhost:5173/login"),
 
 		BackupEncryptionKey: getEnv("BACKUP_ENCRYPTION_KEY", ""),
+
+		OllamaURL:      getEnv("OLLAMA_URL", ""),
+		EmbeddingModel: getEnv("EMBEDDING_MODEL", "all-minilm:l6-v2"),
 	}
 
 	// Validate critical configuration

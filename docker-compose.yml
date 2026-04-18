@@ -104,6 +104,9 @@ services:
       - OTEL_SERVICE_VERSION=${VERSION:-dev}
       - OTEL_ENVIRONMENT=${ENV:-production}
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      # Embeddings (Ollama) — empty = disabled; set to enable vector search
+      - OLLAMA_URL=${OLLAMA_URL:-}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-minilm:l6-v2}
       # Datadog Unified Service Tags — required on the container for Version Tagging
       # and Deployment Tracking in Datadog. Must match dd-agent DD_SERVICE/DD_VERSION.
       - DD_SERVICE=taskai
@@ -138,7 +141,7 @@ services:
       start_period: 5s
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     ports:
       - "127.0.0.1:5432:5432"
     environment:
@@ -231,6 +234,25 @@ services:
       retries: 3
       start_period: 5s
 
+  # Ollama — local embedding model for wiki vector search.
+  # Prod-only: set OLLAMA_URL=http://ollama:11434 in .env to enable.
+  # On staging/UAT (ARM64, smaller boxes), leave OLLAMA_URL empty to disable.
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - taskai
+    restart: unless-stopped
+    profiles:
+      - embeddings
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 volumes:
   # Persistent volume for SQLite database
   taskai-data:
@@ -238,6 +260,10 @@ volumes:
 
   # Persistent volume for Postgres database
   postgres-data:
+    driver: local
+
+  # Persistent volume for Ollama models
+  ollama-data:
     driver: local
 
 networks:
