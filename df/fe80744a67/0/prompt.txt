@@ -1,0 +1,108 @@
+don't look only at mempalace, remember what we build with ollama sidecar, vectorDB and how our embeddings help LLM search context find needle in a haystack to code at a much higher qaulity even with Opus 4.7 and beyond
+
+---
+
+make sure we have a skill for a cover, must be transparent, in motion so so interesting motion, and svg, and make sure to keep using the skill, then let me review the blog before also croning it into taskai
+
+---
+
+this is a change initially, Also after more, please describe taskai first. It it the first article I am writing on this very precious product I created [Image #2]
+
+---
+
+Looks good but the cover is not transparent should work well with dark and light mode, make sure this makes it to the special skill for creating blog cover images
+
+---
+
+we use KaTeX
+
+---
+
+I see this now, not being rendered properly [Image #3]
+
+---
+
+no, we need katex, fix the blog code please ~/play/blog
+
+---
+
+use ms.sh to start a local server
+
+---
+
+main deploys to staging, skip uat and then push to production next to deploy to production, once staging is deployed
+
+---
+
+Still looks like dogshit [Image #4]
+
+---
+
+❯ Why couldnt we test this locally please make sure I look locally give you the go ahead before you push to staging and proudviton
+
+---
+
+yes, exactly, this should be handled in go-wiki please
+
+---
+
+Looks great actually
+
+---
+
+Works great now please lets update the landing page for taskai.cc and make a blog cron and run to get this post as a blog on taskai.cc
+
+---
+
+<task-notification>
+<task-id>aa0d0e6e04fb899ad</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-anshumanbiswas-play-taskai/affc255e-c712-4765-bd09-c841a86fbb86/tasks/aa0d0e6e04fb899ad.output</output-file>
+<status>completed</status>
+<summary>Agent "Add blog sync to TaskAI" completed</summary>
+<result>That's just an overlay for image digests, no changes needed there.
+
+Here is a summary of everything that was done:
+
+**Files created:**
+- `/Users/anshumanbiswas/play/taskai/api/internal/blogsync/sync.go` -- The blog sync engine, adapted from AIAgentLens. Key differences from the original: uses `zap.Logger` instead of `log.Logger` (per TaskAI's mandatory logging standard), and the user agent is `taskai-blog-sync/1.0`.
+
+**Files modified:**
+
+1. `/Users/anshumanbiswas/play/taskai/api/internal/config/config.go` -- Added four config fields (`BlogSyncSourceURL`, `BlogSyncTag`, `BlogPostsDir`, `BlogSyncInterval`) with env vars defaulting to `https://anshumanbiswas.com`, `TaskAI`, `/data/blog-posts`, and `24h` respectively.
+
+2. `/Users/anshumanbiswas/play/taskai/api/cmd/api/main.go` -- Three changes:
+   - Added imports: `blog "github.com/anchoo2kewl/go-blog"`, `"taskai/internal/blogsync"`, `"path/filepath"`
+   - After the existing background workers (line ~697), added: blog sync scheduler (runs in a goroutine with zap logging), go-blog engine initialization (mounted at `/blog/*` with TaskAI branding), redirect from `/blog` to `/blog/`, and blog images file server at `/blog-images/*` for cached go-draw SVGs
+
+3. `/Users/anshumanbiswas/play/taskai/docker-compose.yml` -- Added `BLOG_SYNC_SOURCE_URL`, `BLOG_SYNC_TAG`, `BLOG_SYNC_INTERVAL` env vars to the api service; added `blog-posts:/data/blog-posts` volume mount; added `blog-posts` named volume definition.
+
+4. `/Users/anshumanbiswas/play/taskai/api/go.mod` and `go.sum` -- `github.com/anchoo2kewl/go-blog v0.1.2` added as a dependency.
+
+**Build result:** `go build ./...` passed with zero errors.</result>
+<usage><total_tokens>47815</total_tokens><tool_uses>27</tool_uses><duration_ms>205458</duration_ms></usage>
+</task-notification>
+
+---
+
+Still showing as my face, this is terrible
+
+---
+
+[Image #7]
+
+---
+
+Ok, give me a nice blurb to post on linkedin to get the readers intrigued
+
+---
+
+No, much shorter, start with introducing taskai and then go to knowledge spine, describe the problem I am trying to solve
+
+---
+
+Did it deploy on prudction taskai.cc? I don't see the updated landing page or the blog
+
+---
+
+this is great but I needed a blog section at the top with blog articles with taskai tags get picked up cron job every day midnight, same as aiagentlens.com
