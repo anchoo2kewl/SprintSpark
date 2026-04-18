@@ -14,6 +14,7 @@ import (
 	"taskai/ent/pageversion"
 	"taskai/ent/wikiblock"
 	"taskai/ent/wikipage"
+	"taskai/ent/wikipageversion"
 )
 
 // StartIndexingWorker starts a background worker that periodically indexes wiki content
@@ -88,62 +89,35 @@ func (s *Server) indexPages(parentCtx context.Context) {
 
 // indexPage indexes a single wiki page
 func (s *Server) indexPage(ctx context.Context, page *ent.WikiPage) error {
-	// Get the latest snapshot for the page
-	snapshot, err := s.db.Client.PageVersion.Query().
-		Where(pageversion.PageID(page.ID)).
-		Order(ent.Desc(pageversion.FieldVersionNumber)).
-		First(ctx)
+	// Try Yjs-based block extraction first (real-time editing pathway)
+	blocks, err := s.extractBlocksFromYjs(ctx, page)
 	if err != nil {
-		if ent.IsNotFound(err) {
-			s.logger.Debug("No snapshot available for indexing",
-				zap.Int64("page_id", page.ID),
-			)
-			return nil
-		}
-		return err
+		s.logger.Debug("Yjs extraction failed, trying markdown fallback",
+			zap.Int64("page_id", page.ID),
+			zap.Error(err),
+		)
 	}
 
-	// Convert state to base64 for Yjs processor
-	stateBase64 := base64.StdEncoding.EncodeToString(snapshot.YjsState)
-
-	// Extract blocks from the snapshot
-	blocks, err := s.yjsClient.ExtractBlocks(ctx, stateBase64)
-	if err != nil {
-		return err
+	// Fallback: use markdown content from wiki_page_versions
+	if len(blocks) == 0 {
+		blocks, err = s.extractBlocksFromMarkdown(ctx, page)
+		if err != nil {
+			return fmt.Errorf("extract blocks: %w", err)
+		}
 	}
 
 	// Delete existing blocks for this page
-	_, err = s.db.Client.WikiBlock.Delete().
+	_, deleteErr := s.db.Client.WikiBlock.Delete().
 		Where(wikiblock.PageID(page.ID)).
 		Exec(ctx)
-	if err != nil {
-		return err
+	if deleteErr != nil {
+		return deleteErr
 	}
 
 	// Insert new blocks
 	var savedBlocks []*ent.WikiBlock
 	if len(blocks) > 0 {
-		bulk := make([]*ent.WikiBlockCreate, len(blocks))
-		for i, block := range blocks {
-			bulk[i] = s.db.Client.WikiBlock.Create().
-				SetPageID(page.ID).
-				SetBlockType(block.Type).
-				SetHeadingsPath(block.HeadingsPath).
-				SetPlainText(block.PlainText).
-				SetPosition(block.Position)
-
-			// Set optional level for headings
-			if block.Level != nil {
-				bulk[i].SetLevel(*block.Level)
-			}
-
-			// Store canonical JSON as string
-			if block.CanonicalJSON != "" {
-				bulk[i].SetCanonicalJSON(block.CanonicalJSON)
-			}
-		}
-
-		savedBlocks, err = s.db.Client.WikiBlock.CreateBulk(bulk...).Save(ctx)
+		savedBlocks, err = s.db.Client.WikiBlock.CreateBulk(blocks...).Save(ctx)
 		if err != nil {
 			return err
 		}
@@ -152,7 +126,7 @@ func (s *Server) indexPage(ctx context.Context, page *ent.WikiPage) error {
 	s.logger.Info("Indexed page",
 		zap.Int64("page_id", page.ID),
 		zap.String("page_title", page.Title),
-		zap.Int("block_count", len(blocks)),
+		zap.Int("block_count", len(savedBlocks)),
 	)
 
 	// Generate and store embeddings (skip if embedding client is nil)
@@ -166,6 +140,109 @@ func (s *Server) indexPage(ctx context.Context, page *ent.WikiPage) error {
 	}
 
 	return nil
+}
+
+// extractBlocksFromYjs attempts to extract blocks via the Yjs processor (binary state).
+func (s *Server) extractBlocksFromYjs(ctx context.Context, page *ent.WikiPage) ([]*ent.WikiBlockCreate, error) {
+	snapshot, err := s.db.Client.PageVersion.Query().
+		Where(pageversion.PageID(page.ID)).
+		Order(ent.Desc(pageversion.FieldVersionNumber)).
+		First(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	stateBase64 := base64.StdEncoding.EncodeToString(snapshot.YjsState)
+	blocks, err := s.yjsClient.ExtractBlocks(ctx, stateBase64)
+	if err != nil {
+		return nil, err
+	}
+
+	bulk := make([]*ent.WikiBlockCreate, len(blocks))
+	for i, block := range blocks {
+		bulk[i] = s.db.Client.WikiBlock.Create().
+			SetPageID(page.ID).
+			SetBlockType(block.Type).
+			SetHeadingsPath(block.HeadingsPath).
+			SetPlainText(block.PlainText).
+			SetPosition(block.Position)
+		if block.Level != nil {
+			bulk[i].SetLevel(*block.Level)
+		}
+		if block.CanonicalJSON != "" {
+			bulk[i].SetCanonicalJSON(block.CanonicalJSON)
+		}
+	}
+	return bulk, nil
+}
+
+// extractBlocksFromMarkdown extracts blocks from wiki_page_versions markdown content.
+// Splits content by headings for granular search results.
+func (s *Server) extractBlocksFromMarkdown(ctx context.Context, page *ent.WikiPage) ([]*ent.WikiBlockCreate, error) {
+	version, err := s.db.Client.WikiPageVersion.Query().
+		Where(wikipageversion.WikiPageID(page.ID)).
+		Order(ent.Desc(wikipageversion.FieldVersionNumber)).
+		First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	content := version.Content
+	if content == "" {
+		return nil, nil
+	}
+
+	// Split markdown by headings into blocks
+	lines := strings.Split(content, "\n")
+	var bulk []*ent.WikiBlockCreate
+	var currentHeading string
+	var currentText strings.Builder
+	position := 0
+
+	flushBlock := func() {
+		text := strings.TrimSpace(currentText.String())
+		if text == "" {
+			return
+		}
+		blockType := "paragraph"
+		if currentHeading != "" {
+			blockType = "section"
+		}
+		b := s.db.Client.WikiBlock.Create().
+			SetPageID(page.ID).
+			SetBlockType(blockType).
+			SetHeadingsPath(currentHeading).
+			SetPlainText(text).
+			SetPosition(position)
+		bulk = append(bulk, b)
+		position++
+		currentText.Reset()
+	}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			// Flush previous block
+			flushBlock()
+			// Extract heading text (strip # prefix)
+			heading := strings.TrimLeft(trimmed, "# ")
+			currentHeading = heading
+		} else {
+			if trimmed != "" {
+				if currentText.Len() > 0 {
+					currentText.WriteByte('\n')
+				}
+				currentText.WriteString(trimmed)
+			}
+		}
+	}
+	// Flush last block
+	flushBlock()
+
+	return bulk, nil
 }
 
 // embedBlocks generates and stores vector embeddings for wiki blocks.
