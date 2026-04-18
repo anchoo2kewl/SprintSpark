@@ -733,7 +733,13 @@ func main() {
 	if err != nil {
 		logger.Fatal("blog init failed", zap.Error(err))
 	}
-	r.Handle("/blog/*", blogEngine.Handler())
+	// Blog: clear the global application/json Content-Type so go-blog can set
+	// its own (text/html for pages, text/css for stylesheets, etc.)
+	blogHandler := blogEngine.Handler()
+	r.Handle("/blog/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Del("Content-Type")
+		blogHandler.ServeHTTP(w, req)
+	}))
 	r.Handle("/blog", http.RedirectHandler("/blog/", http.StatusMovedPermanently))
 
 	// Blog images (e.g. go-draw SVGs cached by blogsync) are served from
