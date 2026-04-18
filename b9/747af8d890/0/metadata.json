@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "b9747af8d890",
+  "session_id": "affc255e-c712-4765-bd09-c841a86fbb86",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-18T00:47:59.126642Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/components/WikiEditor.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-4-6[1m]",
+  "turn_id": "e23c13bdb3ef",
+  "token_usage": {
+    "input_tokens": 437,
+    "cache_creation_tokens": 680298,
+    "cache_read_tokens": 76466458,
+    "output_tokens": 116919,
+    "api_call_count": 352
+  },
+  "session_metrics": {
+    "turn_count": 29
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-18T00:47:54.86692Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 63,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 63,
+    "total_lines_changed": 63,
+    "agent_percentage": 0,
+    "metric_version": 2
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "b9747af8d890",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "web/src/components/WikiEditor.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b9/747af8d890/0/metadata.json",
+      "transcript": "/b9/747af8d890/0/full.jsonl",
+      "content_hash": "/b9/747af8d890/0/content_hash.txt",
+      "prompt": "/b9/747af8d890/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 437,
+    "cache_creation_tokens": 680298,
+    "cache_read_tokens": 76466458,
+    "output_tokens": 116919,
+    "api_call_count": 352
+  }
+}
