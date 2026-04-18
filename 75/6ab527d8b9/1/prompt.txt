@@ -1,0 +1,21 @@
+how can i use mempalace https://github.com/mempalace/mempalace to help with building a knowledge base. I built this taskai.cc to help with agent LLM MCP for building, tasks are dropped in, LLM builds, lookis up docs in WIKI, adds docs on the fly. But how does it search these docs efficiently, does Mempalace concepts help here?
+
+---
+
+let's create all tasks here then start solving them https://taskai.cc/app/projects/1 lets use local embeddings main goal is whenever we add wiki docs, there should be some automated process that constructs the vector db and user + LLM can improve the vectorDB entries, goal is to fetch the best most relevant content as fast as possible, everything is local, single hardware
+
+---
+
+wait, we don't want to actuallu run an LLM, the use case is an LLM will already run that can connect to the MCP and get the right info, it just needs to connect to the MCP + Vector DB , or do we need the LLM to create embeddings?
+
+---
+
+lets skip it on staging/uat, will production support it, check specs
+
+---
+
+you can login and check please, you have full access
+
+---
+
+yes, please do it, then lets build it and get all wiki articles in it, plus update MCP and then lets do some test, the MCP is already connected here

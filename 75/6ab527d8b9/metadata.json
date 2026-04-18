@@ -6,6 +6,13 @@
   "checkpoints_count": 1,
   "files_touched": [
     "api/cmd/api/main.go",
+    "api/internal/api/server.go",
+    "api/internal/api/wiki_indexing.go",
+    "api/internal/api/wiki_search_handlers.go",
+    "api/internal/config/config.go",
+    "api/internal/db/migrations/postgres/064_wiki_vector_embeddings.sql",
+    "api/internal/embeddings/client.go",
+    "docker-compose.yml",
     "mcp/src/api.ts",
     "mcp/src/index.ts"
   ],
@@ -15,13 +22,19 @@
       "transcript": "/75/6ab527d8b9/0/full.jsonl",
       "content_hash": "/75/6ab527d8b9/0/content_hash.txt",
       "prompt": "/75/6ab527d8b9/0/prompt.txt"
+    },
+    {
+      "metadata": "/75/6ab527d8b9/1/metadata.json",
+      "transcript": "/75/6ab527d8b9/1/full.jsonl",
+      "content_hash": "/75/6ab527d8b9/1/content_hash.txt",
+      "prompt": "/75/6ab527d8b9/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 465,
-    "cache_creation_tokens": 686988,
-    "cache_read_tokens": 83577113,
-    "output_tokens": 119946,
-    "api_call_count": 372
+    "input_tokens": 573,
+    "cache_creation_tokens": 780100,
+    "cache_read_tokens": 89914534,
+    "output_tokens": 150945,
+    "api_call_count": 460
   }
 }
