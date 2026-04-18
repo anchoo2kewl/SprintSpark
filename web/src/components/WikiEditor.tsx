@@ -257,15 +257,15 @@ function initDrawEmbeds(
         textEl.textContent = remaining > 0 ? 'Hover for ' + remaining + 's to interact' : 'Interactive'
       }, 1000)
       hTimer = setTimeout(() => {
-        interactOverlay.style.pointerEvents = 'none'
-        hint.style.opacity = '0'
+        interactOverlay.style.display = 'none'
         if (cInterval) { clearInterval(cInterval); cInterval = null }
       }, INTERACT_DELAY * 1000)
     })
-    interactOverlay.addEventListener('mouseleave', () => {
+    // Re-enable overlay when mouse leaves the entire wrapper (not just the overlay).
+    wrapper.addEventListener('mouseleave', () => {
       if (hTimer) { clearTimeout(hTimer); hTimer = null }
       if (cInterval) { clearInterval(cInterval); cInterval = null }
-      interactOverlay.style.pointerEvents = 'auto'
+      interactOverlay.style.display = 'flex'
       hint.style.opacity = '0'
       const circle = hint.querySelector('circle') as SVGCircleElement
       const textEl = hint.querySelector('span:last-child') as HTMLSpanElement
