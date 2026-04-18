@@ -224,3 +224,7 @@ wait is it live here, I can interact with images immediately, must only allow af
 ---
 
 ok, looks like there is an issue, it goes 3 2 1 and then repeats, never gets out of the loop
+
+---
+
+It works fine locally, however, on prod it keeps looping
