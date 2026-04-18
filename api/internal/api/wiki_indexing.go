@@ -248,6 +248,8 @@ func (s *Server) extractBlocksFromMarkdown(ctx context.Context, page *ent.WikiPa
 // embedBlocks generates and stores vector embeddings for wiki blocks.
 func (s *Server) embedBlocks(ctx context.Context, blocks []*ent.WikiBlock) error {
 	// Build embedding inputs: headings_path + plain_text for context-enriched vectors
+	// Truncate to ~500 chars to stay within model context length (all-minilm max ~256 tokens)
+	const maxChars = 500
 	texts := make([]string, len(blocks))
 	for i, block := range blocks {
 		var parts []string
@@ -257,7 +259,11 @@ func (s *Server) embedBlocks(ctx context.Context, blocks []*ent.WikiBlock) error
 		if block.PlainText != nil && *block.PlainText != "" {
 			parts = append(parts, *block.PlainText)
 		}
-		texts[i] = strings.Join(parts, "\n")
+		text := strings.Join(parts, "\n")
+		if len(text) > maxChars {
+			text = text[:maxChars]
+		}
+		texts[i] = text
 	}
 
 	start := time.Now()
