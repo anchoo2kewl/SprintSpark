@@ -204,7 +204,15 @@ func main() {
 	})
 
 	// Request size limit (1MB)
-	r.Use(middleware.SetHeader("Content-Type", "application/json"))
+	// Set JSON content type for API routes, but skip /blog/ (serves HTML/CSS)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if !strings.HasPrefix(req.URL.Path, "/blog") {
+				w.Header().Set("Content-Type", "application/json")
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB
@@ -733,13 +741,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("blog init failed", zap.Error(err))
 	}
-	// Blog: clear the global application/json Content-Type so go-blog can set
-	// its own (text/html for pages, text/css for stylesheets, etc.)
-	blogHandler := blogEngine.Handler()
-	r.Handle("/blog/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Del("Content-Type")
-		blogHandler.ServeHTTP(w, req)
-	}))
+	r.Handle("/blog/*", blogEngine.Handler())
 	r.Handle("/blog", http.RedirectHandler("/blog/", http.StatusMovedPermanently))
 
 	// Blog images (e.g. go-draw SVGs cached by blogsync) are served from
