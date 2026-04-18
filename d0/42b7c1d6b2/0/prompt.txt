@@ -1,0 +1,53 @@
+don't look only at mempalace, remember what we build with ollama sidecar, vectorDB and how our embeddings help LLM search context find needle in a haystack to code at a much higher qaulity even with Opus 4.7 and beyond
+
+---
+
+make sure we have a skill for a cover, must be transparent, in motion so so interesting motion, and svg, and make sure to keep using the skill, then let me review the blog before also croning it into taskai
+
+---
+
+this is a change initially, Also after more, please describe taskai first. It it the first article I am writing on this very precious product I created [Image #2]
+
+---
+
+Looks good but the cover is not transparent should work well with dark and light mode, make sure this makes it to the special skill for creating blog cover images
+
+---
+
+we use KaTeX
+
+---
+
+I see this now, not being rendered properly [Image #3]
+
+---
+
+no, we need katex, fix the blog code please ~/play/blog
+
+---
+
+use ms.sh to start a local server
+
+---
+
+main deploys to staging, skip uat and then push to production next to deploy to production, once staging is deployed
+
+---
+
+Still looks like dogshit [Image #4]
+
+---
+
+❯ Why couldnt we test this locally please make sure I look locally give you the go ahead before you push to staging and proudviton
+
+---
+
+yes, exactly, this should be handled in go-wiki please
+
+---
+
+Looks great actually
+
+---
+
+Works great now please lets update the landing page for taskai.cc and make a blog cron and run to get this post as a blog on taskai.cc
