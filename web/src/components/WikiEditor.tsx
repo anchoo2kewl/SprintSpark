@@ -212,6 +212,69 @@ function initDrawEmbeds(
     iframe.setAttribute('loading', 'lazy')
     wrapper.appendChild(iframe)
 
+    // Hover-to-interact overlay — prevents scroll-trap on embedded drawings.
+    // User must hover for 3 seconds before the iframe becomes interactive.
+    const INTERACT_DELAY = 3
+    const interactOverlay = document.createElement('div')
+    Object.assign(interactOverlay.style, {
+      position: 'absolute', top: '0', left: '0', right: '0', bottom: '0',
+      zIndex: '4', cursor: 'default', borderRadius: '8px',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      paddingTop: '12px',
+    })
+    const hint = document.createElement('span')
+    Object.assign(hint.style, {
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '500',
+      color: '#d1d5db', background: 'rgba(55,65,81,0.9)', border: 'none',
+      pointerEvents: 'none', opacity: '0', transition: 'opacity .25s',
+      fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
+      backdropFilter: 'blur(4px)',
+    })
+    hint.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 20 20" style="flex-shrink:0">' +
+        '<circle cx="10" cy="10" r="8" fill="none" stroke="#9ca3af" stroke-width="2" ' +
+          'style="stroke-dasharray:50.26;stroke-dashoffset:50.26;transform:rotate(-90deg);transform-origin:center"/>' +
+      '</svg>' +
+      '<span>Hover for ' + INTERACT_DELAY + 's to interact</span>'
+    interactOverlay.appendChild(hint)
+    wrapper.appendChild(interactOverlay)
+
+    let hTimer: ReturnType<typeof setTimeout> | null = null
+    let cInterval: ReturnType<typeof setInterval> | null = null
+    interactOverlay.addEventListener('mouseenter', () => {
+      hint.style.opacity = '1'
+      const circle = hint.querySelector('circle') as SVGCircleElement
+      const textEl = hint.querySelector('span:last-child') as HTMLSpanElement
+      circle.style.stroke = '#60a5fa'
+      circle.style.transition = 'stroke-dashoffset ' + INTERACT_DELAY + 's linear'
+      void (circle as unknown as HTMLElement).offsetWidth
+      circle.style.strokeDashoffset = '0'
+      let remaining = INTERACT_DELAY
+      textEl.textContent = 'Hover for ' + remaining + 's to interact'
+      cInterval = setInterval(() => {
+        remaining--
+        textEl.textContent = remaining > 0 ? 'Hover for ' + remaining + 's to interact' : 'Interactive'
+      }, 1000)
+      hTimer = setTimeout(() => {
+        interactOverlay.style.pointerEvents = 'none'
+        hint.style.opacity = '0'
+        if (cInterval) { clearInterval(cInterval); cInterval = null }
+      }, INTERACT_DELAY * 1000)
+    })
+    interactOverlay.addEventListener('mouseleave', () => {
+      if (hTimer) { clearTimeout(hTimer); hTimer = null }
+      if (cInterval) { clearInterval(cInterval); cInterval = null }
+      interactOverlay.style.pointerEvents = 'auto'
+      hint.style.opacity = '0'
+      const circle = hint.querySelector('circle') as SVGCircleElement
+      const textEl = hint.querySelector('span:last-child') as HTMLSpanElement
+      circle.style.transition = 'none'
+      circle.style.strokeDashoffset = '50.26'
+      circle.style.stroke = '#9ca3af'
+      textEl.textContent = 'Hover for ' + INTERACT_DELAY + 's to interact'
+    })
+
     if (drawId) {
       // Detect current size from shortcode
       let currentSize = 'm'
