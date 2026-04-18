@@ -124,7 +124,7 @@ if [ "$ENV" = "uat" ]; then
   COMPOSE_CMD="docker compose"
   SOURCE_DIR="$DEPLOY_DIR"
 else
-  COMPOSE_CMD="docker compose -f source/docker-compose.yml -p $COMPOSE_PROJECT"
+  COMPOSE_CMD="docker compose -f source/docker-compose.yml --env-file .env -p $COMPOSE_PROJECT"
   SOURCE_DIR="$DEPLOY_DIR/source"
 fi
 
