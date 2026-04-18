@@ -734,7 +734,7 @@ export default function Landing() {
                     </div>
                   )}
                   <div className="p-6">
-                    <div className="text-xs text-dark-text-quaternary mb-3">{post.date}</div>
+                    <div className="text-xs text-dark-text-quaternary mb-3">{new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                     <h3 className="text-base font-semibold tracking-tight mb-2 group-hover:text-primary-400 transition-colors leading-snug">
                       {post.title}
                     </h3>
