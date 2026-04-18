@@ -737,6 +737,10 @@ func main() {
 		blog.WithAccentColor("#6366f1"),
 		blog.WithHomeLink("/", "\u2190 taskai.cc"),
 		blog.WithSiteURL("https://taskai.cc"),
+		blog.WithExtraHead(`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.querySelector('.blog-main'),{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});"></script>`),
 	)
 	if err != nil {
 		logger.Fatal("blog init failed", zap.Error(err))

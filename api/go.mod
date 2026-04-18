@@ -8,9 +8,12 @@ require (
 	github.com/anchoo2kewl/go-backup v0.1.10
 	github.com/anchoo2kewl/go-backup/gdrive v0.1.10
 	github.com/anchoo2kewl/go-backup/pgstore v0.1.10
+	github.com/anchoo2kewl/go-blog v0.1.3
 	github.com/anchoo2kewl/go-draw v0.9.20
 	github.com/anchoo2kewl/go-login v0.2.1
-	github.com/anchoo2kewl/go-wiki v0.1.8
+	github.com/anchoo2kewl/go-wiki v0.1.9
+	github.com/chromedp/cdproto v0.0.0-20260405000525-47a8ff65b46a
+	github.com/chromedp/chromedp v0.15.1
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/cors v1.2.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -44,14 +47,11 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/anchoo2kewl/go-blog v0.1.2 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/bmatcuk/doublestar v1.3.4 // indirect
 	github.com/boombuler/barcode v1.1.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chromedp/cdproto v0.0.0-20260405000525-47a8ff65b46a // indirect
-	github.com/chromedp/chromedp v0.15.1 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
