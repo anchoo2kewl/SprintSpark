@@ -1,6 +1,25 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+
+interface BlogPost {
+  title: string
+  slug: string
+  excerpt: string
+  date: string
+  cover: string
+  author: string
+}
 
 export default function Landing() {
+  const [posts, setPosts] = useState<BlogPost[]>([])
+
+  useEffect(() => {
+    fetch('/blog/api/posts')
+      .then(r => r.ok ? r.json() : { posts: [] })
+      .then((data: { posts: BlogPost[] }) => setPosts((data.posts || []).slice(0, 3)))
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="min-h-screen bg-dark-bg-base text-dark-text-primary">
 
@@ -15,6 +34,7 @@ export default function Landing() {
             <a href="#features" className="hover:text-dark-text-primary transition-colors">Features</a>
             <a href="#ai" className="hover:text-dark-text-primary transition-colors">AI agents</a>
             <a href="#integrations" className="hover:text-dark-text-primary transition-colors">Integrations</a>
+            <a href="/blog/" className="hover:text-dark-text-primary transition-colors">Blog</a>
             <a href="/docs/" className="hover:text-dark-text-primary transition-colors">Docs</a>
           </div>
           <div className="flex items-center gap-3">
@@ -186,6 +206,64 @@ export default function Landing() {
           <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-3/4 h-16 bg-primary-500/10 blur-2xl rounded-full pointer-events-none" />
         </div>
       </section>
+
+      {/* ── Blog ── */}
+      {posts.length > 0 && (
+        <section className="py-20 md:py-28 border-t border-dark-border-subtle">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="flex items-center justify-between mb-12">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">From the blog</h2>
+                <p className="mt-2 text-sm text-dark-text-tertiary">Building AI-native tools, one commit at a time.</p>
+              </div>
+              <a
+                href="/blog/"
+                className="text-sm text-primary-400 hover:text-primary-300 transition-colors hidden md:flex items-center gap-1"
+              >
+                All posts
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {posts.map(post => (
+                <a
+                  key={post.slug}
+                  href={`/blog/${post.slug}`}
+                  className="group rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-primary-500/30 transition-all duration-300 overflow-hidden"
+                >
+                  {post.cover && (
+                    <div className="aspect-[16/9] bg-dark-bg-secondary overflow-hidden">
+                      <img
+                        src={post.cover}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  )}
+                  <div className="p-6">
+                    <div className="text-xs text-dark-text-quaternary mb-3">{post.date}</div>
+                    <h3 className="text-base font-semibold tracking-tight mb-2 group-hover:text-primary-400 transition-colors leading-snug">
+                      {post.title}
+                    </h3>
+                    <p className="text-sm text-dark-text-tertiary leading-relaxed line-clamp-2">
+                      {post.excerpt}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            <div className="mt-8 text-center md:hidden">
+              <a href="/blog/" className="text-sm text-primary-400 hover:text-primary-300 transition-colors">
+                View all posts →
+              </a>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Feature pillars ── */}
       <section id="features" className="py-24 md:py-32 border-t border-dark-border-subtle">
@@ -721,6 +799,7 @@ export default function Landing() {
             <span className="text-sm text-dark-text-quaternary font-medium">TaskAI</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-dark-text-quaternary">
+            <a href="/blog/" className="hover:text-dark-text-tertiary transition-colors">Blog</a>
             <a href="/docs/" className="hover:text-dark-text-tertiary transition-colors">Docs</a>
             <Link to="/login" className="hover:text-dark-text-tertiary transition-colors">Sign in</Link>
             <Link to="/signup" className="hover:text-dark-text-tertiary transition-colors">Sign up</Link>
