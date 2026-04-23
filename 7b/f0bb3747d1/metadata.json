@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "7bf0bb3747d1",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/internal/api/wiki_search_handlers.go",
+    "mcp/src/api.ts",
+    "mcp/src/index.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7b/f0bb3747d1/0/metadata.json",
+      "transcript": "/7b/f0bb3747d1/0/full.jsonl",
+      "content_hash": "/7b/f0bb3747d1/0/content_hash.txt",
+      "prompt": "/7b/f0bb3747d1/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1496,
+    "cache_creation_tokens": 1281620,
+    "cache_read_tokens": 153689542,
+    "output_tokens": 170087,
+    "api_call_count": 600
+  }
+}
