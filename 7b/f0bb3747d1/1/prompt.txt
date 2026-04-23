@@ -1,0 +1,39 @@
+[Image #1] [Image #2] there is a huge issue in the blog on taskai, look at the image on the original article, the image text looks perfect, now look at how it looks in taskai. Please make sure the export is exact replica
+
+---
+
+<task-notification>
+<task-id>be54rnzgh</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-anshumanbiswas-play-taskai/e1cf36bf-b4e3-4b40-b9be-cc8a4f2b4ac6/tasks/be54rnzgh.output</output-file>
+<status>failed</status>
+<summary>Background command "cd /Users/anshumanbiswas/play/blog &amp;&amp; git push" failed with exit code 128</summary>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>b5mb3k21g</task-id>
+<tool-use-id>toolu_01QoTsu1dcy6YDTC7tW39PLU</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-anshumanbiswas-play-taskai/e1cf36bf-b4e3-4b40-b9be-cc8a4f2b4ac6/tasks/b5mb3k21g.output</output-file>
+<status>failed</status>
+<summary>Background command "cd /Users/anshumanbiswas/play/blog &amp;&amp; git push 2&gt;&amp;1" failed with exit code 128</summary>
+</task-notification>
+
+---
+
+ok, can we do some testing and improve the MCP server testing as described in https://anshumanbiswas.com/blog/knowledge-spine-ai-code-quality, do some testing to get it better quality of results
+
+---
+
+no, this could be as a header in search which will restrict the search X-Project-ID, so reach from .taskai.json and pass as a header to taskai via .taskai.json that restricts search and gets better results. Also possible to search from multiple projects when searching, since we maybe working on multiple repos or having one repo dependent on another repo
+
+---
+
+<task-notification>
+<task-id>b645o6nwb</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-anshumanbiswas-play-taskai/e1cf36bf-b4e3-4b40-b9be-cc8a4f2b4ac6/tasks/b645o6nwb.output</output-file>
+<status>completed</status>
+<summary>Background command "cd /Users/anshumanbiswas/play/taskai/api &amp;&amp; go test ./internal/api/ -run "TestSearchWiki|TestAutocomplete|TestWikiSearch" -count=1 -v 2&gt;&amp;1 | tail -50" completed (exit code 0)</summary>
+</task-notification>

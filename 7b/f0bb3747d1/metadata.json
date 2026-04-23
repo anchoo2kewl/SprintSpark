@@ -3,9 +3,12 @@
   "checkpoint_id": "7bf0bb3747d1",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 1,
+  "checkpoints_count": 3,
   "files_touched": [
+    ".mcp.json",
+    ".taskai.json",
     "api/internal/api/wiki_search_handlers.go",
+    "api/internal/api/wiki_search_handlers_test.go",
     "mcp/src/api.ts",
     "mcp/src/index.ts"
   ],
@@ -15,13 +18,19 @@
       "transcript": "/7b/f0bb3747d1/0/full.jsonl",
       "content_hash": "/7b/f0bb3747d1/0/content_hash.txt",
       "prompt": "/7b/f0bb3747d1/0/prompt.txt"
+    },
+    {
+      "metadata": "/7b/f0bb3747d1/1/metadata.json",
+      "transcript": "/7b/f0bb3747d1/1/full.jsonl",
+      "content_hash": "/7b/f0bb3747d1/1/content_hash.txt",
+      "prompt": "/7b/f0bb3747d1/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 1496,
-    "cache_creation_tokens": 1281620,
-    "cache_read_tokens": 153689542,
-    "output_tokens": 170087,
-    "api_call_count": 600
+    "input_tokens": 1715,
+    "cache_creation_tokens": 1409900,
+    "cache_read_tokens": 164917243,
+    "output_tokens": 207516,
+    "api_call_count": 736
   }
 }
