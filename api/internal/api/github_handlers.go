@@ -2945,6 +2945,12 @@ func (s *Server) runGitHubImportCore(ctx context.Context, projectID int, owner, 
 
 	// --- Import Sprints from Milestones ---
 	if req.PullSprints {
+		// Get project owner's user_id for sprint creation (user_id is NOT NULL)
+		var sprintOwnerID int64
+		_ = s.db.QueryRowContext(ctx, `
+			SELECT user_id FROM project_members WHERE project_id = $1 AND role = 'owner' LIMIT 1
+		`, projectID).Scan(&sprintOwnerID)
+
 		var milestones []ghMilestone
 		if err := fetchGitHubJSON(ctx, token, base+"/milestones?state=all&per_page=100", &milestones); err != nil {
 			s.logger.Error("auto-sync: failed to fetch milestones", zap.Int("project_id", projectID), zap.Error(err))
@@ -2979,11 +2985,11 @@ func (s *Server) runGitHubImportCore(ctx context.Context, projectID int, owner, 
 						`, m.Number, status, dueDate, existingID)
 					} else {
 						_ = s.db.QueryRowContext(ctx, `
-							INSERT INTO sprints (project_id, name, status, end_date, github_milestone_number)
-							VALUES ($1, $2, $3, $4, $5)
+							INSERT INTO sprints (user_id, project_id, name, status, end_date, github_milestone_number)
+							VALUES ($1, $2, $3, $4, $5, $6)
 							ON CONFLICT (project_id, github_milestone_number) DO NOTHING
 							RETURNING id
-						`, projectID, m.Title, status, dueDate, m.Number).Scan(&existingID)
+						`, sprintOwnerID, projectID, m.Title, status, dueDate, m.Number).Scan(&existingID)
 					}
 				} else if err == nil {
 					_, _ = s.db.ExecContext(ctx, `
@@ -2997,6 +3003,11 @@ func (s *Server) runGitHubImportCore(ctx context.Context, projectID int, owner, 
 
 	// --- Import Tags from Labels ---
 	if req.PullTags {
+		var tagOwnerID int64
+		_ = s.db.QueryRowContext(ctx, `
+			SELECT user_id FROM project_members WHERE project_id = $1 AND role = 'owner' LIMIT 1
+		`, projectID).Scan(&tagOwnerID)
+
 		var labels []ghLabel
 		if err := fetchGitHubJSON(ctx, token, base+"/labels?per_page=100", &labels); err != nil {
 			s.logger.Error("auto-sync: failed to fetch labels", zap.Int("project_id", projectID), zap.Error(err))
@@ -3014,10 +3025,10 @@ func (s *Server) runGitHubImportCore(ctx context.Context, projectID int, owner, 
 
 				if err == sql.ErrNoRows {
 					_, _ = s.db.ExecContext(ctx, `
-						INSERT INTO tags (project_id, name, color, github_label_name)
-						VALUES ($1, $2, $3, $4)
+						INSERT INTO tags (user_id, project_id, name, color, github_label_name)
+						VALUES ($1, $2, $3, $4, $5)
 						ON CONFLICT (project_id, github_label_name) DO NOTHING
-					`, projectID, l.Name, color, l.Name)
+					`, tagOwnerID, projectID, l.Name, color, l.Name)
 				} else if err == nil {
 					_, _ = s.db.ExecContext(ctx, `
 						UPDATE tags SET name = $1, color = $2 WHERE id = $3
