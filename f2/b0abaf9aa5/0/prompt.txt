@@ -1,0 +1,11 @@
+<task-notification>
+<task-id>bshzlznd1</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-anshumanbiswas-play-taskai/e1cf36bf-b4e3-4b40-b9be-cc8a4f2b4ac6/tasks/bshzlznd1.output</output-file>
+<status>failed</status>
+<summary>Background command "./script/server promote staging prod 2&gt;&amp;1" failed with exit code 1</summary>
+</task-notification>
+
+---
+
+please fix the wiki https://taskai.cc/app/projects/1?tab=wiki&page=67 [Image #3] TEXT IS OUTSIDE THE box, also use math katex like we do in the blog score(doc) = 1/(k + fts_rank_position) + 1/(k + vector_rank_position)
