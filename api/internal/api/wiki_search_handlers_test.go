@@ -393,6 +393,82 @@ func TestSearchWikiMultipleProjects(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// TestSearchWikiProjectIDs — covers multi-project search via project_ids
+// ---------------------------------------------------------------------------
+
+func TestSearchWikiProjectIDs(t *testing.T) {
+	t.Run("project_ids filters to specific projects", func(t *testing.T) {
+		ts := NewTestServer(t)
+		defer ts.Close()
+
+		userID := ts.CreateTestUser(t, "test@example.com", "password123")
+		project1 := ts.CreateTestProject(t, userID, "Project Alpha")
+		project2 := ts.CreateTestProject(t, userID, "Project Beta")
+		project3 := ts.CreateTestProject(t, userID, "Project Gamma")
+
+		page1 := ts.createTestWikiPage(t, project1, userID, "P1 Page")
+		page2 := ts.createTestWikiPage(t, project2, userID, "P2 Page")
+		page3 := ts.createTestWikiPage(t, project3, userID, "P3 Page")
+
+		ts.createTestWikiBlock(t, page1, "paragraph", "multiprojidstestunique content in alpha", "", 0)
+		ts.createTestWikiBlock(t, page2, "paragraph", "multiprojidstestunique content in beta", "", 0)
+		ts.createTestWikiBlock(t, page3, "paragraph", "multiprojidstestunique content in gamma", "", 0)
+
+		// Search only projects 1 and 2 — should exclude project 3
+		body := SearchWikiRequest{
+			Query:      "multiprojidstestunique",
+			ProjectIDs: []int64{project1, project2},
+		}
+
+		rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/wiki/search", body, userID, nil)
+		ts.HandleSearchWiki(rec, req)
+
+		AssertStatusCode(t, rec.Code, http.StatusOK)
+
+		var resp SearchWikiResponse
+		DecodeJSON(t, rec, &resp)
+
+		if resp.Total != 2 {
+			t.Errorf("Expected 2 results from projects 1 and 2, got %d", resp.Total)
+		}
+	})
+
+	t.Run("project_id takes priority over project_ids", func(t *testing.T) {
+		ts := NewTestServer(t)
+		defer ts.Close()
+
+		userID := ts.CreateTestUser(t, "test@example.com", "password123")
+		project1 := ts.CreateTestProject(t, userID, "Project Alpha")
+		project2 := ts.CreateTestProject(t, userID, "Project Beta")
+
+		page1 := ts.createTestWikiPage(t, project1, userID, "P1 Page")
+		page2 := ts.createTestWikiPage(t, project2, userID, "P2 Page")
+
+		ts.createTestWikiBlock(t, page1, "paragraph", "projprioritytestunique in alpha", "", 0)
+		ts.createTestWikiBlock(t, page2, "paragraph", "projprioritytestunique in beta", "", 0)
+
+		// project_id should override project_ids
+		body := SearchWikiRequest{
+			Query:      "projprioritytestunique",
+			ProjectID:  &project1,
+			ProjectIDs: []int64{project1, project2},
+		}
+
+		rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/wiki/search", body, userID, nil)
+		ts.HandleSearchWiki(rec, req)
+
+		AssertStatusCode(t, rec.Code, http.StatusOK)
+
+		var resp SearchWikiResponse
+		DecodeJSON(t, rec, &resp)
+
+		if resp.Total != 1 {
+			t.Errorf("Expected 1 result (project_id takes priority), got %d", resp.Total)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
 // TestAutocompleteInvalidProjectID — covers invalid project_id parse path
 // ---------------------------------------------------------------------------
 
@@ -526,7 +602,7 @@ func TestAutocompleteResponseFields(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSearchWikiDefaultLimitBehavior(t *testing.T) {
-	t.Run("default limit caps results at 20", func(t *testing.T) {
+	t.Run("default limit caps results at 10", func(t *testing.T) {
 		ts := NewTestServer(t)
 		defer ts.Close()
 
@@ -534,15 +610,15 @@ func TestSearchWikiDefaultLimitBehavior(t *testing.T) {
 		projectID := ts.CreateTestProject(t, userID, "Test Project")
 		pageID := ts.createTestWikiPage(t, projectID, userID, "Lots of Blocks")
 
-		// Create 25 blocks
-		for i := 0; i < 25; i++ {
+		// Create 15 blocks
+		for i := 0; i < 15; i++ {
 			ts.createTestWikiBlock(t, pageID, "paragraph",
 				fmt.Sprintf("defaultlimittestunique block number %d", i), "", i)
 		}
 
 		body := SearchWikiRequest{
 			Query: "defaultlimittestunique",
-			// Limit: 0 => should default to 20
+			// Limit: 0 => should default to 10
 		}
 
 		rec, req := ts.MakeAuthRequest(t, http.MethodPost, "/api/wiki/search", body, userID, nil)
@@ -553,8 +629,8 @@ func TestSearchWikiDefaultLimitBehavior(t *testing.T) {
 		var resp SearchWikiResponse
 		DecodeJSON(t, rec, &resp)
 
-		if resp.Total > 20 {
-			t.Errorf("Expected at most 20 results with default limit, got %d", resp.Total)
+		if resp.Total > 10 {
+			t.Errorf("Expected at most 10 results with default limit, got %d", resp.Total)
 		}
 	})
 }

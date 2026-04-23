@@ -1,5 +1,15 @@
 {
   "mcpServers": {
+    "taskai": {
+      "type": "streamable-http",
+      "url": "https://mcp.taskai.cc/mcp",
+      "headers": {
+        "X-API-Key": "MOz6oQYIr-8lINGFawoHlppslVSXwCTJgc5_zeLK_1E=",
+        "X-Agent-Name": "Claude Code",
+        "X-Project-ID": "1"
+      },
+      "_comment": "X-Project-ID comes from .taskai.json project_ids — comma-separated for multi-project (e.g. '1,2')"
+    },
     "cloudflare-dns": {
       "command": "npx",
       "args": ["mcp-remote", "https://dns-analytics.mcp.cloudflare.com/mcp"]

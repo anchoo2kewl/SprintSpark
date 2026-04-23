@@ -20,11 +20,12 @@ import (
 
 // SearchWikiRequest represents a wiki search request
 type SearchWikiRequest struct {
-	Query       string `json:"query"`
-	ProjectID   *int64 `json:"project_id,omitempty"`
-	Limit       int    `json:"limit,omitempty"`
-	RecencyDays *int   `json:"recency_days,omitempty"`
-	Mode        string `json:"mode,omitempty"` // "keyword" (ILIKE), "fts" (tsvector), "semantic" (vector), "hybrid" (fts+vector). Default: "fts"
+	Query       string  `json:"query"`
+	ProjectID   *int64  `json:"project_id,omitempty"`
+	ProjectIDs  []int64 `json:"project_ids,omitempty"` // search across multiple projects
+	Limit       int     `json:"limit,omitempty"`
+	RecencyDays *int    `json:"recency_days,omitempty"`
+	Mode        string  `json:"mode,omitempty"` // "keyword" (ILIKE), "fts" (tsvector), "semantic" (vector), "hybrid" (fts+vector). Default: "hybrid"
 }
 
 // SearchResultBlock represents a search result block
@@ -69,17 +70,21 @@ func (s *Server) HandleSearchWiki(w http.ResponseWriter, r *http.Request) {
 
 	// Set defaults
 	if req.Limit == 0 {
-		req.Limit = 20
+		req.Limit = 10
 	}
 	if req.Limit > 100 {
 		req.Limit = 100
 	}
 
-	// Default mode to "fts" (full-text search with tsvector ranking)
-	// Fall back to "keyword" on SQLite (no tsvector/pgvector support)
+	// Default mode to "hybrid" (best accuracy: FTS + vector similarity via RRF).
+	// Falls back to "fts" if embedding client is unavailable, "keyword" on SQLite.
 	if req.Mode == "" {
 		if s.db.Driver == "postgres" {
-			req.Mode = "fts"
+			if s.embeddingClient != nil {
+				req.Mode = "hybrid"
+			} else {
+				req.Mode = "fts"
+			}
 		} else {
 			req.Mode = "keyword"
 		}
@@ -152,13 +157,9 @@ func (s *Server) searchWikiBlocks(ctx context.Context, userID int64, req SearchW
 			q.Select(wikipage.FieldID, wikipage.FieldTitle, wikipage.FieldSlug, wikipage.FieldProjectID)
 		})
 
-	// Filter by project if specified
-	if req.ProjectID != nil {
-		query = query.Where(wikiblock.HasPageWith(wikipage.ProjectID(*req.ProjectID)))
-	} else {
-		// Filter by accessible projects
-		query = query.Where(wikiblock.HasPageWith(wikipage.ProjectIDIn(accessibleProjects...)))
-	}
+	// Filter by resolved project IDs (respects project_id, project_ids, or all accessible)
+	effectiveProjects := resolveProjectIDs(req, accessibleProjects)
+	query = query.Where(wikiblock.HasPageWith(wikipage.ProjectIDIn(effectiveProjects...)))
 
 	// Use ContainsFold for case-insensitive search (generates ILIKE on Postgres)
 	query = query.Where(wikiblock.Or(
@@ -226,7 +227,8 @@ func (s *Server) searchWikiFTS(ctx context.Context, userID int64, req SearchWiki
 	}
 
 	// Build project filter
-	projectFilter, args := buildProjectFilter(req.ProjectID, accessibleProjects)
+	effectiveProjects := resolveProjectIDs(req, accessibleProjects)
+	projectFilter, args := buildProjectFilterFromIDs(effectiveProjects)
 
 	// plainto_tsquery handles user input safely (no special syntax needed)
 	nextArg := len(args) + 1
@@ -285,7 +287,8 @@ func (s *Server) searchWikiSemantic(ctx context.Context, userID int64, req Searc
 	vectorStr := float32SliceToVectorString(queryVector)
 
 	// Build project filter
-	projectFilter, args := buildProjectFilter(req.ProjectID, accessibleProjects)
+	effectiveProjects := resolveProjectIDs(req, accessibleProjects)
+	projectFilter, args := buildProjectFilterFromIDs(effectiveProjects)
 	nextArg := len(args) + 1
 
 	query := fmt.Sprintf(`
@@ -342,7 +345,8 @@ func (s *Server) searchWikiHybrid(ctx context.Context, userID int64, req SearchW
 	vectorStr := float32SliceToVectorString(queryVector)
 
 	// Build project filter
-	projectFilter, args := buildProjectFilter(req.ProjectID, accessibleProjects)
+	effectiveProjects := resolveProjectIDs(req, accessibleProjects)
+	projectFilter, args := buildProjectFilterFromIDs(effectiveProjects)
 	nextArg := len(args) + 1
 
 	// Reciprocal Rank Fusion (RRF): merges FTS and vector rankings without needing score normalization.
@@ -410,15 +414,37 @@ func (s *Server) searchWikiHybrid(ctx context.Context, userID int64, req SearchW
 	return scanSearchResults(rows)
 }
 
-// buildProjectFilter returns a SQL WHERE clause and args for project filtering.
-func buildProjectFilter(projectID *int64, accessibleProjects []int64) (string, []interface{}) {
-	if projectID != nil {
-		return "wp.project_id = $1", []interface{}{*projectID}
+// resolveProjectIDs returns the effective project IDs for a search request,
+// intersecting any explicit project_id/project_ids with the user's accessible projects.
+func resolveProjectIDs(req SearchWikiRequest, accessibleProjects []int64) []int64 {
+	if req.ProjectID != nil {
+		return []int64{*req.ProjectID}
 	}
-	// Build IN clause: wp.project_id IN ($1, $2, ...)
-	placeholders := make([]string, len(accessibleProjects))
-	args := make([]interface{}, len(accessibleProjects))
-	for i, pid := range accessibleProjects {
+	if len(req.ProjectIDs) > 0 {
+		// Intersect requested IDs with accessible IDs
+		accessSet := make(map[int64]bool, len(accessibleProjects))
+		for _, id := range accessibleProjects {
+			accessSet[id] = true
+		}
+		filtered := make([]int64, 0, len(req.ProjectIDs))
+		for _, id := range req.ProjectIDs {
+			if accessSet[id] {
+				filtered = append(filtered, id)
+			}
+		}
+		if len(filtered) > 0 {
+			return filtered
+		}
+		// None of the requested IDs are accessible — fall through to all accessible
+	}
+	return accessibleProjects
+}
+
+// buildProjectFilterFromIDs returns a SQL WHERE clause for a slice of project IDs.
+func buildProjectFilterFromIDs(projectIDs []int64) (string, []interface{}) {
+	placeholders := make([]string, len(projectIDs))
+	args := make([]interface{}, len(projectIDs))
+	for i, pid := range projectIDs {
 		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		args[i] = pid
 	}

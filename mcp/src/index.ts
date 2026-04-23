@@ -121,13 +121,13 @@ function minimizeWikiPage(page: WikiPage) {
  * Extract minimal fields from a wiki search block.
  */
 function minimizeWikiBlock(block: WikiBlock) {
-  return { page_id: block.page_id, page_title: block.page_title, block_type: block.block_type, snippet: block.snippet };
+  return { page_id: block.page_id, page_title: block.page_title, headings_path: block.headings_path, snippet: block.snippet };
 }
 
 /**
  * Create and configure the MCP server with all TaskAI tools.
  */
-function createServer(client: TaskAIClient, cachedUser?: User): McpServer {
+function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds?: string[]): McpServer {
   const server = new McpServer({
     name: "taskai",
     version: "1.0.0",
@@ -390,19 +390,32 @@ function createServer(client: TaskAIClient, cachedUser?: User): McpServer {
   );
 
   // --- search_wiki ---
+  const projectScope = defaultProjectIds?.length ? ` Scoped to project${defaultProjectIds.length > 1 ? "s" : ""} ${defaultProjectIds.join(", ")} by default.` : "";
   server.tool(
     "search_wiki",
-    "Search wiki content across pages. Modes: 'fts' (full-text ranked, default), 'semantic' (vector similarity — finds conceptually related content even without keyword overlap), 'hybrid' (combines both for best results), 'keyword' (simple substring match). Use 'semantic' or 'hybrid' when the exact wording is unknown.",
+    `Search project wiki for architecture docs, decisions, and implementation details. Modes: 'hybrid' (default, best accuracy — combines full-text + vector similarity via reciprocal rank fusion), 'fts' (full-text ranked), 'semantic' (vector similarity — finds conceptually related content even without keyword overlap), 'keyword' (simple substring match).${projectScope}`,
     {
       query: z.string().describe("Search query"),
-      project_id: z.string().optional().describe("Filter by project ID"),
-      limit: z.number().optional().describe("Max results (default: 20, max: 100)"),
+      project_id: z.string().optional().describe("Search a single project by ID"),
+      project_ids: z.array(z.string()).optional().describe(`Search multiple projects by ID${defaultProjectIds?.length ? ` (default: [${defaultProjectIds.join(", ")}])` : ""}`),
+      limit: z.number().optional().describe("Max results (default: 10, max: 100)"),
       recency_days: z.number().optional().describe("Only return pages updated in last N days"),
-      mode: z.enum(["fts", "semantic", "hybrid", "keyword"]).optional().describe("Search mode (default: fts)"),
+      mode: z.enum(["fts", "semantic", "hybrid", "keyword"]).optional().describe("Search mode (default: hybrid)"),
       verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
     },
-    async ({ query, project_id, limit, recency_days, mode, verbose }) => {
-      const result = await client.searchWiki({ query, project_id, limit, recency_days, mode });
+    async ({ query, project_id, project_ids, limit, recency_days, mode, verbose }) => {
+      const effectiveMode = mode ?? "hybrid";
+      const effectiveLimit = limit ?? 10;
+      // Priority: explicit project_id > explicit project_ids > default from X-Project-ID header
+      const effectiveProjectIds = project_id ? [project_id] : (project_ids ?? defaultProjectIds);
+      const result = await client.searchWiki({
+        query,
+        project_id: effectiveProjectIds?.length === 1 ? effectiveProjectIds[0] : undefined,
+        project_ids: effectiveProjectIds?.length !== 1 ? effectiveProjectIds : undefined,
+        limit: effectiveLimit,
+        recency_days,
+        mode: effectiveMode,
+      });
       const data = verbose ? result : { results: result.results.map(minimizeWikiBlock), total: result.total };
       return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
     }
@@ -422,15 +435,20 @@ function createServer(client: TaskAIClient, cachedUser?: User): McpServer {
   );
 
   // --- list_wiki_pages ---
+  const defaultPid = defaultProjectIds?.[0];
   server.tool(
     "list_wiki_pages",
-    "List all wiki pages in a project",
+    `List all wiki pages in a project${defaultPid ? ` (default: project ${defaultPid})` : ""}`,
     {
-      project_id: z.string().describe("Project ID"),
+      project_id: z.string().optional().describe(`Project ID${defaultPid ? ` (default: ${defaultPid})` : ""}`),
       verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
     },
     async ({ project_id, verbose }) => {
-      const pages = await client.listWikiPages(project_id);
+      const effectiveProjectId = project_id ?? defaultPid;
+      if (!effectiveProjectId) {
+        return { content: [{ type: "text", text: "project_id is required" }], isError: true };
+      }
+      const pages = await client.listWikiPages(effectiveProjectId);
       const data = verbose ? pages : pages.map(minimizeWikiPage);
       return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
     }
@@ -471,15 +489,19 @@ function createServer(client: TaskAIClient, cachedUser?: User): McpServer {
   // --- create_wiki_page ---
   server.tool(
     "create_wiki_page",
-    "Create a new wiki page in a project. Content supports markdown with extensions: references ([^1] inline → superscript citation, [^1]: text → reference list), graph links ([[wiki:ID|Label]], [[task:ID|Label]]), drawings ([draw:id]), and Figma embeds ([figma:url]).",
+    `Create a new wiki page in a project. Content supports markdown with extensions: references ([^1] inline → superscript citation, [^1]: text → reference list), graph links ([[wiki:ID|Label]], [[task:ID|Label]]), drawings ([draw:id]), and Figma embeds ([figma:url]).${defaultPid ? ` Defaults to project ${defaultPid}.` : ""}`,
     {
-      project_id: z.string().describe("Project ID"),
+      project_id: z.string().optional().describe(`Project ID${defaultPid ? ` (default: ${defaultPid})` : ""}`),
       title: z.string().describe("Page title"),
       content: z.string().optional().describe("Initial page content (markdown). Supports references: use [^N] for inline citations and [^N]: text for definitions"),
       verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
     },
     async ({ project_id, title, content, verbose }) => {
-      const page = await client.createWikiPage(project_id, title);
+      const effectiveProjectId = project_id ?? defaultPid;
+      if (!effectiveProjectId) {
+        return { content: [{ type: "text", text: "project_id is required" }], isError: true };
+      }
+      const page = await client.createWikiPage(effectiveProjectId, title);
       if (content) {
         await client.updateWikiPageContent(String(page.id), content);
       }
@@ -540,15 +562,15 @@ function createServer(client: TaskAIClient, cachedUser?: User): McpServer {
   // --- autocomplete_wiki_pages ---
   server.tool(
     "autocomplete_wiki_pages",
-    "Autocomplete wiki page titles (fuzzy search)",
+    `Autocomplete wiki page titles (fuzzy search)${defaultPid ? ` — scoped to project ${defaultPid} by default` : ""}`,
     {
       query: z.string().describe("Search query for page title"),
-      project_id: z.string().optional().describe("Filter by project ID"),
+      project_id: z.string().optional().describe(`Filter by project ID${defaultPid ? ` (default: ${defaultPid})` : ""}`),
       limit: z.number().optional().describe("Max results (default: 10, max: 50)"),
       verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
     },
     async ({ query, project_id, limit, verbose }) => {
-      const results = await client.autocompletePages(query, project_id, limit);
+      const results = await client.autocompletePages(query, project_id ?? defaultPid, limit);
       return { content: [{ type: "text", text: formatResponse(results, verbose) }] };
     }
   );
@@ -667,8 +689,15 @@ app.post("/mcp", async (req, res) => {
     saveAgentName(keyHash, client.agentName);
   }
 
+  // Extract default project scope from header or query param (supports comma-separated: "1,2,3")
+  const rawProjectIds = (req.headers["x-project-id"] as string | undefined)
+    ?? (req.query.project_id as string | undefined);
+  const defaultProjectIds = rawProjectIds
+    ? rawProjectIds.split(",").map(s => s.trim()).filter(Boolean)
+    : undefined;
+
   // Create MCP server with authenticated client and cached user
-  const server = createServer(client, cachedUser);
+  const server = createServer(client, cachedUser, defaultProjectIds);
 
   // Stateless transport — no session persistence
   const transport = new StreamableHTTPServerTransport({

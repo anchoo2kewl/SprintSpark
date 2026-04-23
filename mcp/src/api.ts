@@ -215,6 +215,7 @@ export class TaskAIClient {
   async searchWiki(params: {
     query: string;
     project_id?: string;
+    project_ids?: string[];
     limit?: number;
     recency_days?: number;
     mode?: string;
