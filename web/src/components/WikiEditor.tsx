@@ -888,10 +888,63 @@ function PreviewContent({ previewHTML, content, previewRef }: Readonly<{
   content: string
   previewRef: React.Ref<HTMLDivElement>
 }>) {
+  const innerRef = useRef<HTMLDivElement>(null)
+
+  // Render KaTeX math after preview HTML is inserted into DOM
+  useEffect(() => {
+    if (!previewHTML || !innerRef.current) return
+    // Load KaTeX CSS if not already present
+    if (!document.querySelector('link[href*="katex"]')) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css'
+      document.head.appendChild(link)
+    }
+    // Load KaTeX + auto-render and render math
+    const renderMath = () => {
+      const win = window as unknown as Record<string, unknown>
+      if (typeof win.renderMathInElement === 'function') {
+        (win.renderMathInElement as (el: HTMLElement, opts: object) => void)(innerRef.current!, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+          ],
+          throwOnError: false,
+        })
+      }
+    }
+    if ((window as unknown as Record<string, unknown>).renderMathInElement) {
+      renderMath()
+    } else {
+      const loadAutoRender = () => {
+        if (document.querySelector('script[src*="auto-render"]')) { renderMath(); return }
+        const s2 = document.createElement('script')
+        s2.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js'
+        s2.onload = renderMath
+        document.head.appendChild(s2)
+      }
+      if ((window as unknown as Record<string, unknown>).katex) {
+        loadAutoRender()
+      } else if (!document.querySelector('script[src*="katex.min.js"]')) {
+        const s1 = document.createElement('script')
+        s1.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js'
+        s1.onload = loadAutoRender
+        document.head.appendChild(s1)
+      }
+    }
+  }, [previewHTML])
+
+  // Merge refs: internal + forwarded
+  const setRefs = useCallback((el: HTMLDivElement | null) => {
+    (innerRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+    if (typeof previewRef === 'function') previewRef(el)
+    else if (previewRef) (previewRef as React.MutableRefObject<HTMLDivElement | null>).current = el
+  }, [previewRef])
+
   if (previewHTML) {
     return (
       <div
-        ref={previewRef}
+        ref={setRefs}
         className="prose prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: previewHTML }}
       />
