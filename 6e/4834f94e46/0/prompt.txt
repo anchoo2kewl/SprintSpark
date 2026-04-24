@@ -1,0 +1,33 @@
+please plan a feature that allows us to add roadmap in addition to tasks and wiki. The roadmap will allow assigning users to sprints and tasks. Please make a very modern 2026 roadmap that is AI first workflow
+
+---
+
+please create and solve tasks that we did in taskai so we can track what we did
+
+---
+
+/codex:setup
+
+---
+
+/codex:setup --enable-review-gate
+
+---
+
+/codex:review
+
+---
+
+/codex:review
+
+---
+
+/codex:setup
+
+---
+
+/codex:review
+
+---
+
+can you address issues by codex?
