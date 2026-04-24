@@ -1,0 +1,1 @@
+Ok, I noticed that Sprint 142 is not present here https://taskai.cc/app/projects/2 although it is in Github, why? Whenever a new sprint is available, it should be pulled, we only ran automatic scheduled syncs from Github, no manual, [Image #5] [Image #6]
