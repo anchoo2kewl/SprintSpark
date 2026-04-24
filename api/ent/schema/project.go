@@ -43,6 +43,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("swim_lanes", SwimLane.Type),
 		edge.To("attachments", TaskAttachment.Type),
 		edge.To("wiki_pages", WikiPage.Type),
+		edge.To("milestones", Milestone.Type),
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"taskai/ent/cloudinarycredential"
 	"taskai/ent/emailprovider"
 	"taskai/ent/invite"
+	"taskai/ent/milestone"
 	"taskai/ent/pageversion"
 	"taskai/ent/project"
 	"taskai/ent/projectmember"
@@ -18,6 +19,7 @@ import (
 	"taskai/ent/taskassignee"
 	"taskai/ent/taskattachment"
 	"taskai/ent/taskcomment"
+	"taskai/ent/taskdependency"
 	"taskai/ent/tasktag"
 	"taskai/ent/team"
 	"taskai/ent/teaminvitation"
@@ -143,6 +145,34 @@ func init() {
 	inviteDescCreatedAt := inviteFields[6].Descriptor()
 	// invite.DefaultCreatedAt holds the default value on creation for the created_at field.
 	invite.DefaultCreatedAt = inviteDescCreatedAt.Default.(func() time.Time)
+	milestoneFields := schema.Milestone{}.Fields()
+	_ = milestoneFields
+	// milestoneDescName is the schema descriptor for name field.
+	milestoneDescName := milestoneFields[2].Descriptor()
+	// milestone.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	milestone.NameValidator = milestoneDescName.Validators[0].(func(string) error)
+	// milestoneDescColor is the schema descriptor for color field.
+	milestoneDescColor := milestoneFields[4].Descriptor()
+	// milestone.DefaultColor holds the default value on creation for the color field.
+	milestone.DefaultColor = milestoneDescColor.Default.(string)
+	// milestoneDescStatus is the schema descriptor for status field.
+	milestoneDescStatus := milestoneFields[6].Descriptor()
+	// milestone.DefaultStatus holds the default value on creation for the status field.
+	milestone.DefaultStatus = milestoneDescStatus.Default.(string)
+	// milestoneDescSortOrder is the schema descriptor for sort_order field.
+	milestoneDescSortOrder := milestoneFields[7].Descriptor()
+	// milestone.DefaultSortOrder holds the default value on creation for the sort_order field.
+	milestone.DefaultSortOrder = milestoneDescSortOrder.Default.(int)
+	// milestoneDescCreatedAt is the schema descriptor for created_at field.
+	milestoneDescCreatedAt := milestoneFields[8].Descriptor()
+	// milestone.DefaultCreatedAt holds the default value on creation for the created_at field.
+	milestone.DefaultCreatedAt = milestoneDescCreatedAt.Default.(func() time.Time)
+	// milestoneDescUpdatedAt is the schema descriptor for updated_at field.
+	milestoneDescUpdatedAt := milestoneFields[9].Descriptor()
+	// milestone.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	milestone.DefaultUpdatedAt = milestoneDescUpdatedAt.Default.(func() time.Time)
+	// milestone.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	milestone.UpdateDefaultUpdatedAt = milestoneDescUpdatedAt.UpdateDefault.(func() time.Time)
 	pageversionFields := schema.PageVersion{}.Fields()
 	_ = pageversionFields
 	// pageversionDescYjsState is the schema descriptor for yjs_state field.
@@ -260,15 +290,15 @@ func init() {
 	// task.DefaultPriority holds the default value on creation for the priority field.
 	task.DefaultPriority = taskDescPriority.Default.(string)
 	// taskDescAgentName is the schema descriptor for agent_name field.
-	taskDescAgentName := taskFields[14].Descriptor()
+	taskDescAgentName := taskFields[15].Descriptor()
 	// task.AgentNameValidator is a validator for the "agent_name" field. It is called by the builders before save.
 	task.AgentNameValidator = taskDescAgentName.Validators[0].(func(string) error)
 	// taskDescCreatedAt is the schema descriptor for created_at field.
-	taskDescCreatedAt := taskFields[15].Descriptor()
+	taskDescCreatedAt := taskFields[16].Descriptor()
 	// task.DefaultCreatedAt holds the default value on creation for the created_at field.
 	task.DefaultCreatedAt = taskDescCreatedAt.Default.(func() time.Time)
 	// taskDescUpdatedAt is the schema descriptor for updated_at field.
-	taskDescUpdatedAt := taskFields[16].Descriptor()
+	taskDescUpdatedAt := taskFields[17].Descriptor()
 	// task.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	task.DefaultUpdatedAt = taskDescUpdatedAt.Default.(func() time.Time)
 	// task.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -329,6 +359,16 @@ func init() {
 	taskcomment.DefaultUpdatedAt = taskcommentDescUpdatedAt.Default.(func() time.Time)
 	// taskcomment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	taskcomment.UpdateDefaultUpdatedAt = taskcommentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	taskdependencyFields := schema.TaskDependency{}.Fields()
+	_ = taskdependencyFields
+	// taskdependencyDescDependencyType is the schema descriptor for dependency_type field.
+	taskdependencyDescDependencyType := taskdependencyFields[3].Descriptor()
+	// taskdependency.DefaultDependencyType holds the default value on creation for the dependency_type field.
+	taskdependency.DefaultDependencyType = taskdependencyDescDependencyType.Default.(string)
+	// taskdependencyDescCreatedAt is the schema descriptor for created_at field.
+	taskdependencyDescCreatedAt := taskdependencyFields[4].Descriptor()
+	// taskdependency.DefaultCreatedAt holds the default value on creation for the created_at field.
+	taskdependency.DefaultCreatedAt = taskdependencyDescCreatedAt.Default.(func() time.Time)
 	tasktagFields := schema.TaskTag{}.Fields()
 	_ = tasktagFields
 	// tasktagDescCreatedAt is the schema descriptor for created_at field.

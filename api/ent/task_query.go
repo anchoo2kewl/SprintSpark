@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math"
+	"taskai/ent/milestone"
 	"taskai/ent/predicate"
 	"taskai/ent/project"
 	"taskai/ent/sprint"
@@ -15,6 +16,7 @@ import (
 	"taskai/ent/taskassignee"
 	"taskai/ent/taskattachment"
 	"taskai/ent/taskcomment"
+	"taskai/ent/taskdependency"
 	"taskai/ent/tasktag"
 	"taskai/ent/user"
 
@@ -35,7 +37,10 @@ type TaskQuery struct {
 	withSwimLane      *SwimLaneQuery
 	withSprint        *SprintQuery
 	withAssignee      *UserQuery
+	withMilestone     *MilestoneQuery
 	withComments      *TaskCommentQuery
+	withDependencies  *TaskDependencyQuery
+	withDependents    *TaskDependencyQuery
 	withAttachments   *TaskAttachmentQuery
 	withTaskTags      *TaskTagQuery
 	withTaskAssignees *TaskAssigneeQuery
@@ -163,6 +168,28 @@ func (_q *TaskQuery) QueryAssignee() *UserQuery {
 	return query
 }
 
+// QueryMilestone chains the current query on the "milestone" edge.
+func (_q *TaskQuery) QueryMilestone() *MilestoneQuery {
+	query := (&MilestoneClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, selector),
+			sqlgraph.To(milestone.Table, milestone.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, task.MilestoneTable, task.MilestoneColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryComments chains the current query on the "comments" edge.
 func (_q *TaskQuery) QueryComments() *TaskCommentQuery {
 	query := (&TaskCommentClient{config: _q.config}).Query()
@@ -178,6 +205,50 @@ func (_q *TaskQuery) QueryComments() *TaskCommentQuery {
 			sqlgraph.From(task.Table, task.FieldID, selector),
 			sqlgraph.To(taskcomment.Table, taskcomment.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, task.CommentsTable, task.CommentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDependencies chains the current query on the "dependencies" edge.
+func (_q *TaskQuery) QueryDependencies() *TaskDependencyQuery {
+	query := (&TaskDependencyClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, selector),
+			sqlgraph.To(taskdependency.Table, taskdependency.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, task.DependenciesTable, task.DependenciesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDependents chains the current query on the "dependents" edge.
+func (_q *TaskQuery) QueryDependents() *TaskDependencyQuery {
+	query := (&TaskDependencyClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, selector),
+			sqlgraph.To(taskdependency.Table, taskdependency.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, task.DependentsTable, task.DependentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -447,7 +518,10 @@ func (_q *TaskQuery) Clone() *TaskQuery {
 		withSwimLane:      _q.withSwimLane.Clone(),
 		withSprint:        _q.withSprint.Clone(),
 		withAssignee:      _q.withAssignee.Clone(),
+		withMilestone:     _q.withMilestone.Clone(),
 		withComments:      _q.withComments.Clone(),
+		withDependencies:  _q.withDependencies.Clone(),
+		withDependents:    _q.withDependents.Clone(),
 		withAttachments:   _q.withAttachments.Clone(),
 		withTaskTags:      _q.withTaskTags.Clone(),
 		withTaskAssignees: _q.withTaskAssignees.Clone(),
@@ -501,6 +575,17 @@ func (_q *TaskQuery) WithAssignee(opts ...func(*UserQuery)) *TaskQuery {
 	return _q
 }
 
+// WithMilestone tells the query-builder to eager-load the nodes that are connected to
+// the "milestone" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TaskQuery) WithMilestone(opts ...func(*MilestoneQuery)) *TaskQuery {
+	query := (&MilestoneClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMilestone = query
+	return _q
+}
+
 // WithComments tells the query-builder to eager-load the nodes that are connected to
 // the "comments" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *TaskQuery) WithComments(opts ...func(*TaskCommentQuery)) *TaskQuery {
@@ -509,6 +594,28 @@ func (_q *TaskQuery) WithComments(opts ...func(*TaskCommentQuery)) *TaskQuery {
 		opt(query)
 	}
 	_q.withComments = query
+	return _q
+}
+
+// WithDependencies tells the query-builder to eager-load the nodes that are connected to
+// the "dependencies" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TaskQuery) WithDependencies(opts ...func(*TaskDependencyQuery)) *TaskQuery {
+	query := (&TaskDependencyClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDependencies = query
+	return _q
+}
+
+// WithDependents tells the query-builder to eager-load the nodes that are connected to
+// the "dependents" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *TaskQuery) WithDependents(opts ...func(*TaskDependencyQuery)) *TaskQuery {
+	query := (&TaskDependencyClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDependents = query
 	return _q
 }
 
@@ -623,12 +730,15 @@ func (_q *TaskQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Task, e
 	var (
 		nodes       = []*Task{}
 		_spec       = _q.querySpec()
-		loadedTypes = [8]bool{
+		loadedTypes = [11]bool{
 			_q.withProject != nil,
 			_q.withSwimLane != nil,
 			_q.withSprint != nil,
 			_q.withAssignee != nil,
+			_q.withMilestone != nil,
 			_q.withComments != nil,
+			_q.withDependencies != nil,
+			_q.withDependents != nil,
 			_q.withAttachments != nil,
 			_q.withTaskTags != nil,
 			_q.withTaskAssignees != nil,
@@ -676,10 +786,30 @@ func (_q *TaskQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Task, e
 			return nil, err
 		}
 	}
+	if query := _q.withMilestone; query != nil {
+		if err := _q.loadMilestone(ctx, query, nodes, nil,
+			func(n *Task, e *Milestone) { n.Edges.Milestone = e }); err != nil {
+			return nil, err
+		}
+	}
 	if query := _q.withComments; query != nil {
 		if err := _q.loadComments(ctx, query, nodes,
 			func(n *Task) { n.Edges.Comments = []*TaskComment{} },
 			func(n *Task, e *TaskComment) { n.Edges.Comments = append(n.Edges.Comments, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDependencies; query != nil {
+		if err := _q.loadDependencies(ctx, query, nodes,
+			func(n *Task) { n.Edges.Dependencies = []*TaskDependency{} },
+			func(n *Task, e *TaskDependency) { n.Edges.Dependencies = append(n.Edges.Dependencies, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDependents; query != nil {
+		if err := _q.loadDependents(ctx, query, nodes,
+			func(n *Task) { n.Edges.Dependents = []*TaskDependency{} },
+			func(n *Task, e *TaskDependency) { n.Edges.Dependents = append(n.Edges.Dependents, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -832,6 +962,38 @@ func (_q *TaskQuery) loadAssignee(ctx context.Context, query *UserQuery, nodes [
 	}
 	return nil
 }
+func (_q *TaskQuery) loadMilestone(ctx context.Context, query *MilestoneQuery, nodes []*Task, init func(*Task), assign func(*Task, *Milestone)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*Task)
+	for i := range nodes {
+		if nodes[i].MilestoneID == nil {
+			continue
+		}
+		fk := *nodes[i].MilestoneID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(milestone.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "milestone_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *TaskQuery) loadComments(ctx context.Context, query *TaskCommentQuery, nodes []*Task, init func(*Task), assign func(*Task, *TaskComment)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[int64]*Task)
@@ -857,6 +1019,66 @@ func (_q *TaskQuery) loadComments(ctx context.Context, query *TaskCommentQuery, 
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "task_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *TaskQuery) loadDependencies(ctx context.Context, query *TaskDependencyQuery, nodes []*Task, init func(*Task), assign func(*Task, *TaskDependency)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Task)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(taskdependency.FieldTaskID)
+	}
+	query.Where(predicate.TaskDependency(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(task.DependenciesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.TaskID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "task_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *TaskQuery) loadDependents(ctx context.Context, query *TaskDependencyQuery, nodes []*Task, init func(*Task), assign func(*Task, *TaskDependency)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Task)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(taskdependency.FieldDependsOnID)
+	}
+	query.Where(predicate.TaskDependency(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(task.DependentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.DependsOnID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "depends_on_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}
@@ -989,6 +1211,9 @@ func (_q *TaskQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withAssignee != nil {
 			_spec.Node.AddColumnOnce(task.FieldAssigneeID)
+		}
+		if _q.withMilestone != nil {
+			_spec.Node.AddColumnOnce(task.FieldMilestoneID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

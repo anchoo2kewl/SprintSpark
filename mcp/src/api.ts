@@ -86,6 +86,44 @@ export interface Drawing {
   scene: unknown;
 }
 
+export interface Milestone {
+  id: number;
+  project_id: number;
+  name: string;
+  description?: string;
+  color: string;
+  target_date?: string;
+  status: string;
+  sort_order: number;
+  task_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MilestoneProgress {
+  milestone_id: number;
+  milestone_name: string;
+  total_tasks: number;
+  completed_tasks: number;
+  percentage: number;
+  by_status: Record<string, number>;
+  estimated_hours: number;
+  actual_hours: number;
+}
+
+export interface TaskDependency {
+  id: number;
+  task_id: number;
+  depends_on_id: number;
+  dependency_type: string;
+  created_at: string;
+}
+
+export interface TaskDependencies {
+  blocked_by: TaskDependency[];
+  blocks: TaskDependency[];
+}
+
 export interface WikiBlock {
   page_id: string;
   page_title: string;
@@ -381,6 +419,58 @@ export class TaskAIClient {
   }
 
   // Version/health methods
+  // --- Milestone endpoints ---
+  async listMilestones(projectId: string): Promise<Milestone[]> {
+    return this.request<Milestone[]>(`/api/projects/${encodeURIComponent(projectId)}/milestones`);
+  }
+
+  async createMilestone(
+    projectId: string,
+    data: { name: string; description?: string; color?: string; target_date?: string; status?: string }
+  ): Promise<Milestone> {
+    return this.request<Milestone>(`/api/projects/${encodeURIComponent(projectId)}/milestones`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateMilestone(
+    milestoneId: string,
+    data: { name?: string; description?: string; color?: string; target_date?: string; status?: string; sort_order?: number }
+  ): Promise<Milestone> {
+    return this.request<Milestone>(`/api/milestones/${encodeURIComponent(milestoneId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteMilestone(milestoneId: string): Promise<void> {
+    await this.request(`/api/milestones/${encodeURIComponent(milestoneId)}`, { method: "DELETE" });
+  }
+
+  async getMilestoneProgress(milestoneId: string): Promise<MilestoneProgress> {
+    return this.request<MilestoneProgress>(`/api/milestones/${encodeURIComponent(milestoneId)}/progress`);
+  }
+
+  // --- Task dependency endpoints ---
+  async listDependencies(taskId: string): Promise<TaskDependencies> {
+    return this.request<TaskDependencies>(`/api/tasks/${encodeURIComponent(taskId)}/dependencies`);
+  }
+
+  async createDependency(
+    taskId: string,
+    data: { depends_on_id: number; dependency_type?: string }
+  ): Promise<TaskDependency> {
+    return this.request<TaskDependency>(`/api/tasks/${encodeURIComponent(taskId)}/dependencies`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDependency(dependencyId: string): Promise<void> {
+    await this.request(`/api/task-dependencies/${encodeURIComponent(dependencyId)}`, { method: "DELETE" });
+  }
+
   async getVersion(): Promise<{
     version: string;
     git_commit: string;

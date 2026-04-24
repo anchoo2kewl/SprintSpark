@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"taskai/ent/milestone"
 	"taskai/ent/predicate"
 	"taskai/ent/project"
 	"taskai/ent/sprint"
@@ -14,6 +15,7 @@ import (
 	"taskai/ent/taskassignee"
 	"taskai/ent/taskattachment"
 	"taskai/ent/taskcomment"
+	"taskai/ent/taskdependency"
 	"taskai/ent/tasktag"
 	"taskai/ent/user"
 	"time"
@@ -293,6 +295,26 @@ func (_u *TaskUpdate) ClearDueDate() *TaskUpdate {
 	return _u
 }
 
+// SetMilestoneID sets the "milestone_id" field.
+func (_u *TaskUpdate) SetMilestoneID(v int64) *TaskUpdate {
+	_u.mutation.SetMilestoneID(v)
+	return _u
+}
+
+// SetNillableMilestoneID sets the "milestone_id" field if the given value is not nil.
+func (_u *TaskUpdate) SetNillableMilestoneID(v *int64) *TaskUpdate {
+	if v != nil {
+		_u.SetMilestoneID(*v)
+	}
+	return _u
+}
+
+// ClearMilestoneID clears the value of the "milestone_id" field.
+func (_u *TaskUpdate) ClearMilestoneID() *TaskUpdate {
+	_u.mutation.ClearMilestoneID()
+	return _u
+}
+
 // SetAgentName sets the "agent_name" field.
 func (_u *TaskUpdate) SetAgentName(v string) *TaskUpdate {
 	_u.mutation.SetAgentName(v)
@@ -339,6 +361,11 @@ func (_u *TaskUpdate) SetAssignee(v *User) *TaskUpdate {
 	return _u.SetAssigneeID(v.ID)
 }
 
+// SetMilestone sets the "milestone" edge to the Milestone entity.
+func (_u *TaskUpdate) SetMilestone(v *Milestone) *TaskUpdate {
+	return _u.SetMilestoneID(v.ID)
+}
+
 // AddCommentIDs adds the "comments" edge to the TaskComment entity by IDs.
 func (_u *TaskUpdate) AddCommentIDs(ids ...int64) *TaskUpdate {
 	_u.mutation.AddCommentIDs(ids...)
@@ -352,6 +379,36 @@ func (_u *TaskUpdate) AddComments(v ...*TaskComment) *TaskUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddCommentIDs(ids...)
+}
+
+// AddDependencyIDs adds the "dependencies" edge to the TaskDependency entity by IDs.
+func (_u *TaskUpdate) AddDependencyIDs(ids ...int64) *TaskUpdate {
+	_u.mutation.AddDependencyIDs(ids...)
+	return _u
+}
+
+// AddDependencies adds the "dependencies" edges to the TaskDependency entity.
+func (_u *TaskUpdate) AddDependencies(v ...*TaskDependency) *TaskUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDependencyIDs(ids...)
+}
+
+// AddDependentIDs adds the "dependents" edge to the TaskDependency entity by IDs.
+func (_u *TaskUpdate) AddDependentIDs(ids ...int64) *TaskUpdate {
+	_u.mutation.AddDependentIDs(ids...)
+	return _u
+}
+
+// AddDependents adds the "dependents" edges to the TaskDependency entity.
+func (_u *TaskUpdate) AddDependents(v ...*TaskDependency) *TaskUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDependentIDs(ids...)
 }
 
 // AddAttachmentIDs adds the "attachments" edge to the TaskAttachment entity by IDs.
@@ -428,6 +485,12 @@ func (_u *TaskUpdate) ClearAssignee() *TaskUpdate {
 	return _u
 }
 
+// ClearMilestone clears the "milestone" edge to the Milestone entity.
+func (_u *TaskUpdate) ClearMilestone() *TaskUpdate {
+	_u.mutation.ClearMilestone()
+	return _u
+}
+
 // ClearComments clears all "comments" edges to the TaskComment entity.
 func (_u *TaskUpdate) ClearComments() *TaskUpdate {
 	_u.mutation.ClearComments()
@@ -447,6 +510,48 @@ func (_u *TaskUpdate) RemoveComments(v ...*TaskComment) *TaskUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCommentIDs(ids...)
+}
+
+// ClearDependencies clears all "dependencies" edges to the TaskDependency entity.
+func (_u *TaskUpdate) ClearDependencies() *TaskUpdate {
+	_u.mutation.ClearDependencies()
+	return _u
+}
+
+// RemoveDependencyIDs removes the "dependencies" edge to TaskDependency entities by IDs.
+func (_u *TaskUpdate) RemoveDependencyIDs(ids ...int64) *TaskUpdate {
+	_u.mutation.RemoveDependencyIDs(ids...)
+	return _u
+}
+
+// RemoveDependencies removes "dependencies" edges to TaskDependency entities.
+func (_u *TaskUpdate) RemoveDependencies(v ...*TaskDependency) *TaskUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDependencyIDs(ids...)
+}
+
+// ClearDependents clears all "dependents" edges to the TaskDependency entity.
+func (_u *TaskUpdate) ClearDependents() *TaskUpdate {
+	_u.mutation.ClearDependents()
+	return _u
+}
+
+// RemoveDependentIDs removes the "dependents" edge to TaskDependency entities by IDs.
+func (_u *TaskUpdate) RemoveDependentIDs(ids ...int64) *TaskUpdate {
+	_u.mutation.RemoveDependentIDs(ids...)
+	return _u
+}
+
+// RemoveDependents removes "dependents" edges to TaskDependency entities.
+func (_u *TaskUpdate) RemoveDependents(v ...*TaskDependency) *TaskUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDependentIDs(ids...)
 }
 
 // ClearAttachments clears all "attachments" edges to the TaskAttachment entity.
@@ -757,6 +862,35 @@ func (_u *TaskUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.MilestoneCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.MilestoneTable,
+			Columns: []string{task.MilestoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(milestone.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MilestoneIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.MilestoneTable,
+			Columns: []string{task.MilestoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(milestone.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.CommentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -795,6 +929,96 @@ func (_u *TaskUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(taskcomment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DependenciesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependenciesTable,
+			Columns: []string{task.DependenciesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDependenciesIDs(); len(nodes) > 0 && !_u.mutation.DependenciesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependenciesTable,
+			Columns: []string{task.DependenciesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DependenciesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependenciesTable,
+			Columns: []string{task.DependenciesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DependentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependentsTable,
+			Columns: []string{task.DependentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDependentsIDs(); len(nodes) > 0 && !_u.mutation.DependentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependentsTable,
+			Columns: []string{task.DependentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DependentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependentsTable,
+			Columns: []string{task.DependentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1214,6 +1438,26 @@ func (_u *TaskUpdateOne) ClearDueDate() *TaskUpdateOne {
 	return _u
 }
 
+// SetMilestoneID sets the "milestone_id" field.
+func (_u *TaskUpdateOne) SetMilestoneID(v int64) *TaskUpdateOne {
+	_u.mutation.SetMilestoneID(v)
+	return _u
+}
+
+// SetNillableMilestoneID sets the "milestone_id" field if the given value is not nil.
+func (_u *TaskUpdateOne) SetNillableMilestoneID(v *int64) *TaskUpdateOne {
+	if v != nil {
+		_u.SetMilestoneID(*v)
+	}
+	return _u
+}
+
+// ClearMilestoneID clears the value of the "milestone_id" field.
+func (_u *TaskUpdateOne) ClearMilestoneID() *TaskUpdateOne {
+	_u.mutation.ClearMilestoneID()
+	return _u
+}
+
 // SetAgentName sets the "agent_name" field.
 func (_u *TaskUpdateOne) SetAgentName(v string) *TaskUpdateOne {
 	_u.mutation.SetAgentName(v)
@@ -1260,6 +1504,11 @@ func (_u *TaskUpdateOne) SetAssignee(v *User) *TaskUpdateOne {
 	return _u.SetAssigneeID(v.ID)
 }
 
+// SetMilestone sets the "milestone" edge to the Milestone entity.
+func (_u *TaskUpdateOne) SetMilestone(v *Milestone) *TaskUpdateOne {
+	return _u.SetMilestoneID(v.ID)
+}
+
 // AddCommentIDs adds the "comments" edge to the TaskComment entity by IDs.
 func (_u *TaskUpdateOne) AddCommentIDs(ids ...int64) *TaskUpdateOne {
 	_u.mutation.AddCommentIDs(ids...)
@@ -1273,6 +1522,36 @@ func (_u *TaskUpdateOne) AddComments(v ...*TaskComment) *TaskUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.AddCommentIDs(ids...)
+}
+
+// AddDependencyIDs adds the "dependencies" edge to the TaskDependency entity by IDs.
+func (_u *TaskUpdateOne) AddDependencyIDs(ids ...int64) *TaskUpdateOne {
+	_u.mutation.AddDependencyIDs(ids...)
+	return _u
+}
+
+// AddDependencies adds the "dependencies" edges to the TaskDependency entity.
+func (_u *TaskUpdateOne) AddDependencies(v ...*TaskDependency) *TaskUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDependencyIDs(ids...)
+}
+
+// AddDependentIDs adds the "dependents" edge to the TaskDependency entity by IDs.
+func (_u *TaskUpdateOne) AddDependentIDs(ids ...int64) *TaskUpdateOne {
+	_u.mutation.AddDependentIDs(ids...)
+	return _u
+}
+
+// AddDependents adds the "dependents" edges to the TaskDependency entity.
+func (_u *TaskUpdateOne) AddDependents(v ...*TaskDependency) *TaskUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDependentIDs(ids...)
 }
 
 // AddAttachmentIDs adds the "attachments" edge to the TaskAttachment entity by IDs.
@@ -1349,6 +1628,12 @@ func (_u *TaskUpdateOne) ClearAssignee() *TaskUpdateOne {
 	return _u
 }
 
+// ClearMilestone clears the "milestone" edge to the Milestone entity.
+func (_u *TaskUpdateOne) ClearMilestone() *TaskUpdateOne {
+	_u.mutation.ClearMilestone()
+	return _u
+}
+
 // ClearComments clears all "comments" edges to the TaskComment entity.
 func (_u *TaskUpdateOne) ClearComments() *TaskUpdateOne {
 	_u.mutation.ClearComments()
@@ -1368,6 +1653,48 @@ func (_u *TaskUpdateOne) RemoveComments(v ...*TaskComment) *TaskUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveCommentIDs(ids...)
+}
+
+// ClearDependencies clears all "dependencies" edges to the TaskDependency entity.
+func (_u *TaskUpdateOne) ClearDependencies() *TaskUpdateOne {
+	_u.mutation.ClearDependencies()
+	return _u
+}
+
+// RemoveDependencyIDs removes the "dependencies" edge to TaskDependency entities by IDs.
+func (_u *TaskUpdateOne) RemoveDependencyIDs(ids ...int64) *TaskUpdateOne {
+	_u.mutation.RemoveDependencyIDs(ids...)
+	return _u
+}
+
+// RemoveDependencies removes "dependencies" edges to TaskDependency entities.
+func (_u *TaskUpdateOne) RemoveDependencies(v ...*TaskDependency) *TaskUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDependencyIDs(ids...)
+}
+
+// ClearDependents clears all "dependents" edges to the TaskDependency entity.
+func (_u *TaskUpdateOne) ClearDependents() *TaskUpdateOne {
+	_u.mutation.ClearDependents()
+	return _u
+}
+
+// RemoveDependentIDs removes the "dependents" edge to TaskDependency entities by IDs.
+func (_u *TaskUpdateOne) RemoveDependentIDs(ids ...int64) *TaskUpdateOne {
+	_u.mutation.RemoveDependentIDs(ids...)
+	return _u
+}
+
+// RemoveDependents removes "dependents" edges to TaskDependency entities.
+func (_u *TaskUpdateOne) RemoveDependents(v ...*TaskDependency) *TaskUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDependentIDs(ids...)
 }
 
 // ClearAttachments clears all "attachments" edges to the TaskAttachment entity.
@@ -1708,6 +2035,35 @@ func (_u *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.MilestoneCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.MilestoneTable,
+			Columns: []string{task.MilestoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(milestone.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MilestoneIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.MilestoneTable,
+			Columns: []string{task.MilestoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(milestone.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.CommentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1746,6 +2102,96 @@ func (_u *TaskUpdateOne) sqlSave(ctx context.Context) (_node *Task, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(taskcomment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DependenciesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependenciesTable,
+			Columns: []string{task.DependenciesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDependenciesIDs(); len(nodes) > 0 && !_u.mutation.DependenciesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependenciesTable,
+			Columns: []string{task.DependenciesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DependenciesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependenciesTable,
+			Columns: []string{task.DependenciesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DependentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependentsTable,
+			Columns: []string{task.DependentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDependentsIDs(); len(nodes) > 0 && !_u.mutation.DependentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependentsTable,
+			Columns: []string{task.DependentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DependentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependentsTable,
+			Columns: []string{task.DependentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

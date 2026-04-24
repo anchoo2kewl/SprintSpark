@@ -20,6 +20,8 @@ type Tx struct {
 	EmailProvider *EmailProviderClient
 	// Invite is the client for interacting with the Invite builders.
 	Invite *InviteClient
+	// Milestone is the client for interacting with the Milestone builders.
+	Milestone *MilestoneClient
 	// PageVersion is the client for interacting with the PageVersion builders.
 	PageVersion *PageVersionClient
 	// Project is the client for interacting with the Project builders.
@@ -40,6 +42,8 @@ type Tx struct {
 	TaskAttachment *TaskAttachmentClient
 	// TaskComment is the client for interacting with the TaskComment builders.
 	TaskComment *TaskCommentClient
+	// TaskDependency is the client for interacting with the TaskDependency builders.
+	TaskDependency *TaskDependencyClient
 	// TaskTag is the client for interacting with the TaskTag builders.
 	TaskTag *TaskTagClient
 	// Team is the client for interacting with the Team builders.
@@ -195,6 +199,7 @@ func (tx *Tx) init() {
 	tx.CloudinaryCredential = NewCloudinaryCredentialClient(tx.config)
 	tx.EmailProvider = NewEmailProviderClient(tx.config)
 	tx.Invite = NewInviteClient(tx.config)
+	tx.Milestone = NewMilestoneClient(tx.config)
 	tx.PageVersion = NewPageVersionClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectMember = NewProjectMemberClient(tx.config)
@@ -205,6 +210,7 @@ func (tx *Tx) init() {
 	tx.TaskAssignee = NewTaskAssigneeClient(tx.config)
 	tx.TaskAttachment = NewTaskAttachmentClient(tx.config)
 	tx.TaskComment = NewTaskCommentClient(tx.config)
+	tx.TaskDependency = NewTaskDependencyClient(tx.config)
 	tx.TaskTag = NewTaskTagClient(tx.config)
 	tx.Team = NewTeamClient(tx.config)
 	tx.TeamInvitation = NewTeamInvitationClient(tx.config)

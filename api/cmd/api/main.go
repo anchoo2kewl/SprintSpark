@@ -541,6 +541,19 @@ func main() {
 			r.Post("/sprints/{id}/share", server.HandleShareSprint)
 			r.Delete("/sprints/{id}/share/{projectId}", server.HandleUnshareSprint)
 
+			// Milestone routes (project-scoped)
+			r.Get("/projects/{id}/milestones", server.HandleListMilestones)
+			r.Post("/projects/{id}/milestones", server.HandleCreateMilestone)
+			r.Get("/milestones/{id}", server.HandleGetMilestone)
+			r.Patch("/milestones/{id}", server.HandleUpdateMilestone)
+			r.Delete("/milestones/{id}", server.HandleDeleteMilestone)
+			r.Get("/milestones/{id}/progress", server.HandleGetMilestoneProgress)
+
+			// Task dependency routes
+			r.Get("/tasks/{taskId}/dependencies", server.HandleListDependencies)
+			r.Post("/tasks/{taskId}/dependencies", server.HandleCreateDependency)
+			r.Delete("/task-dependencies/{id}", server.HandleDeleteDependency)
+
 			// Tag routes (project-scoped)
 			r.Get("/projects/{id}/tags", server.HandleListTags)
 			r.Post("/projects/{id}/tags", server.HandleCreateTag)

@@ -62,6 +62,8 @@ type Task struct {
 	GithubIssueNumber   *int64             `json:"github_issue_number,omitempty"`
 	GithubRepo          string             `json:"github_repo,omitempty"`
 	GithubReactions     []GitHubReaction   `json:"github_reactions,omitempty"`
+	MilestoneID         *int64             `json:"milestone_id,omitempty"`
+	MilestoneName       *string            `json:"milestone_name,omitempty"`
 	AgentName           *string            `json:"agent_name,omitempty"`
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
@@ -75,6 +77,7 @@ type CreateTaskRequest struct {
 	StartDate      *string  `json:"start_date,omitempty"`
 	DueDate        *string  `json:"due_date,omitempty"`
 	SprintID       *int64   `json:"sprint_id,omitempty"`
+	MilestoneID    *int64   `json:"milestone_id,omitempty"`
 	Priority       *string  `json:"priority,omitempty"`
 	AssigneeID     *int64   `json:"assignee_id,omitempty"`
 	AssigneeIDs    []int64  `json:"assignee_ids,omitempty"`
@@ -91,6 +94,7 @@ type UpdateTaskRequest struct {
 	StartDate      *string  `json:"start_date,omitempty"`
 	DueDate        *string  `json:"due_date,omitempty"`
 	SprintID       *int64   `json:"sprint_id,omitempty"`
+	MilestoneID    *int64   `json:"milestone_id,omitempty"`
 	Priority       *string  `json:"priority,omitempty"`
 	AssigneeID     *int64   `json:"assignee_id,omitempty"`
 	AssigneeIDs    *[]int64 `json:"assignee_ids,omitempty"`
@@ -127,6 +131,7 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		Where(task.ProjectID(projectID)).
 		WithAssignee().
 		WithSprint().
+		WithMilestone().
 		Order(ent.Desc(task.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
@@ -291,6 +296,12 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 		if et.Edges.Sprint != nil {
 			t.SprintID = &et.Edges.Sprint.ID
 			t.SprintName = &et.Edges.Sprint.Name
+		}
+
+		// Add milestone info if present
+		if et.Edges.Milestone != nil {
+			t.MilestoneID = &et.Edges.Milestone.ID
+			t.MilestoneName = &et.Edges.Milestone.Name
 		}
 
 		// Add swim lane info if present
@@ -491,6 +502,24 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		dueDate = parseDate(*req.DueDate)
 	}
 
+	// Validate milestone belongs to this project
+	if req.MilestoneID != nil {
+		var milestoneProjectID int64
+		err := s.db.QueryRowContext(ctx, `SELECT project_id FROM milestones WHERE id = $1`, *req.MilestoneID).Scan(&milestoneProjectID)
+		if err == sql.ErrNoRows {
+			respondError(w, http.StatusBadRequest, "milestone not found", "invalid_input")
+			return
+		}
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to verify milestone", "internal_error")
+			return
+		}
+		if milestoneProjectID != projectID {
+			respondError(w, http.StatusBadRequest, "milestone belongs to a different project", "invalid_input")
+			return
+		}
+	}
+
 	// Use Ent transaction
 	entTx, err := s.db.Client.Tx(ctx)
 	if err != nil {
@@ -510,6 +539,7 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		SetNillableStartDate(startDate).
 		SetNillableDueDate(dueDate).
 		SetNillableSprintID(req.SprintID).
+		SetNillableMilestoneID(req.MilestoneID).
 		SetPriority(priority).
 		SetNillableAssigneeID(req.AssigneeID).
 		SetNillableEstimatedHours(req.EstimatedHours).
@@ -566,6 +596,7 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		Where(task.ID(newTask.ID)).
 		WithAssignee().
 		WithSprint().
+		WithMilestone().
 		WithSwimLane().
 		Only(ctx)
 	if err != nil {
@@ -633,6 +664,12 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 	if createdTask.Edges.Sprint != nil {
 		t.SprintID = &createdTask.Edges.Sprint.ID
 		t.SprintName = &createdTask.Edges.Sprint.Name
+	}
+
+	// Add milestone info if present
+	if createdTask.Edges.Milestone != nil {
+		t.MilestoneID = &createdTask.Edges.Milestone.ID
+		t.MilestoneName = &createdTask.Edges.Milestone.Name
 	}
 
 	// Add swim lane info if present
@@ -818,6 +855,25 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 	if req.SprintID != nil {
 		updateBuilder.SetNillableSprintID(req.SprintID)
 	}
+	if req.MilestoneID != nil {
+		if *req.MilestoneID != 0 {
+			var milestoneProjectID int64
+			err := s.db.QueryRowContext(ctx, `SELECT project_id FROM milestones WHERE id = $1`, *req.MilestoneID).Scan(&milestoneProjectID)
+			if err == sql.ErrNoRows {
+				respondError(w, http.StatusBadRequest, "milestone not found", "invalid_input")
+				return
+			}
+			if err != nil {
+				respondError(w, http.StatusInternalServerError, "failed to verify milestone", "internal_error")
+				return
+			}
+			if milestoneProjectID != taskEntity.ProjectID {
+				respondError(w, http.StatusBadRequest, "milestone belongs to a different project", "invalid_input")
+				return
+			}
+		}
+		updateBuilder.SetNillableMilestoneID(req.MilestoneID)
+	}
 	if req.AssigneeID != nil {
 		updateBuilder.SetNillableAssigneeID(req.AssigneeID)
 	}
@@ -886,6 +942,7 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		Where(task.ID(taskID)).
 		WithAssignee().
 		WithSprint().
+		WithMilestone().
 		WithSwimLane().
 		Only(ctx)
 	if err != nil {
@@ -976,6 +1033,12 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 	if updatedTask.Edges.Sprint != nil {
 		t.SprintID = &updatedTask.Edges.Sprint.ID
 		t.SprintName = &updatedTask.Edges.Sprint.Name
+	}
+
+	// Add milestone info
+	if updatedTask.Edges.Milestone != nil {
+		t.MilestoneID = &updatedTask.Edges.Milestone.ID
+		t.MilestoneName = &updatedTask.Edges.Milestone.Name
 	}
 
 	// Add swim lane info
@@ -1129,6 +1192,7 @@ func (s *Server) HandleGetTaskByNumber(w http.ResponseWriter, r *http.Request) {
 		).
 		WithAssignee().
 		WithSprint().
+		WithMilestone().
 		WithSwimLane().
 		Only(ctx)
 	if err != nil {
@@ -1224,6 +1288,12 @@ func (s *Server) HandleGetTaskByNumber(w http.ResponseWriter, r *http.Request) {
 	if taskEntity.Edges.Sprint != nil {
 		t.SprintID = &taskEntity.Edges.Sprint.ID
 		t.SprintName = &taskEntity.Edges.Sprint.Name
+	}
+
+	// Add milestone info
+	if taskEntity.Edges.Milestone != nil {
+		t.MilestoneID = &taskEntity.Edges.Milestone.ID
+		t.MilestoneName = &taskEntity.Edges.Milestone.Name
 	}
 
 	// Add swim lane info

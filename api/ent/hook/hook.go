@@ -56,6 +56,18 @@ func (f InviteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InviteMutation", m)
 }
 
+// The MilestoneFunc type is an adapter to allow the use of ordinary
+// function as Milestone mutator.
+type MilestoneFunc func(context.Context, *ent.MilestoneMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f MilestoneFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.MilestoneMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.MilestoneMutation", m)
+}
+
 // The PageVersionFunc type is an adapter to allow the use of ordinary
 // function as PageVersion mutator.
 type PageVersionFunc func(context.Context, *ent.PageVersionMutation) (ent.Value, error)
@@ -174,6 +186,18 @@ func (f TaskCommentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value,
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TaskCommentMutation", m)
+}
+
+// The TaskDependencyFunc type is an adapter to allow the use of ordinary
+// function as TaskDependency mutator.
+type TaskDependencyFunc func(context.Context, *ent.TaskDependencyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TaskDependencyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.TaskDependencyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TaskDependencyMutation", m)
 }
 
 // The TaskTagFunc type is an adapter to allow the use of ordinary

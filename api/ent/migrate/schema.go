@@ -144,6 +144,45 @@ var (
 			},
 		},
 	}
+	// MilestonesColumns holds the columns for the "milestones" table.
+	MilestonesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "color", Type: field.TypeString, Default: "#5e6ad2"},
+		{Name: "target_date", Type: field.TypeTime, Nullable: true},
+		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "project_id", Type: field.TypeInt64},
+	}
+	// MilestonesTable holds the schema information for the "milestones" table.
+	MilestonesTable = &schema.Table{
+		Name:       "milestones",
+		Columns:    MilestonesColumns,
+		PrimaryKey: []*schema.Column{MilestonesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "milestones_projects_milestones",
+				Columns:    []*schema.Column{MilestonesColumns[9]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "milestone_project_id",
+				Unique:  false,
+				Columns: []*schema.Column{MilestonesColumns[9]},
+			},
+			{
+				Name:    "milestone_status",
+				Unique:  false,
+				Columns: []*schema.Column{MilestonesColumns[5]},
+			},
+		},
+	}
 	// PageVersionsColumns holds the columns for the "page_versions" table.
 	PageVersionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -431,6 +470,7 @@ var (
 		{Name: "agent_name", Type: field.TypeString, Nullable: true, Size: 100},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "milestone_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "project_id", Type: field.TypeInt64},
 		{Name: "sprint_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "swim_lane_id", Type: field.TypeInt64, Nullable: true},
@@ -443,26 +483,32 @@ var (
 		PrimaryKey: []*schema.Column{TasksColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "tasks_projects_tasks",
+				Symbol:     "tasks_milestones_tasks",
 				Columns:    []*schema.Column{TasksColumns[13]},
+				RefColumns: []*schema.Column{MilestonesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "tasks_projects_tasks",
+				Columns:    []*schema.Column{TasksColumns[14]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "tasks_sprints_tasks",
-				Columns:    []*schema.Column{TasksColumns[14]},
+				Columns:    []*schema.Column{TasksColumns[15]},
 				RefColumns: []*schema.Column{SprintsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tasks_swim_lanes_tasks",
-				Columns:    []*schema.Column{TasksColumns[15]},
+				Columns:    []*schema.Column{TasksColumns[16]},
 				RefColumns: []*schema.Column{SwimLanesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "tasks_users_tasks_assigned",
-				Columns:    []*schema.Column{TasksColumns[16]},
+				Columns:    []*schema.Column{TasksColumns[17]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -471,7 +517,7 @@ var (
 			{
 				Name:    "task_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{TasksColumns[13]},
+				Columns: []*schema.Column{TasksColumns[14]},
 			},
 			{
 				Name:    "task_status",
@@ -481,12 +527,12 @@ var (
 			{
 				Name:    "task_swim_lane_id",
 				Unique:  false,
-				Columns: []*schema.Column{TasksColumns[15]},
+				Columns: []*schema.Column{TasksColumns[16]},
 			},
 			{
 				Name:    "task_sprint_id",
 				Unique:  false,
-				Columns: []*schema.Column{TasksColumns[14]},
+				Columns: []*schema.Column{TasksColumns[15]},
 			},
 			{
 				Name:    "task_priority",
@@ -496,12 +542,17 @@ var (
 			{
 				Name:    "task_assignee_id",
 				Unique:  false,
-				Columns: []*schema.Column{TasksColumns[16]},
+				Columns: []*schema.Column{TasksColumns[17]},
+			},
+			{
+				Name:    "task_milestone_id",
+				Unique:  false,
+				Columns: []*schema.Column{TasksColumns[13]},
 			},
 			{
 				Name:    "task_project_id_task_number",
 				Unique:  true,
-				Columns: []*schema.Column{TasksColumns[13], TasksColumns[1]},
+				Columns: []*schema.Column{TasksColumns[14], TasksColumns[1]},
 			},
 		},
 	}
@@ -646,6 +697,51 @@ var (
 				Name:    "taskcomment_user_id",
 				Unique:  false,
 				Columns: []*schema.Column{TaskCommentsColumns[6]},
+			},
+		},
+	}
+	// TaskDependenciesColumns holds the columns for the "task_dependencies" table.
+	TaskDependenciesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "dependency_type", Type: field.TypeString, Default: "blocks"},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "task_id", Type: field.TypeInt64},
+		{Name: "depends_on_id", Type: field.TypeInt64},
+	}
+	// TaskDependenciesTable holds the schema information for the "task_dependencies" table.
+	TaskDependenciesTable = &schema.Table{
+		Name:       "task_dependencies",
+		Columns:    TaskDependenciesColumns,
+		PrimaryKey: []*schema.Column{TaskDependenciesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "task_dependencies_tasks_dependencies",
+				Columns:    []*schema.Column{TaskDependenciesColumns[3]},
+				RefColumns: []*schema.Column{TasksColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "task_dependencies_tasks_dependents",
+				Columns:    []*schema.Column{TaskDependenciesColumns[4]},
+				RefColumns: []*schema.Column{TasksColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "taskdependency_task_id",
+				Unique:  false,
+				Columns: []*schema.Column{TaskDependenciesColumns[3]},
+			},
+			{
+				Name:    "taskdependency_depends_on_id",
+				Unique:  false,
+				Columns: []*schema.Column{TaskDependenciesColumns[4]},
+			},
+			{
+				Name:    "taskdependency_task_id_depends_on_id",
+				Unique:  true,
+				Columns: []*schema.Column{TaskDependenciesColumns[3], TaskDependenciesColumns[4]},
 			},
 		},
 	}
@@ -1076,6 +1172,7 @@ var (
 		CloudinaryCredentialsTable,
 		EmailProvidersTable,
 		InvitesTable,
+		MilestonesTable,
 		PageVersionsTable,
 		ProjectsTable,
 		ProjectMembersTable,
@@ -1086,6 +1183,7 @@ var (
 		TaskAssigneesTable,
 		TaskAttachmentsTable,
 		TaskCommentsTable,
+		TaskDependenciesTable,
 		TaskTagsTable,
 		TeamsTable,
 		TeamInvitationsTable,
@@ -1104,6 +1202,7 @@ func init() {
 	CloudinaryCredentialsTable.ForeignKeys[0].RefTable = UsersTable
 	InvitesTable.ForeignKeys[0].RefTable = UsersTable
 	InvitesTable.ForeignKeys[1].RefTable = UsersTable
+	MilestonesTable.ForeignKeys[0].RefTable = ProjectsTable
 	PageVersionsTable.ForeignKeys[0].RefTable = WikiPagesTable
 	ProjectsTable.ForeignKeys[0].RefTable = TeamsTable
 	ProjectsTable.ForeignKeys[1].RefTable = UsersTable
@@ -1115,10 +1214,11 @@ func init() {
 	SwimLanesTable.ForeignKeys[0].RefTable = ProjectsTable
 	TagsTable.ForeignKeys[0].RefTable = TeamsTable
 	TagsTable.ForeignKeys[1].RefTable = UsersTable
-	TasksTable.ForeignKeys[0].RefTable = ProjectsTable
-	TasksTable.ForeignKeys[1].RefTable = SprintsTable
-	TasksTable.ForeignKeys[2].RefTable = SwimLanesTable
-	TasksTable.ForeignKeys[3].RefTable = UsersTable
+	TasksTable.ForeignKeys[0].RefTable = MilestonesTable
+	TasksTable.ForeignKeys[1].RefTable = ProjectsTable
+	TasksTable.ForeignKeys[2].RefTable = SprintsTable
+	TasksTable.ForeignKeys[3].RefTable = SwimLanesTable
+	TasksTable.ForeignKeys[4].RefTable = UsersTable
 	TaskAssigneesTable.ForeignKeys[0].RefTable = TasksTable
 	TaskAssigneesTable.ForeignKeys[1].RefTable = UsersTable
 	TaskAttachmentsTable.ForeignKeys[0].RefTable = ProjectsTable
@@ -1126,6 +1226,8 @@ func init() {
 	TaskAttachmentsTable.ForeignKeys[2].RefTable = UsersTable
 	TaskCommentsTable.ForeignKeys[0].RefTable = TasksTable
 	TaskCommentsTable.ForeignKeys[1].RefTable = UsersTable
+	TaskDependenciesTable.ForeignKeys[0].RefTable = TasksTable
+	TaskDependenciesTable.ForeignKeys[1].RefTable = TasksTable
 	TaskTagsTable.ForeignKeys[0].RefTable = TagsTable
 	TaskTagsTable.ForeignKeys[1].RefTable = TasksTable
 	TeamsTable.ForeignKeys[0].RefTable = UsersTable

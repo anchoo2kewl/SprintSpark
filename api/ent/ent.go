@@ -12,6 +12,7 @@ import (
 	"taskai/ent/cloudinarycredential"
 	"taskai/ent/emailprovider"
 	"taskai/ent/invite"
+	"taskai/ent/milestone"
 	"taskai/ent/pageversion"
 	"taskai/ent/project"
 	"taskai/ent/projectmember"
@@ -22,6 +23,7 @@ import (
 	"taskai/ent/taskassignee"
 	"taskai/ent/taskattachment"
 	"taskai/ent/taskcomment"
+	"taskai/ent/taskdependency"
 	"taskai/ent/tasktag"
 	"taskai/ent/team"
 	"taskai/ent/teaminvitation"
@@ -100,6 +102,7 @@ func checkColumn(t, c string) error {
 			cloudinarycredential.Table: cloudinarycredential.ValidColumn,
 			emailprovider.Table:        emailprovider.ValidColumn,
 			invite.Table:               invite.ValidColumn,
+			milestone.Table:            milestone.ValidColumn,
 			pageversion.Table:          pageversion.ValidColumn,
 			project.Table:              project.ValidColumn,
 			projectmember.Table:        projectmember.ValidColumn,
@@ -110,6 +113,7 @@ func checkColumn(t, c string) error {
 			taskassignee.Table:         taskassignee.ValidColumn,
 			taskattachment.Table:       taskattachment.ValidColumn,
 			taskcomment.Table:          taskcomment.ValidColumn,
+			taskdependency.Table:       taskdependency.ValidColumn,
 			tasktag.Table:              tasktag.ValidColumn,
 			team.Table:                 team.ValidColumn,
 			teaminvitation.Table:       teaminvitation.ValidColumn,

@@ -15,6 +15,7 @@ import (
 	"taskai/ent/cloudinarycredential"
 	"taskai/ent/emailprovider"
 	"taskai/ent/invite"
+	"taskai/ent/milestone"
 	"taskai/ent/pageversion"
 	"taskai/ent/project"
 	"taskai/ent/projectmember"
@@ -25,6 +26,7 @@ import (
 	"taskai/ent/taskassignee"
 	"taskai/ent/taskattachment"
 	"taskai/ent/taskcomment"
+	"taskai/ent/taskdependency"
 	"taskai/ent/tasktag"
 	"taskai/ent/team"
 	"taskai/ent/teaminvitation"
@@ -55,6 +57,8 @@ type Client struct {
 	EmailProvider *EmailProviderClient
 	// Invite is the client for interacting with the Invite builders.
 	Invite *InviteClient
+	// Milestone is the client for interacting with the Milestone builders.
+	Milestone *MilestoneClient
 	// PageVersion is the client for interacting with the PageVersion builders.
 	PageVersion *PageVersionClient
 	// Project is the client for interacting with the Project builders.
@@ -75,6 +79,8 @@ type Client struct {
 	TaskAttachment *TaskAttachmentClient
 	// TaskComment is the client for interacting with the TaskComment builders.
 	TaskComment *TaskCommentClient
+	// TaskDependency is the client for interacting with the TaskDependency builders.
+	TaskDependency *TaskDependencyClient
 	// TaskTag is the client for interacting with the TaskTag builders.
 	TaskTag *TaskTagClient
 	// Team is the client for interacting with the Team builders.
@@ -110,6 +116,7 @@ func (c *Client) init() {
 	c.CloudinaryCredential = NewCloudinaryCredentialClient(c.config)
 	c.EmailProvider = NewEmailProviderClient(c.config)
 	c.Invite = NewInviteClient(c.config)
+	c.Milestone = NewMilestoneClient(c.config)
 	c.PageVersion = NewPageVersionClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectMember = NewProjectMemberClient(c.config)
@@ -120,6 +127,7 @@ func (c *Client) init() {
 	c.TaskAssignee = NewTaskAssigneeClient(c.config)
 	c.TaskAttachment = NewTaskAttachmentClient(c.config)
 	c.TaskComment = NewTaskCommentClient(c.config)
+	c.TaskDependency = NewTaskDependencyClient(c.config)
 	c.TaskTag = NewTaskTagClient(c.config)
 	c.Team = NewTeamClient(c.config)
 	c.TeamInvitation = NewTeamInvitationClient(c.config)
@@ -226,6 +234,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		CloudinaryCredential: NewCloudinaryCredentialClient(cfg),
 		EmailProvider:        NewEmailProviderClient(cfg),
 		Invite:               NewInviteClient(cfg),
+		Milestone:            NewMilestoneClient(cfg),
 		PageVersion:          NewPageVersionClient(cfg),
 		Project:              NewProjectClient(cfg),
 		ProjectMember:        NewProjectMemberClient(cfg),
@@ -236,6 +245,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TaskAssignee:         NewTaskAssigneeClient(cfg),
 		TaskAttachment:       NewTaskAttachmentClient(cfg),
 		TaskComment:          NewTaskCommentClient(cfg),
+		TaskDependency:       NewTaskDependencyClient(cfg),
 		TaskTag:              NewTaskTagClient(cfg),
 		Team:                 NewTeamClient(cfg),
 		TeamInvitation:       NewTeamInvitationClient(cfg),
@@ -269,6 +279,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		CloudinaryCredential: NewCloudinaryCredentialClient(cfg),
 		EmailProvider:        NewEmailProviderClient(cfg),
 		Invite:               NewInviteClient(cfg),
+		Milestone:            NewMilestoneClient(cfg),
 		PageVersion:          NewPageVersionClient(cfg),
 		Project:              NewProjectClient(cfg),
 		ProjectMember:        NewProjectMemberClient(cfg),
@@ -279,6 +290,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TaskAssignee:         NewTaskAssigneeClient(cfg),
 		TaskAttachment:       NewTaskAttachmentClient(cfg),
 		TaskComment:          NewTaskCommentClient(cfg),
+		TaskDependency:       NewTaskDependencyClient(cfg),
 		TaskTag:              NewTaskTagClient(cfg),
 		Team:                 NewTeamClient(cfg),
 		TeamInvitation:       NewTeamInvitationClient(cfg),
@@ -318,10 +330,10 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.CloudinaryCredential, c.EmailProvider, c.Invite, c.PageVersion,
-		c.Project, c.ProjectMember, c.Sprint, c.SwimLane, c.Tag, c.Task,
-		c.TaskAssignee, c.TaskAttachment, c.TaskComment, c.TaskTag, c.Team,
-		c.TeamInvitation, c.TeamMember, c.User, c.UserActivity, c.WikiBlock,
+		c.APIKey, c.CloudinaryCredential, c.EmailProvider, c.Invite, c.Milestone,
+		c.PageVersion, c.Project, c.ProjectMember, c.Sprint, c.SwimLane, c.Tag, c.Task,
+		c.TaskAssignee, c.TaskAttachment, c.TaskComment, c.TaskDependency, c.TaskTag,
+		c.Team, c.TeamInvitation, c.TeamMember, c.User, c.UserActivity, c.WikiBlock,
 		c.WikiPage, c.WikiPageVersion, c.YjsUpdate,
 	} {
 		n.Use(hooks...)
@@ -332,10 +344,10 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.CloudinaryCredential, c.EmailProvider, c.Invite, c.PageVersion,
-		c.Project, c.ProjectMember, c.Sprint, c.SwimLane, c.Tag, c.Task,
-		c.TaskAssignee, c.TaskAttachment, c.TaskComment, c.TaskTag, c.Team,
-		c.TeamInvitation, c.TeamMember, c.User, c.UserActivity, c.WikiBlock,
+		c.APIKey, c.CloudinaryCredential, c.EmailProvider, c.Invite, c.Milestone,
+		c.PageVersion, c.Project, c.ProjectMember, c.Sprint, c.SwimLane, c.Tag, c.Task,
+		c.TaskAssignee, c.TaskAttachment, c.TaskComment, c.TaskDependency, c.TaskTag,
+		c.Team, c.TeamInvitation, c.TeamMember, c.User, c.UserActivity, c.WikiBlock,
 		c.WikiPage, c.WikiPageVersion, c.YjsUpdate,
 	} {
 		n.Intercept(interceptors...)
@@ -353,6 +365,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EmailProvider.mutate(ctx, m)
 	case *InviteMutation:
 		return c.Invite.mutate(ctx, m)
+	case *MilestoneMutation:
+		return c.Milestone.mutate(ctx, m)
 	case *PageVersionMutation:
 		return c.PageVersion.mutate(ctx, m)
 	case *ProjectMutation:
@@ -373,6 +387,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TaskAttachment.mutate(ctx, m)
 	case *TaskCommentMutation:
 		return c.TaskComment.mutate(ctx, m)
+	case *TaskDependencyMutation:
+		return c.TaskDependency.mutate(ctx, m)
 	case *TaskTagMutation:
 		return c.TaskTag.mutate(ctx, m)
 	case *TeamMutation:
@@ -994,6 +1010,171 @@ func (c *InviteClient) mutate(ctx context.Context, m *InviteMutation) (Value, er
 	}
 }
 
+// MilestoneClient is a client for the Milestone schema.
+type MilestoneClient struct {
+	config
+}
+
+// NewMilestoneClient returns a client for the Milestone from the given config.
+func NewMilestoneClient(c config) *MilestoneClient {
+	return &MilestoneClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `milestone.Hooks(f(g(h())))`.
+func (c *MilestoneClient) Use(hooks ...Hook) {
+	c.hooks.Milestone = append(c.hooks.Milestone, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `milestone.Intercept(f(g(h())))`.
+func (c *MilestoneClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Milestone = append(c.inters.Milestone, interceptors...)
+}
+
+// Create returns a builder for creating a Milestone entity.
+func (c *MilestoneClient) Create() *MilestoneCreate {
+	mutation := newMilestoneMutation(c.config, OpCreate)
+	return &MilestoneCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Milestone entities.
+func (c *MilestoneClient) CreateBulk(builders ...*MilestoneCreate) *MilestoneCreateBulk {
+	return &MilestoneCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MilestoneClient) MapCreateBulk(slice any, setFunc func(*MilestoneCreate, int)) *MilestoneCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MilestoneCreateBulk{err: fmt.Errorf("calling to MilestoneClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MilestoneCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MilestoneCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Milestone.
+func (c *MilestoneClient) Update() *MilestoneUpdate {
+	mutation := newMilestoneMutation(c.config, OpUpdate)
+	return &MilestoneUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MilestoneClient) UpdateOne(_m *Milestone) *MilestoneUpdateOne {
+	mutation := newMilestoneMutation(c.config, OpUpdateOne, withMilestone(_m))
+	return &MilestoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MilestoneClient) UpdateOneID(id int64) *MilestoneUpdateOne {
+	mutation := newMilestoneMutation(c.config, OpUpdateOne, withMilestoneID(id))
+	return &MilestoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Milestone.
+func (c *MilestoneClient) Delete() *MilestoneDelete {
+	mutation := newMilestoneMutation(c.config, OpDelete)
+	return &MilestoneDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MilestoneClient) DeleteOne(_m *Milestone) *MilestoneDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MilestoneClient) DeleteOneID(id int64) *MilestoneDeleteOne {
+	builder := c.Delete().Where(milestone.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MilestoneDeleteOne{builder}
+}
+
+// Query returns a query builder for Milestone.
+func (c *MilestoneClient) Query() *MilestoneQuery {
+	return &MilestoneQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMilestone},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Milestone entity by its id.
+func (c *MilestoneClient) Get(ctx context.Context, id int64) (*Milestone, error) {
+	return c.Query().Where(milestone.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MilestoneClient) GetX(ctx context.Context, id int64) *Milestone {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a Milestone.
+func (c *MilestoneClient) QueryProject(_m *Milestone) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(milestone.Table, milestone.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, milestone.ProjectTable, milestone.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTasks queries the tasks edge of a Milestone.
+func (c *MilestoneClient) QueryTasks(_m *Milestone) *TaskQuery {
+	query := (&TaskClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(milestone.Table, milestone.FieldID, id),
+			sqlgraph.To(task.Table, task.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, milestone.TasksTable, milestone.TasksColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MilestoneClient) Hooks() []Hook {
+	return c.hooks.Milestone
+}
+
+// Interceptors returns the client interceptors.
+func (c *MilestoneClient) Interceptors() []Interceptor {
+	return c.inters.Milestone
+}
+
+func (c *MilestoneClient) mutate(ctx context.Context, m *MilestoneMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MilestoneCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MilestoneUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MilestoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MilestoneDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Milestone mutation op: %q", m.Op())
+	}
+}
+
 // PageVersionClient is a client for the PageVersion schema.
 type PageVersionClient struct {
 	config
@@ -1356,6 +1537,22 @@ func (c *ProjectClient) QueryWikiPages(_m *Project) *WikiPageQuery {
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(wikipage.Table, wikipage.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.WikiPagesTable, project.WikiPagesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryMilestones queries the milestones edge of a Project.
+func (c *ProjectClient) QueryMilestones(_m *Project) *MilestoneQuery {
+	query := (&MilestoneClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(milestone.Table, milestone.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.MilestonesTable, project.MilestonesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2268,6 +2465,22 @@ func (c *TaskClient) QueryAssignee(_m *Task) *UserQuery {
 	return query
 }
 
+// QueryMilestone queries the milestone edge of a Task.
+func (c *TaskClient) QueryMilestone(_m *Task) *MilestoneQuery {
+	query := (&MilestoneClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, id),
+			sqlgraph.To(milestone.Table, milestone.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, task.MilestoneTable, task.MilestoneColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryComments queries the comments edge of a Task.
 func (c *TaskClient) QueryComments(_m *Task) *TaskCommentQuery {
 	query := (&TaskCommentClient{config: c.config}).Query()
@@ -2277,6 +2490,38 @@ func (c *TaskClient) QueryComments(_m *Task) *TaskCommentQuery {
 			sqlgraph.From(task.Table, task.FieldID, id),
 			sqlgraph.To(taskcomment.Table, taskcomment.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, task.CommentsTable, task.CommentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDependencies queries the dependencies edge of a Task.
+func (c *TaskClient) QueryDependencies(_m *Task) *TaskDependencyQuery {
+	query := (&TaskDependencyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, id),
+			sqlgraph.To(taskdependency.Table, taskdependency.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, task.DependenciesTable, task.DependenciesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDependents queries the dependents edge of a Task.
+func (c *TaskClient) QueryDependents(_m *Task) *TaskDependencyQuery {
+	query := (&TaskDependencyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(task.Table, task.FieldID, id),
+			sqlgraph.To(taskdependency.Table, taskdependency.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, task.DependentsTable, task.DependentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2865,6 +3110,171 @@ func (c *TaskCommentClient) mutate(ctx context.Context, m *TaskCommentMutation) 
 		return (&TaskCommentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown TaskComment mutation op: %q", m.Op())
+	}
+}
+
+// TaskDependencyClient is a client for the TaskDependency schema.
+type TaskDependencyClient struct {
+	config
+}
+
+// NewTaskDependencyClient returns a client for the TaskDependency from the given config.
+func NewTaskDependencyClient(c config) *TaskDependencyClient {
+	return &TaskDependencyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `taskdependency.Hooks(f(g(h())))`.
+func (c *TaskDependencyClient) Use(hooks ...Hook) {
+	c.hooks.TaskDependency = append(c.hooks.TaskDependency, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `taskdependency.Intercept(f(g(h())))`.
+func (c *TaskDependencyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TaskDependency = append(c.inters.TaskDependency, interceptors...)
+}
+
+// Create returns a builder for creating a TaskDependency entity.
+func (c *TaskDependencyClient) Create() *TaskDependencyCreate {
+	mutation := newTaskDependencyMutation(c.config, OpCreate)
+	return &TaskDependencyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TaskDependency entities.
+func (c *TaskDependencyClient) CreateBulk(builders ...*TaskDependencyCreate) *TaskDependencyCreateBulk {
+	return &TaskDependencyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TaskDependencyClient) MapCreateBulk(slice any, setFunc func(*TaskDependencyCreate, int)) *TaskDependencyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TaskDependencyCreateBulk{err: fmt.Errorf("calling to TaskDependencyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TaskDependencyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TaskDependencyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TaskDependency.
+func (c *TaskDependencyClient) Update() *TaskDependencyUpdate {
+	mutation := newTaskDependencyMutation(c.config, OpUpdate)
+	return &TaskDependencyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TaskDependencyClient) UpdateOne(_m *TaskDependency) *TaskDependencyUpdateOne {
+	mutation := newTaskDependencyMutation(c.config, OpUpdateOne, withTaskDependency(_m))
+	return &TaskDependencyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TaskDependencyClient) UpdateOneID(id int64) *TaskDependencyUpdateOne {
+	mutation := newTaskDependencyMutation(c.config, OpUpdateOne, withTaskDependencyID(id))
+	return &TaskDependencyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TaskDependency.
+func (c *TaskDependencyClient) Delete() *TaskDependencyDelete {
+	mutation := newTaskDependencyMutation(c.config, OpDelete)
+	return &TaskDependencyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TaskDependencyClient) DeleteOne(_m *TaskDependency) *TaskDependencyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TaskDependencyClient) DeleteOneID(id int64) *TaskDependencyDeleteOne {
+	builder := c.Delete().Where(taskdependency.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TaskDependencyDeleteOne{builder}
+}
+
+// Query returns a query builder for TaskDependency.
+func (c *TaskDependencyClient) Query() *TaskDependencyQuery {
+	return &TaskDependencyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTaskDependency},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TaskDependency entity by its id.
+func (c *TaskDependencyClient) Get(ctx context.Context, id int64) (*TaskDependency, error) {
+	return c.Query().Where(taskdependency.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TaskDependencyClient) GetX(ctx context.Context, id int64) *TaskDependency {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTask queries the task edge of a TaskDependency.
+func (c *TaskDependencyClient) QueryTask(_m *TaskDependency) *TaskQuery {
+	query := (&TaskClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(taskdependency.Table, taskdependency.FieldID, id),
+			sqlgraph.To(task.Table, task.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, taskdependency.TaskTable, taskdependency.TaskColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDependsOn queries the depends_on edge of a TaskDependency.
+func (c *TaskDependencyClient) QueryDependsOn(_m *TaskDependency) *TaskQuery {
+	query := (&TaskClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(taskdependency.Table, taskdependency.FieldID, id),
+			sqlgraph.To(task.Table, task.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, taskdependency.DependsOnTable, taskdependency.DependsOnColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *TaskDependencyClient) Hooks() []Hook {
+	return c.hooks.TaskDependency
+}
+
+// Interceptors returns the client interceptors.
+func (c *TaskDependencyClient) Interceptors() []Interceptor {
+	return c.inters.TaskDependency
+}
+
+func (c *TaskDependencyClient) mutate(ctx context.Context, m *TaskDependencyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TaskDependencyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TaskDependencyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TaskDependencyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TaskDependencyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TaskDependency mutation op: %q", m.Op())
 	}
 }
 
@@ -4969,15 +5379,17 @@ func (c *YjsUpdateClient) mutate(ctx context.Context, m *YjsUpdateMutation) (Val
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, CloudinaryCredential, EmailProvider, Invite, PageVersion, Project,
-		ProjectMember, Sprint, SwimLane, Tag, Task, TaskAssignee, TaskAttachment,
-		TaskComment, TaskTag, Team, TeamInvitation, TeamMember, User, UserActivity,
-		WikiBlock, WikiPage, WikiPageVersion, YjsUpdate []ent.Hook
+		APIKey, CloudinaryCredential, EmailProvider, Invite, Milestone, PageVersion,
+		Project, ProjectMember, Sprint, SwimLane, Tag, Task, TaskAssignee,
+		TaskAttachment, TaskComment, TaskDependency, TaskTag, Team, TeamInvitation,
+		TeamMember, User, UserActivity, WikiBlock, WikiPage, WikiPageVersion,
+		YjsUpdate []ent.Hook
 	}
 	inters struct {
-		APIKey, CloudinaryCredential, EmailProvider, Invite, PageVersion, Project,
-		ProjectMember, Sprint, SwimLane, Tag, Task, TaskAssignee, TaskAttachment,
-		TaskComment, TaskTag, Team, TeamInvitation, TeamMember, User, UserActivity,
-		WikiBlock, WikiPage, WikiPageVersion, YjsUpdate []ent.Interceptor
+		APIKey, CloudinaryCredential, EmailProvider, Invite, Milestone, PageVersion,
+		Project, ProjectMember, Sprint, SwimLane, Tag, Task, TaskAssignee,
+		TaskAttachment, TaskComment, TaskDependency, TaskTag, Team, TeamInvitation,
+		TeamMember, User, UserActivity, WikiBlock, WikiPage, WikiPageVersion,
+		YjsUpdate []ent.Interceptor
 	}
 )

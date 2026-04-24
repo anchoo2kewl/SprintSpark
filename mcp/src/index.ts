@@ -2,7 +2,7 @@ import express from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-import { TaskAIClient, Task, Project, SwimLane, Comment, WikiPage, WikiBlock, User } from "./api.js";
+import { TaskAIClient, Task, Project, SwimLane, Comment, WikiPage, WikiBlock, User, Milestone } from "./api.js";
 
 const TASKAI_API_URL = process.env.TASKAI_API_URL || "https://taskai.cc";
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -585,6 +585,102 @@ function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds
     async ({ verbose }) => {
       const version = await client.getVersion();
       return { content: [{ type: "text", text: formatResponse(version, verbose) }] };
+    }
+  );
+
+  // --- list_milestones ---
+  server.tool(
+    "list_milestones",
+    "List milestones for a project with task counts. Milestones group tasks into deliverables.",
+    {
+      project_id: z.string().describe("Project ID"),
+      verbose: z.boolean().optional().describe("Return full details (default: false)"),
+    },
+    async ({ project_id, verbose }) => {
+      const milestones = await client.listMilestones(project_id);
+      const data = verbose
+        ? milestones
+        : milestones.map((m: Milestone) => ({ id: m.id, name: m.name, status: m.status, task_count: m.task_count, target_date: m.target_date }));
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
+  // --- create_milestone ---
+  server.tool(
+    "create_milestone",
+    "Create a new milestone in a project. Milestones group tasks into deliverables with target dates.",
+    {
+      project_id: z.string().describe("Project ID"),
+      name: z.string().describe("Milestone name"),
+      description: z.string().optional().describe("Milestone description"),
+      color: z.string().optional().describe("Hex color (default: #5e6ad2)"),
+      target_date: z.string().optional().describe("Target date (YYYY-MM-DD)"),
+      status: z.enum(["active", "completed", "cancelled"]).optional().describe("Status (default: active)"),
+    },
+    async ({ project_id, name, description, color, target_date, status }) => {
+      const milestone = await client.createMilestone(project_id, { name, description, color, target_date, status });
+      return { content: [{ type: "text", text: formatResponse(milestone) }] };
+    }
+  );
+
+  // --- update_milestone ---
+  server.tool(
+    "update_milestone",
+    "Update a milestone's name, description, color, target date, or status.",
+    {
+      milestone_id: z.string().describe("Milestone ID"),
+      name: z.string().optional().describe("New name"),
+      description: z.string().optional().describe("New description"),
+      color: z.string().optional().describe("New hex color"),
+      target_date: z.string().optional().describe("New target date (YYYY-MM-DD)"),
+      status: z.enum(["active", "completed", "cancelled"]).optional().describe("New status"),
+      sort_order: z.number().optional().describe("Display order"),
+    },
+    async ({ milestone_id, ...data }) => {
+      const milestone = await client.updateMilestone(milestone_id, data);
+      return { content: [{ type: "text", text: formatResponse(milestone) }] };
+    }
+  );
+
+  // --- get_milestone_progress ---
+  server.tool(
+    "get_milestone_progress",
+    "Get computed progress for a milestone: total/completed tasks, percentage, hours, by-assignee breakdown.",
+    {
+      milestone_id: z.string().describe("Milestone ID"),
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ milestone_id, verbose }) => {
+      const progress = await client.getMilestoneProgress(milestone_id);
+      return { content: [{ type: "text", text: formatResponse(progress, verbose) }] };
+    }
+  );
+
+  // --- add_dependency ---
+  server.tool(
+    "add_dependency",
+    "Add a dependency between tasks. Task A depends on (is blocked by) task B. Cycle detection prevents circular dependencies.",
+    {
+      task_id: z.string().describe("Task ID (the task that depends on another)"),
+      depends_on_id: z.number().describe("ID of the task it depends on (blocker)"),
+      dependency_type: z.enum(["blocks", "related"]).optional().describe("Type of dependency (default: blocks)"),
+    },
+    async ({ task_id, depends_on_id, dependency_type }) => {
+      const dep = await client.createDependency(task_id, { depends_on_id, dependency_type });
+      return { content: [{ type: "text", text: formatResponse(dep) }] };
+    }
+  );
+
+  // --- remove_dependency ---
+  server.tool(
+    "remove_dependency",
+    "Remove a task dependency by its ID.",
+    {
+      dependency_id: z.string().describe("Dependency ID to remove"),
+    },
+    async ({ dependency_id }) => {
+      await client.deleteDependency(dependency_id);
+      return { content: [{ type: "text", text: "Dependency removed successfully" }] };
     }
   );
 

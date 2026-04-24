@@ -52,6 +52,8 @@ const (
 	EdgeAttachments = "attachments"
 	// EdgeWikiPages holds the string denoting the wiki_pages edge name in mutations.
 	EdgeWikiPages = "wiki_pages"
+	// EdgeMilestones holds the string denoting the milestones edge name in mutations.
+	EdgeMilestones = "milestones"
 	// Table holds the table name of the project in the database.
 	Table = "projects"
 	// OwnerTable is the table that holds the owner relation/edge.
@@ -103,6 +105,13 @@ const (
 	WikiPagesInverseTable = "wiki_pages"
 	// WikiPagesColumn is the table column denoting the wiki_pages relation/edge.
 	WikiPagesColumn = "project_id"
+	// MilestonesTable is the table that holds the milestones relation/edge.
+	MilestonesTable = "milestones"
+	// MilestonesInverseTable is the table name for the Milestone entity.
+	// It exists in this package in order to avoid circular dependency with the "milestone" package.
+	MilestonesInverseTable = "milestones"
+	// MilestonesColumn is the table column denoting the milestones relation/edge.
+	MilestonesColumn = "project_id"
 )
 
 // Columns holds all SQL columns for project fields.
@@ -298,6 +307,20 @@ func ByWikiPages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newWikiPagesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByMilestonesCount orders the results by milestones count.
+func ByMilestonesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMilestonesStep(), opts...)
+	}
+}
+
+// ByMilestones orders the results by milestones terms.
+func ByMilestones(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMilestonesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newOwnerStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -345,5 +368,12 @@ func newWikiPagesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(WikiPagesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, WikiPagesTable, WikiPagesColumn),
+	)
+}
+func newMilestonesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MilestonesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MilestonesTable, MilestonesColumn),
 	)
 }

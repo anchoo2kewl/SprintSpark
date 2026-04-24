@@ -18,6 +18,9 @@ type EmailProvider func(*sql.Selector)
 // Invite is the predicate function for invite builders.
 type Invite func(*sql.Selector)
 
+// Milestone is the predicate function for milestone builders.
+type Milestone func(*sql.Selector)
+
 // PageVersion is the predicate function for pageversion builders.
 type PageVersion func(*sql.Selector)
 
@@ -47,6 +50,9 @@ type TaskAttachment func(*sql.Selector)
 
 // TaskComment is the predicate function for taskcomment builders.
 type TaskComment func(*sql.Selector)
+
+// TaskDependency is the predicate function for taskdependency builders.
+type TaskDependency func(*sql.Selector)
 
 // TaskTag is the predicate function for tasktag builders.
 type TaskTag func(*sql.Selector)

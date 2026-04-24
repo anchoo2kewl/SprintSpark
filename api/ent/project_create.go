@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"taskai/ent/milestone"
 	"taskai/ent/project"
 	"taskai/ent/projectmember"
 	"taskai/ent/swimlane"
@@ -270,6 +271,21 @@ func (_c *ProjectCreate) AddWikiPages(v ...*WikiPage) *ProjectCreate {
 	return _c.AddWikiPageIDs(ids...)
 }
 
+// AddMilestoneIDs adds the "milestones" edge to the Milestone entity by IDs.
+func (_c *ProjectCreate) AddMilestoneIDs(ids ...int64) *ProjectCreate {
+	_c.mutation.AddMilestoneIDs(ids...)
+	return _c
+}
+
+// AddMilestones adds the "milestones" edges to the Milestone entity.
+func (_c *ProjectCreate) AddMilestones(v ...*Milestone) *ProjectCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddMilestoneIDs(ids...)
+}
+
 // Mutation returns the ProjectMutation object of the builder.
 func (_c *ProjectCreate) Mutation() *ProjectMutation {
 	return _c.mutation
@@ -530,6 +546,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(wikipage.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.MilestonesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.MilestonesTable,
+			Columns: []string{project.MilestonesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(milestone.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -65,9 +65,11 @@ type ProjectEdges struct {
 	Attachments []*TaskAttachment `json:"attachments,omitempty"`
 	// WikiPages holds the value of the wiki_pages edge.
 	WikiPages []*WikiPage `json:"wiki_pages,omitempty"`
+	// Milestones holds the value of the milestones edge.
+	Milestones []*Milestone `json:"milestones,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // OwnerOrErr returns the Owner value or an error if the edge
@@ -135,6 +137,15 @@ func (e ProjectEdges) WikiPagesOrErr() ([]*WikiPage, error) {
 		return e.WikiPages, nil
 	}
 	return nil, &NotLoadedError{edge: "wiki_pages"}
+}
+
+// MilestonesOrErr returns the Milestones value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) MilestonesOrErr() ([]*Milestone, error) {
+	if e.loadedTypes[7] {
+		return e.Milestones, nil
+	}
+	return nil, &NotLoadedError{edge: "milestones"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -295,6 +306,11 @@ func (_m *Project) QueryAttachments() *TaskAttachmentQuery {
 // QueryWikiPages queries the "wiki_pages" edge of the Project entity.
 func (_m *Project) QueryWikiPages() *WikiPageQuery {
 	return NewProjectClient(_m.config).QueryWikiPages(_m)
+}
+
+// QueryMilestones queries the "milestones" edge of the Project entity.
+func (_m *Project) QueryMilestones() *MilestoneQuery {
+	return NewProjectClient(_m.config).QueryMilestones(_m)
 }
 
 // Update returns a builder for updating this Project.

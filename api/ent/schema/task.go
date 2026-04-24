@@ -31,6 +31,7 @@ func (Task) Fields() []ent.Field {
 		field.Float("actual_hours").Optional().Nillable(),
 		field.Time("start_date").Optional().Nillable(),
 		field.Time("due_date").Optional().Nillable(),
+		field.Int64("milestone_id").Optional().Nillable(),
 		field.String("agent_name").Optional().Nillable().MaxLen(100),
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Time("updated_at").Default(time.Now).UpdateDefault(time.Now),
@@ -44,7 +45,10 @@ func (Task) Edges() []ent.Edge {
 		edge.From("swim_lane", SwimLane.Type).Ref("tasks").Unique().Field("swim_lane_id"),
 		edge.From("sprint", Sprint.Type).Ref("tasks").Unique().Field("sprint_id"),
 		edge.From("assignee", User.Type).Ref("tasks_assigned").Unique().Field("assignee_id"),
+		edge.From("milestone", Milestone.Type).Ref("tasks").Unique().Field("milestone_id"),
 		edge.To("comments", TaskComment.Type),
+		edge.To("dependencies", TaskDependency.Type),
+		edge.To("dependents", TaskDependency.Type),
 		edge.To("attachments", TaskAttachment.Type),
 		edge.To("task_tags", TaskTag.Type),
 		edge.To("task_assignees", TaskAssignee.Type),
@@ -60,6 +64,7 @@ func (Task) Indexes() []ent.Index {
 		index.Fields("sprint_id"),
 		index.Fields("priority"),
 		index.Fields("assignee_id"),
+		index.Fields("milestone_id"),
 		index.Fields("project_id", "task_number").Unique(),
 	}
 }

@@ -5,6 +5,7 @@ package ent
 import (
 	"fmt"
 	"strings"
+	"taskai/ent/milestone"
 	"taskai/ent/project"
 	"taskai/ent/sprint"
 	"taskai/ent/swimlane"
@@ -47,6 +48,8 @@ type Task struct {
 	StartDate *time.Time `json:"start_date,omitempty"`
 	// DueDate holds the value of the "due_date" field.
 	DueDate *time.Time `json:"due_date,omitempty"`
+	// MilestoneID holds the value of the "milestone_id" field.
+	MilestoneID *int64 `json:"milestone_id,omitempty"`
 	// AgentName holds the value of the "agent_name" field.
 	AgentName *string `json:"agent_name,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -69,8 +72,14 @@ type TaskEdges struct {
 	Sprint *Sprint `json:"sprint,omitempty"`
 	// Assignee holds the value of the assignee edge.
 	Assignee *User `json:"assignee,omitempty"`
+	// Milestone holds the value of the milestone edge.
+	Milestone *Milestone `json:"milestone,omitempty"`
 	// Comments holds the value of the comments edge.
 	Comments []*TaskComment `json:"comments,omitempty"`
+	// Dependencies holds the value of the dependencies edge.
+	Dependencies []*TaskDependency `json:"dependencies,omitempty"`
+	// Dependents holds the value of the dependents edge.
+	Dependents []*TaskDependency `json:"dependents,omitempty"`
 	// Attachments holds the value of the attachments edge.
 	Attachments []*TaskAttachment `json:"attachments,omitempty"`
 	// TaskTags holds the value of the task_tags edge.
@@ -79,7 +88,7 @@ type TaskEdges struct {
 	TaskAssignees []*TaskAssignee `json:"task_assignees,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [11]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -126,19 +135,48 @@ func (e TaskEdges) AssigneeOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "assignee"}
 }
 
+// MilestoneOrErr returns the Milestone value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e TaskEdges) MilestoneOrErr() (*Milestone, error) {
+	if e.Milestone != nil {
+		return e.Milestone, nil
+	} else if e.loadedTypes[4] {
+		return nil, &NotFoundError{label: milestone.Label}
+	}
+	return nil, &NotLoadedError{edge: "milestone"}
+}
+
 // CommentsOrErr returns the Comments value or an error if the edge
 // was not loaded in eager-loading.
 func (e TaskEdges) CommentsOrErr() ([]*TaskComment, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.Comments, nil
 	}
 	return nil, &NotLoadedError{edge: "comments"}
 }
 
+// DependenciesOrErr returns the Dependencies value or an error if the edge
+// was not loaded in eager-loading.
+func (e TaskEdges) DependenciesOrErr() ([]*TaskDependency, error) {
+	if e.loadedTypes[6] {
+		return e.Dependencies, nil
+	}
+	return nil, &NotLoadedError{edge: "dependencies"}
+}
+
+// DependentsOrErr returns the Dependents value or an error if the edge
+// was not loaded in eager-loading.
+func (e TaskEdges) DependentsOrErr() ([]*TaskDependency, error) {
+	if e.loadedTypes[7] {
+		return e.Dependents, nil
+	}
+	return nil, &NotLoadedError{edge: "dependents"}
+}
+
 // AttachmentsOrErr returns the Attachments value or an error if the edge
 // was not loaded in eager-loading.
 func (e TaskEdges) AttachmentsOrErr() ([]*TaskAttachment, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[8] {
 		return e.Attachments, nil
 	}
 	return nil, &NotLoadedError{edge: "attachments"}
@@ -147,7 +185,7 @@ func (e TaskEdges) AttachmentsOrErr() ([]*TaskAttachment, error) {
 // TaskTagsOrErr returns the TaskTags value or an error if the edge
 // was not loaded in eager-loading.
 func (e TaskEdges) TaskTagsOrErr() ([]*TaskTag, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[9] {
 		return e.TaskTags, nil
 	}
 	return nil, &NotLoadedError{edge: "task_tags"}
@@ -156,7 +194,7 @@ func (e TaskEdges) TaskTagsOrErr() ([]*TaskTag, error) {
 // TaskAssigneesOrErr returns the TaskAssignees value or an error if the edge
 // was not loaded in eager-loading.
 func (e TaskEdges) TaskAssigneesOrErr() ([]*TaskAssignee, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[10] {
 		return e.TaskAssignees, nil
 	}
 	return nil, &NotLoadedError{edge: "task_assignees"}
@@ -169,7 +207,7 @@ func (*Task) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case task.FieldEstimatedHours, task.FieldActualHours:
 			values[i] = new(sql.NullFloat64)
-		case task.FieldID, task.FieldProjectID, task.FieldTaskNumber, task.FieldSwimLaneID, task.FieldSprintID, task.FieldAssigneeID:
+		case task.FieldID, task.FieldProjectID, task.FieldTaskNumber, task.FieldSwimLaneID, task.FieldSprintID, task.FieldAssigneeID, task.FieldMilestoneID:
 			values[i] = new(sql.NullInt64)
 		case task.FieldTitle, task.FieldDescription, task.FieldStatus, task.FieldPriority, task.FieldAgentName:
 			values[i] = new(sql.NullString)
@@ -283,6 +321,13 @@ func (_m *Task) assignValues(columns []string, values []any) error {
 				_m.DueDate = new(time.Time)
 				*_m.DueDate = value.Time
 			}
+		case task.FieldMilestoneID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field milestone_id", values[i])
+			} else if value.Valid {
+				_m.MilestoneID = new(int64)
+				*_m.MilestoneID = value.Int64
+			}
 		case task.FieldAgentName:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field agent_name", values[i])
@@ -335,9 +380,24 @@ func (_m *Task) QueryAssignee() *UserQuery {
 	return NewTaskClient(_m.config).QueryAssignee(_m)
 }
 
+// QueryMilestone queries the "milestone" edge of the Task entity.
+func (_m *Task) QueryMilestone() *MilestoneQuery {
+	return NewTaskClient(_m.config).QueryMilestone(_m)
+}
+
 // QueryComments queries the "comments" edge of the Task entity.
 func (_m *Task) QueryComments() *TaskCommentQuery {
 	return NewTaskClient(_m.config).QueryComments(_m)
+}
+
+// QueryDependencies queries the "dependencies" edge of the Task entity.
+func (_m *Task) QueryDependencies() *TaskDependencyQuery {
+	return NewTaskClient(_m.config).QueryDependencies(_m)
+}
+
+// QueryDependents queries the "dependents" edge of the Task entity.
+func (_m *Task) QueryDependents() *TaskDependencyQuery {
+	return NewTaskClient(_m.config).QueryDependents(_m)
 }
 
 // QueryAttachments queries the "attachments" edge of the Task entity.
@@ -433,6 +493,11 @@ func (_m *Task) String() string {
 	if v := _m.DueDate; v != nil {
 		builder.WriteString("due_date=")
 		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.MilestoneID; v != nil {
+		builder.WriteString("milestone_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
 	if v := _m.AgentName; v != nil {

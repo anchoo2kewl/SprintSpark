@@ -622,6 +622,81 @@ export interface UpdateSwimLaneRequest {
   status_category?: 'todo' | 'in_progress' | 'done'
 }
 
+// Milestone types
+export interface Milestone {
+  id: number
+  project_id: number
+  name: string
+  description?: string
+  color: string
+  target_date?: string
+  status: 'active' | 'completed' | 'cancelled'
+  sort_order: number
+  task_count?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface MilestoneProgress {
+  milestone_id: number
+  milestone_name: string
+  total_tasks: number
+  completed_tasks: number
+  percentage: number
+  by_status: Record<string, number>
+  by_assignee: MilestoneAssigneeStats[]
+  estimated_hours: number
+  actual_hours: number
+}
+
+export interface MilestoneAssigneeStats {
+  user_id: number
+  user_name: string
+  task_count: number
+  completed: number
+}
+
+export interface CreateMilestoneRequest {
+  name: string
+  description?: string
+  color?: string
+  target_date?: string
+  status?: 'active' | 'completed' | 'cancelled'
+  sort_order?: number
+}
+
+export interface UpdateMilestoneRequest {
+  name?: string
+  description?: string
+  color?: string
+  target_date?: string | null
+  status?: 'active' | 'completed' | 'cancelled'
+  sort_order?: number
+}
+
+// Task dependency types
+export interface TaskDependencyInfo {
+  id: number
+  task_id: number
+  task_title?: string
+  task_number?: number
+  depends_on_id: number
+  depends_on_title?: string
+  depends_on_number?: number
+  dependency_type: 'blocks' | 'related'
+  created_at: string
+}
+
+export interface TaskDependencies {
+  blocked_by: TaskDependencyInfo[]
+  blocks: TaskDependencyInfo[]
+}
+
+export interface CreateDependencyRequest {
+  depends_on_id: number
+  dependency_type?: 'blocks' | 'related'
+}
+
 // Helper types for API responses (using available operations)
 type SignupResponse = operations['signup']['responses']['201']['content']['application/json']
 type LoginResponse = operations['login']['responses']['200']['content']['application/json']
@@ -1393,6 +1468,57 @@ class ApiClient {
 
   async unshareTag(tagId: number, projectId: number): Promise<void> {
     return this.request<void>(`/api/tags/${tagId}/share/${projectId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Milestone endpoints (project-scoped)
+  async getMilestones(projectId: number): Promise<Milestone[]> {
+    return this.request<Milestone[]>(`/api/projects/${projectId}/milestones`)
+  }
+
+  async createMilestone(projectId: number, data: CreateMilestoneRequest): Promise<Milestone> {
+    return this.request<Milestone>(`/api/projects/${projectId}/milestones`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getMilestone(id: number): Promise<Milestone> {
+    return this.request<Milestone>(`/api/milestones/${id}`)
+  }
+
+  async updateMilestone(id: number, data: UpdateMilestoneRequest): Promise<Milestone> {
+    return this.request<Milestone>(`/api/milestones/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteMilestone(id: number): Promise<void> {
+    return this.request<void>(`/api/milestones/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getMilestoneProgress(id: number): Promise<MilestoneProgress> {
+    return this.request<MilestoneProgress>(`/api/milestones/${id}/progress`)
+  }
+
+  // Task dependency endpoints
+  async getTaskDependencies(taskId: number): Promise<TaskDependencies> {
+    return this.request<TaskDependencies>(`/api/tasks/${taskId}/dependencies`)
+  }
+
+  async createTaskDependency(taskId: number, data: CreateDependencyRequest): Promise<TaskDependencyInfo> {
+    return this.request<TaskDependencyInfo>(`/api/tasks/${taskId}/dependencies`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteTaskDependency(id: number): Promise<void> {
+    return this.request<void>(`/api/task-dependencies/${id}`, {
       method: 'DELETE',
     })
   }

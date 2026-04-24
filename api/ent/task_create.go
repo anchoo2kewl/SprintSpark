@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"taskai/ent/milestone"
 	"taskai/ent/project"
 	"taskai/ent/sprint"
 	"taskai/ent/swimlane"
@@ -13,6 +14,7 @@ import (
 	"taskai/ent/taskassignee"
 	"taskai/ent/taskattachment"
 	"taskai/ent/taskcomment"
+	"taskai/ent/taskdependency"
 	"taskai/ent/tasktag"
 	"taskai/ent/user"
 	"time"
@@ -194,6 +196,20 @@ func (_c *TaskCreate) SetNillableDueDate(v *time.Time) *TaskCreate {
 	return _c
 }
 
+// SetMilestoneID sets the "milestone_id" field.
+func (_c *TaskCreate) SetMilestoneID(v int64) *TaskCreate {
+	_c.mutation.SetMilestoneID(v)
+	return _c
+}
+
+// SetNillableMilestoneID sets the "milestone_id" field if the given value is not nil.
+func (_c *TaskCreate) SetNillableMilestoneID(v *int64) *TaskCreate {
+	if v != nil {
+		_c.SetMilestoneID(*v)
+	}
+	return _c
+}
+
 // SetAgentName sets the "agent_name" field.
 func (_c *TaskCreate) SetAgentName(v string) *TaskCreate {
 	_c.mutation.SetAgentName(v)
@@ -262,6 +278,11 @@ func (_c *TaskCreate) SetAssignee(v *User) *TaskCreate {
 	return _c.SetAssigneeID(v.ID)
 }
 
+// SetMilestone sets the "milestone" edge to the Milestone entity.
+func (_c *TaskCreate) SetMilestone(v *Milestone) *TaskCreate {
+	return _c.SetMilestoneID(v.ID)
+}
+
 // AddCommentIDs adds the "comments" edge to the TaskComment entity by IDs.
 func (_c *TaskCreate) AddCommentIDs(ids ...int64) *TaskCreate {
 	_c.mutation.AddCommentIDs(ids...)
@@ -275,6 +296,36 @@ func (_c *TaskCreate) AddComments(v ...*TaskComment) *TaskCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddCommentIDs(ids...)
+}
+
+// AddDependencyIDs adds the "dependencies" edge to the TaskDependency entity by IDs.
+func (_c *TaskCreate) AddDependencyIDs(ids ...int64) *TaskCreate {
+	_c.mutation.AddDependencyIDs(ids...)
+	return _c
+}
+
+// AddDependencies adds the "dependencies" edges to the TaskDependency entity.
+func (_c *TaskCreate) AddDependencies(v ...*TaskDependency) *TaskCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDependencyIDs(ids...)
+}
+
+// AddDependentIDs adds the "dependents" edge to the TaskDependency entity by IDs.
+func (_c *TaskCreate) AddDependentIDs(ids ...int64) *TaskCreate {
+	_c.mutation.AddDependentIDs(ids...)
+	return _c
+}
+
+// AddDependents adds the "dependents" edges to the TaskDependency entity.
+func (_c *TaskCreate) AddDependents(v ...*TaskDependency) *TaskCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDependentIDs(ids...)
 }
 
 // AddAttachmentIDs adds the "attachments" edge to the TaskAttachment entity by IDs.
@@ -556,6 +607,23 @@ func (_c *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 		_node.AssigneeID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.MilestoneIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   task.MilestoneTable,
+			Columns: []string{task.MilestoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(milestone.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.MilestoneID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.CommentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -565,6 +633,38 @@ func (_c *TaskCreate) createSpec() (*Task, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(taskcomment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DependenciesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependenciesTable,
+			Columns: []string{task.DependenciesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DependentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   task.DependentsTable,
+			Columns: []string{task.DependentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(taskdependency.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

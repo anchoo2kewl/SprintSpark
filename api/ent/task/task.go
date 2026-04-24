@@ -40,6 +40,8 @@ const (
 	FieldStartDate = "start_date"
 	// FieldDueDate holds the string denoting the due_date field in the database.
 	FieldDueDate = "due_date"
+	// FieldMilestoneID holds the string denoting the milestone_id field in the database.
+	FieldMilestoneID = "milestone_id"
 	// FieldAgentName holds the string denoting the agent_name field in the database.
 	FieldAgentName = "agent_name"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
@@ -54,8 +56,14 @@ const (
 	EdgeSprint = "sprint"
 	// EdgeAssignee holds the string denoting the assignee edge name in mutations.
 	EdgeAssignee = "assignee"
+	// EdgeMilestone holds the string denoting the milestone edge name in mutations.
+	EdgeMilestone = "milestone"
 	// EdgeComments holds the string denoting the comments edge name in mutations.
 	EdgeComments = "comments"
+	// EdgeDependencies holds the string denoting the dependencies edge name in mutations.
+	EdgeDependencies = "dependencies"
+	// EdgeDependents holds the string denoting the dependents edge name in mutations.
+	EdgeDependents = "dependents"
 	// EdgeAttachments holds the string denoting the attachments edge name in mutations.
 	EdgeAttachments = "attachments"
 	// EdgeTaskTags holds the string denoting the task_tags edge name in mutations.
@@ -92,6 +100,13 @@ const (
 	AssigneeInverseTable = "users"
 	// AssigneeColumn is the table column denoting the assignee relation/edge.
 	AssigneeColumn = "assignee_id"
+	// MilestoneTable is the table that holds the milestone relation/edge.
+	MilestoneTable = "tasks"
+	// MilestoneInverseTable is the table name for the Milestone entity.
+	// It exists in this package in order to avoid circular dependency with the "milestone" package.
+	MilestoneInverseTable = "milestones"
+	// MilestoneColumn is the table column denoting the milestone relation/edge.
+	MilestoneColumn = "milestone_id"
 	// CommentsTable is the table that holds the comments relation/edge.
 	CommentsTable = "task_comments"
 	// CommentsInverseTable is the table name for the TaskComment entity.
@@ -99,6 +114,20 @@ const (
 	CommentsInverseTable = "task_comments"
 	// CommentsColumn is the table column denoting the comments relation/edge.
 	CommentsColumn = "task_id"
+	// DependenciesTable is the table that holds the dependencies relation/edge.
+	DependenciesTable = "task_dependencies"
+	// DependenciesInverseTable is the table name for the TaskDependency entity.
+	// It exists in this package in order to avoid circular dependency with the "taskdependency" package.
+	DependenciesInverseTable = "task_dependencies"
+	// DependenciesColumn is the table column denoting the dependencies relation/edge.
+	DependenciesColumn = "task_id"
+	// DependentsTable is the table that holds the dependents relation/edge.
+	DependentsTable = "task_dependencies"
+	// DependentsInverseTable is the table name for the TaskDependency entity.
+	// It exists in this package in order to avoid circular dependency with the "taskdependency" package.
+	DependentsInverseTable = "task_dependencies"
+	// DependentsColumn is the table column denoting the dependents relation/edge.
+	DependentsColumn = "depends_on_id"
 	// AttachmentsTable is the table that holds the attachments relation/edge.
 	AttachmentsTable = "task_attachments"
 	// AttachmentsInverseTable is the table name for the TaskAttachment entity.
@@ -138,6 +167,7 @@ var Columns = []string{
 	FieldActualHours,
 	FieldStartDate,
 	FieldDueDate,
+	FieldMilestoneID,
 	FieldAgentName,
 	FieldCreatedAt,
 	FieldUpdatedAt,
@@ -243,6 +273,11 @@ func ByDueDate(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDueDate, opts...).ToFunc()
 }
 
+// ByMilestoneID orders the results by the milestone_id field.
+func ByMilestoneID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldMilestoneID, opts...).ToFunc()
+}
+
 // ByAgentName orders the results by the agent_name field.
 func ByAgentName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAgentName, opts...).ToFunc()
@@ -286,6 +321,13 @@ func ByAssigneeField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByMilestoneField orders the results by milestone field.
+func ByMilestoneField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMilestoneStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByCommentsCount orders the results by comments count.
 func ByCommentsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -297,6 +339,34 @@ func ByCommentsCount(opts ...sql.OrderTermOption) OrderOption {
 func ByComments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newCommentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByDependenciesCount orders the results by dependencies count.
+func ByDependenciesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDependenciesStep(), opts...)
+	}
+}
+
+// ByDependencies orders the results by dependencies terms.
+func ByDependencies(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDependenciesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByDependentsCount orders the results by dependents count.
+func ByDependentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDependentsStep(), opts...)
+	}
+}
+
+// ByDependents orders the results by dependents terms.
+func ByDependents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDependentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -369,11 +439,32 @@ func newAssigneeStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2O, true, AssigneeTable, AssigneeColumn),
 	)
 }
+func newMilestoneStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MilestoneInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, MilestoneTable, MilestoneColumn),
+	)
+}
 func newCommentsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CommentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, CommentsTable, CommentsColumn),
+	)
+}
+func newDependenciesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DependenciesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DependenciesTable, DependenciesColumn),
+	)
+}
+func newDependentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DependentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DependentsTable, DependentsColumn),
 	)
 }
 func newAttachmentsStep() *sqlgraph.Step {

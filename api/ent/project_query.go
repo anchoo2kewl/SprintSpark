@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math"
+	"taskai/ent/milestone"
 	"taskai/ent/predicate"
 	"taskai/ent/project"
 	"taskai/ent/projectmember"
@@ -37,6 +38,7 @@ type ProjectQuery struct {
 	withSwimLanes   *SwimLaneQuery
 	withAttachments *TaskAttachmentQuery
 	withWikiPages   *WikiPageQuery
+	withMilestones  *MilestoneQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -220,6 +222,28 @@ func (_q *ProjectQuery) QueryWikiPages() *WikiPageQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(wikipage.Table, wikipage.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.WikiPagesTable, project.WikiPagesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMilestones chains the current query on the "milestones" edge.
+func (_q *ProjectQuery) QueryMilestones() *MilestoneQuery {
+	query := (&MilestoneClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(milestone.Table, milestone.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.MilestonesTable, project.MilestonesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -426,6 +450,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withSwimLanes:   _q.withSwimLanes.Clone(),
 		withAttachments: _q.withAttachments.Clone(),
 		withWikiPages:   _q.withWikiPages.Clone(),
+		withMilestones:  _q.withMilestones.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -509,6 +534,17 @@ func (_q *ProjectQuery) WithWikiPages(opts ...func(*WikiPageQuery)) *ProjectQuer
 	return _q
 }
 
+// WithMilestones tells the query-builder to eager-load the nodes that are connected to
+// the "milestones" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithMilestones(opts ...func(*MilestoneQuery)) *ProjectQuery {
+	query := (&MilestoneClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMilestones = query
+	return _q
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -587,7 +623,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			_q.withOwner != nil,
 			_q.withTeam != nil,
 			_q.withMembers != nil,
@@ -595,6 +631,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withSwimLanes != nil,
 			_q.withAttachments != nil,
 			_q.withWikiPages != nil,
+			_q.withMilestones != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -659,6 +696,13 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadWikiPages(ctx, query, nodes,
 			func(n *Project) { n.Edges.WikiPages = []*WikiPage{} },
 			func(n *Project, e *WikiPage) { n.Edges.WikiPages = append(n.Edges.WikiPages, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMilestones; query != nil {
+		if err := _q.loadMilestones(ctx, query, nodes,
+			func(n *Project) { n.Edges.Milestones = []*Milestone{} },
+			func(n *Project, e *Milestone) { n.Edges.Milestones = append(n.Edges.Milestones, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -861,6 +905,36 @@ func (_q *ProjectQuery) loadWikiPages(ctx context.Context, query *WikiPageQuery,
 	}
 	query.Where(predicate.WikiPage(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.WikiPagesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadMilestones(ctx context.Context, query *MilestoneQuery, nodes []*Project, init func(*Project), assign func(*Project, *Milestone)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(milestone.FieldProjectID)
+	}
+	query.Where(predicate.Milestone(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.MilestonesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

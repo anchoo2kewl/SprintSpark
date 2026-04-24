@@ -120,6 +120,11 @@ func DueDate(v time.Time) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldDueDate, v))
 }
 
+// MilestoneID applies equality check predicate on the "milestone_id" field. It's identical to MilestoneIDEQ.
+func MilestoneID(v int64) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldMilestoneID, v))
+}
+
 // AgentName applies equality check predicate on the "agent_name" field. It's identical to AgentNameEQ.
 func AgentName(v string) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldAgentName, v))
@@ -765,6 +770,36 @@ func DueDateNotNil() predicate.Task {
 	return predicate.Task(sql.FieldNotNull(FieldDueDate))
 }
 
+// MilestoneIDEQ applies the EQ predicate on the "milestone_id" field.
+func MilestoneIDEQ(v int64) predicate.Task {
+	return predicate.Task(sql.FieldEQ(FieldMilestoneID, v))
+}
+
+// MilestoneIDNEQ applies the NEQ predicate on the "milestone_id" field.
+func MilestoneIDNEQ(v int64) predicate.Task {
+	return predicate.Task(sql.FieldNEQ(FieldMilestoneID, v))
+}
+
+// MilestoneIDIn applies the In predicate on the "milestone_id" field.
+func MilestoneIDIn(vs ...int64) predicate.Task {
+	return predicate.Task(sql.FieldIn(FieldMilestoneID, vs...))
+}
+
+// MilestoneIDNotIn applies the NotIn predicate on the "milestone_id" field.
+func MilestoneIDNotIn(vs ...int64) predicate.Task {
+	return predicate.Task(sql.FieldNotIn(FieldMilestoneID, vs...))
+}
+
+// MilestoneIDIsNil applies the IsNil predicate on the "milestone_id" field.
+func MilestoneIDIsNil() predicate.Task {
+	return predicate.Task(sql.FieldIsNull(FieldMilestoneID))
+}
+
+// MilestoneIDNotNil applies the NotNil predicate on the "milestone_id" field.
+func MilestoneIDNotNil() predicate.Task {
+	return predicate.Task(sql.FieldNotNull(FieldMilestoneID))
+}
+
 // AgentNameEQ applies the EQ predicate on the "agent_name" field.
 func AgentNameEQ(v string) predicate.Task {
 	return predicate.Task(sql.FieldEQ(FieldAgentName, v))
@@ -1012,6 +1047,29 @@ func HasAssigneeWith(preds ...predicate.User) predicate.Task {
 	})
 }
 
+// HasMilestone applies the HasEdge predicate on the "milestone" edge.
+func HasMilestone() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, MilestoneTable, MilestoneColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasMilestoneWith applies the HasEdge predicate on the "milestone" edge with a given conditions (other predicates).
+func HasMilestoneWith(preds ...predicate.Milestone) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newMilestoneStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasComments applies the HasEdge predicate on the "comments" edge.
 func HasComments() predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {
@@ -1027,6 +1085,52 @@ func HasComments() predicate.Task {
 func HasCommentsWith(preds ...predicate.TaskComment) predicate.Task {
 	return predicate.Task(func(s *sql.Selector) {
 		step := newCommentsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasDependencies applies the HasEdge predicate on the "dependencies" edge.
+func HasDependencies() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DependenciesTable, DependenciesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDependenciesWith applies the HasEdge predicate on the "dependencies" edge with a given conditions (other predicates).
+func HasDependenciesWith(preds ...predicate.TaskDependency) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newDependenciesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasDependents applies the HasEdge predicate on the "dependents" edge.
+func HasDependents() predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DependentsTable, DependentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDependentsWith applies the HasEdge predicate on the "dependents" edge with a given conditions (other predicates).
+func HasDependentsWith(preds ...predicate.TaskDependency) predicate.Task {
+	return predicate.Task(func(s *sql.Selector) {
+		step := newDependentsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)
