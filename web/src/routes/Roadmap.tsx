@@ -221,7 +221,6 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
               projectId={projectId}
               progressMap={progressMap}
               onMilestoneEdit={handleMilestoneEdit}
-              onRefresh={fetchMilestones}
             />
           )}
           {view === 'list' && (

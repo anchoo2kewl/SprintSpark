@@ -8,7 +8,6 @@ interface MilestoneBoardProps {
   projectId: number
   progressMap: Record<number, MilestoneProgress>
   onMilestoneEdit: (milestone: Milestone) => void
-  onRefresh: () => void
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -18,7 +17,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: '#6b7280',
 }
 
-export default function MilestoneBoard({ milestones, tasks, projectId, progressMap, onMilestoneEdit, onRefresh: _onRefresh }: MilestoneBoardProps) {
+export default function MilestoneBoard({ milestones, tasks, projectId, progressMap, onMilestoneEdit }: MilestoneBoardProps) {
   const navigate = useNavigate()
 
   const tasksByMilestone = useMemo(() => {
