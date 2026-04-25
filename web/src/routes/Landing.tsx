@@ -74,7 +74,7 @@ export default function Landing() {
           </h1>
 
           <p className="mt-7 text-lg md:text-xl text-dark-text-tertiary max-w-2xl mx-auto leading-relaxed">
-            The complete workspace where AI agents and humans collaborate. Tasks, wiki, knowledge graph, GitHub sync, file embeds — all accessible via MCP, REST API, or the visual UI.
+            The complete workspace where AI agents and humans collaborate. Tasks, roadmaps, wiki, knowledge graph, GitHub sync — all accessible via MCP, REST API, or the visual UI.
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -134,7 +134,7 @@ export default function Landing() {
                   <div className="w-5 h-5 rounded bg-primary-500/20" />
                   <span className="text-xs font-semibold text-dark-text-secondary">My workspace</span>
                 </div>
-                {['Board', 'Wiki', 'Sprints', 'Graph', 'Assets'].map((item, i) => (
+                {['Board', 'Roadmap', 'Wiki', 'Sprints', 'Graph'].map((item, i) => (
                   <div key={item} className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs mb-0.5 ${i === 0 ? 'bg-primary-500/10 text-primary-400' : 'text-dark-text-tertiary'}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-primary-400' : 'bg-dark-border-medium'}`} />
                     {item}
@@ -224,8 +224,8 @@ export default function Landing() {
           {/* Feature grid: 2-column alternating large feature + detail */}
           <div className="space-y-6">
 
-            {/* Row 1: Tasks + Wiki */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Row 1: Tasks + Roadmap + Wiki */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Tasks */}
               <div className="group relative p-8 rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-primary-500/30 transition-all duration-300 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -241,6 +241,32 @@ export default function Landing() {
                   </p>
                   <ul className="space-y-1.5">
                     {['Custom swim lanes', 'Multi-assignee support', 'Tags & labels', 'Priority levels', 'Due dates & start dates'].map(f => (
+                      <li key={f} className="flex items-center gap-2 text-xs text-dark-text-secondary">
+                        <svg className="w-3.5 h-3.5 text-success-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Roadmap */}
+              <div className="group relative p-8 rounded-2xl bg-dark-bg-primary border border-dark-border-subtle hover:border-teal-500/30 transition-all duration-300 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-teal-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative">
+                  <div className="w-11 h-11 bg-teal-500/10 rounded-xl flex items-center justify-center mb-5">
+                    <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 tracking-tight">Roadmap planning</h3>
+                  <p className="text-sm text-dark-text-tertiary leading-relaxed mb-4">
+                    Plan milestones, track dependencies, and visualize progress across your project. Timeline, board, and list views with AI-powered capacity analysis.
+                  </p>
+                  <ul className="space-y-1.5">
+                    {['Milestone tracking', 'Task dependencies', 'Timeline & Gantt view', 'Progress analytics', 'AI capacity planning'].map(f => (
                       <li key={f} className="flex items-center gap-2 text-xs text-dark-text-secondary">
                         <svg className="w-3.5 h-3.5 text-success-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -609,13 +635,13 @@ export default function Landing() {
                 run your standup
               </h2>
               <p className="text-dark-text-tertiary leading-relaxed mb-8">
-                TaskAI ships with a built-in MCP server. Point Claude, Cursor, or any compatible agent at your workspace and it can read project context, create and update tasks, manage sprints, query the knowledge graph — all through natural language.
+                TaskAI ships with a built-in MCP server. Point Claude, Cursor, or any compatible agent at your workspace and it can read project context, create and update tasks, manage sprints and milestones, track roadmap progress — all through natural language.
               </p>
               <div className="space-y-4">
                 {[
                   { q: '"What\'s blocked in sprint 3?"', a: '3 tasks blocked on auth service deployment. Assigned to @alex.' },
                   { q: '"Create tasks for the auth refactor"', a: 'Created 5 tasks in the backend project. Sprint 4, high priority.' },
-                  { q: '"Summarize the wiki page on deployment"', a: 'The deployment doc covers Docker setup, env vars, and rollback steps...' },
+                  { q: '"Is the v2.0 milestone on track?"', a: 'v2.0 is 68% complete with 3 weeks left. Auth refactor is blocking 2 tasks. Suggest rebalancing sprint 4.' },
                 ].map((item, i) => (
                   <div key={i} className="p-4 rounded-xl bg-dark-bg-primary border border-dark-border-subtle">
                     <p className="text-sm font-medium text-primary-300 mb-2">{item.q}</p>
@@ -631,8 +657,8 @@ export default function Landing() {
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     'list_projects', 'create_task', 'update_task', 'list_tasks',
-                    'create_wiki_page', 'search_wiki', 'list_swim_lanes', 'add_comment',
-                    'list_sprints', 'get_project', 'list_tasks (status filter)', '+ 40 more',
+                    'create_wiki_page', 'search_wiki', 'list_milestones', 'add_dependency',
+                    'list_sprints', 'get_milestone_progress', 'create_milestone', '+ 40 more',
                   ].map(tool => (
                     <div key={tool} className="flex items-center gap-1.5 text-xs text-dark-text-tertiary font-mono">
                       <span className="text-success-400">→</span>
