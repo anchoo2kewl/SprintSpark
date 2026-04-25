@@ -1,0 +1,1 @@
+Read the deep dive: The Knowledge Spine points to https://anshumanbiswas.com/blog/knowledge-spine-ai-code-quality, this is wrong, should point to https://taskai.cc/blog/knowledge-spine-ai-code-quality
