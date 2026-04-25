@@ -604,7 +604,7 @@ export default function Landing() {
 
           <div className="text-center mt-10">
             <a
-              href="https://anshumanbiswas.com/blog/knowledge-spine-ai-code-quality"
+              href="https://taskai.cc/blog/knowledge-spine-ai-code-quality"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm text-violet-400 hover:text-violet-300 transition-colors"
