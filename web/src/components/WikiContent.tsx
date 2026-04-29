@@ -135,6 +135,10 @@ export default function WikiContent({ projectId }: WikiContentProps) {
     }
   }
 
+  const handlePageUpdate = useCallback((updated: WikiPage) => {
+    setPages(prev => prev.map(p => (p.id === updated.id ? { ...p, ...updated } : p)))
+  }, [])
+
   const handleDeletePage = async (pageId: number) => {
     if (!confirm('Are you sure you want to delete this wiki page?')) return
     try {
@@ -332,6 +336,7 @@ export default function WikiContent({ projectId }: WikiContentProps) {
             onCommentDelete={handleCommentDelete}
             showResolved={showResolved}
             onToggleShowResolved={() => setShowResolved(v => !v)}
+            onPageUpdate={handlePageUpdate}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-dark-text-tertiary">

@@ -57,6 +57,7 @@ interface WikiEditorProps {
   onCommentDelete?: (annotationId: number, commentId: number) => void
   showResolved?: boolean
   onToggleShowResolved?: () => void
+  onPageUpdate?: (page: WikiPage) => void
 }
 
 // Annotation highlight helpers are provided by window.GoWikiAnnotations (go-wiki package).
@@ -973,7 +974,7 @@ function PreviewContent({ previewHTML, content, previewRef }: Readonly<{
 
 // ── Component ────────────────────────────────────────────────────
 
-export default function WikiEditor({ page, annotations, selectedAnnotationId, showAnnotationHighlights = true, onAnnotationCreate, onAnnotationClick, onAnnotationUpdate, onAnnotationDelete, onCommentCreate, onCommentUpdate, onCommentDelete, showResolved = false, onToggleShowResolved }: Readonly<WikiEditorProps>) {
+export default function WikiEditor({ page, annotations, selectedAnnotationId, showAnnotationHighlights = true, onAnnotationCreate, onAnnotationClick, onAnnotationUpdate, onAnnotationDelete, onCommentCreate, onCommentUpdate, onCommentDelete, showResolved = false, onToggleShowResolved, onPageUpdate }: Readonly<WikiEditorProps>) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [content, setContent] = useState('')
@@ -1011,6 +1012,48 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
     page.updater_name ?? page.creator_name ?? null,
   )
   const [lastEditedAt, setLastEditedAt] = useState<string>(page.updated_at)
+
+  // ── Title rename ──────────────────────────────────────────────
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(page.title)
+  const [titleSaving, setTitleSaving] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setTitleDraft(page.title)
+    setIsEditingTitle(false)
+  }, [page.id, page.title])
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      titleInputRef.current?.focus()
+      titleInputRef.current?.select()
+    }
+  }, [isEditingTitle])
+
+  const commitTitle = useCallback(async () => {
+    const next = titleDraft.trim()
+    if (!next || next === page.title) {
+      setTitleDraft(page.title)
+      setIsEditingTitle(false)
+      return
+    }
+    if (next.length > 500) {
+      alert('Title is too long (max 500 characters)')
+      return
+    }
+    try {
+      setTitleSaving(true)
+      const updated = await apiClient.updateWikiPage(page.id, { title: next })
+      onPageUpdate?.(updated)
+      setIsEditingTitle(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to rename page')
+      setTitleDraft(page.title)
+    } finally {
+      setTitleSaving(false)
+    }
+  }, [titleDraft, page.id, page.title, onPageUpdate])
 
   // ── Version history state ─────────────────────────────────────
   const [showDownloadMenu, setShowDownloadMenu] = useState(false)
@@ -1713,7 +1756,37 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
           <div className="border-b border-dark-border-subtle bg-dark-bg-secondary px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-semibold text-dark-text-primary">{page.title}</h1>
+                {isEditingTitle ? (
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    value={titleDraft}
+                    disabled={titleSaving}
+                    onChange={(e) => setTitleDraft(e.target.value)}
+                    onBlur={commitTitle}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        commitTitle()
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault()
+                        setTitleDraft(page.title)
+                        setIsEditingTitle(false)
+                      }
+                    }}
+                    className="text-2xl font-semibold bg-dark-bg-primary border border-dark-border-subtle rounded px-2 py-0.5 text-dark-text-primary focus:outline-none focus:border-dark-accent-primary w-full max-w-2xl"
+                    aria-label="Wiki page title"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingTitle(true)}
+                    className="text-2xl font-semibold text-dark-text-primary text-left hover:bg-dark-bg-tertiary/40 rounded px-2 py-0.5 -mx-2 transition-colors"
+                    title="Click to rename"
+                  >
+                    {page.title}
+                  </button>
+                )}
                 <div className="flex items-center gap-2 mt-1 text-xs text-dark-text-tertiary">
                   {page.creator_name && (
                     <span>Created by{' '}

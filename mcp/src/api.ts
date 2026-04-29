@@ -418,6 +418,13 @@ export class TaskAIClient {
     });
   }
 
+  async updateWikiPage(pageId: string, data: { title?: string }): Promise<WikiPage> {
+    return this.request<WikiPage>(`/api/wiki/pages/${encodeURIComponent(pageId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   // Version/health methods
   // --- Milestone endpoints ---
   async listMilestones(projectId: string): Promise<Milestone[]> {

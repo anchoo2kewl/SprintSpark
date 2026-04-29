@@ -524,6 +524,21 @@ function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds
     }
   );
 
+  // --- update_wiki_page_title ---
+  server.tool(
+    "update_wiki_page_title",
+    "Rename a wiki page. Updates the title and regenerates the URL slug.",
+    {
+      page_id: z.string().describe("Wiki page ID"),
+      title: z.string().min(1).max(500).describe("New page title (1–500 chars)"),
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ page_id, title, verbose }) => {
+      const page = await client.updateWikiPage(page_id, { title });
+      return { content: [{ type: "text", text: formatResponse(verbose ? page : minimizeWikiPage(page), verbose) }] };
+    }
+  );
+
   // --- download_wiki_pdf ---
   server.tool(
     "download_wiki_pdf",
