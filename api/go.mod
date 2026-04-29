@@ -9,7 +9,7 @@ require (
 	github.com/anchoo2kewl/go-backup/gdrive v0.1.10
 	github.com/anchoo2kewl/go-backup/pgstore v0.1.10
 	github.com/anchoo2kewl/go-blog v0.1.3
-	github.com/anchoo2kewl/go-draw v0.9.21
+	github.com/anchoo2kewl/go-draw v0.9.22
 	github.com/anchoo2kewl/go-login v0.2.1
 	github.com/anchoo2kewl/go-wiki v0.1.9
 	github.com/chromedp/cdproto v0.0.0-20260405000525-47a8ff65b46a
