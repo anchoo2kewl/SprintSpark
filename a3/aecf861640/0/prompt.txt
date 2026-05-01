@@ -1,0 +1,6 @@
+I noticed an issue. I am anchoo2kewl@gmail.com omn production. I am part of Adhiraj Palit's Team
+as well. I am owner for this project. However, I cannot add adhiraj.palit@gmail.com. It should be a 2 way thing, if I am part of someone's team, I can add them to my project without them being in my team. vice versa. Once you are in someone's team, you can start collaborating with them.
+
+---
+
+Lets do option 2, I need to be able to add adhiraj.palit to my project even though I am just a member in his team

@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "a3aecf861640",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/cmd/api/main.go",
+    "api/internal/api/project_settings_handlers.go",
+    "api/internal/api/project_settings_handlers_test.go",
+    "api/internal/api/team_handlers.go",
+    "web/src/lib/api.ts",
+    "web/src/routes/ProjectSettings.test.tsx",
+    "web/src/routes/ProjectSettings.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a3/aecf861640/0/metadata.json",
+      "transcript": "/a3/aecf861640/0/full.jsonl",
+      "content_hash": "/a3/aecf861640/0/content_hash.txt",
+      "prompt": "/a3/aecf861640/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 99,
+    "cache_creation_tokens": 113023,
+    "cache_read_tokens": 5495733,
+    "output_tokens": 37487,
+    "api_call_count": 70
+  }
+}

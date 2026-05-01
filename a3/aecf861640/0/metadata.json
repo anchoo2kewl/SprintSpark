@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "a3aecf861640",
+  "session_id": "1164fbdb-fd1c-4580-92ef-8d3844776f14",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-01T01:38:50.207685Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "api/cmd/api/main.go",
+    "api/internal/api/project_settings_handlers.go",
+    "api/internal/api/project_settings_handlers_test.go",
+    "api/internal/api/team_handlers.go",
+    "web/src/lib/api.ts",
+    "web/src/routes/ProjectSettings.test.tsx",
+    "web/src/routes/ProjectSettings.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-4-7[1m]",
+  "turn_id": "66f399d4dea6",
+  "token_usage": {
+    "input_tokens": 99,
+    "cache_creation_tokens": 113023,
+    "cache_read_tokens": 5495733,
+    "output_tokens": 37487,
+    "api_call_count": 70
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-01T01:38:50.038889Z",
+    "agent_lines": 203,
+    "agent_removed": 57,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 203,
+    "total_lines_changed": 260,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}
