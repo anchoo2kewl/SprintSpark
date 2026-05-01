@@ -6,7 +6,7 @@ import Button from '../components/ui/Button'
 import TextInput from '../components/ui/TextInput'
 import FormError from '../components/ui/FormError'
 import SearchSelect from '../components/ui/SearchSelect'
-import { apiClient, type SwimLane, type Project, type ProjectInvitation, type GitHubRepo, type GitHubProgressEvent } from '../lib/api'
+import { apiClient, type SwimLane, type Project, type ProjectInvitation, type GitHubRepo, type GitHubProgressEvent, type Collaborator } from '../lib/api'
 
 interface ProjectMember {
   id: number
@@ -16,14 +16,6 @@ interface ProjectMember {
   role: string
   granted_by: number
   granted_at: string
-}
-
-interface TeamMember {
-  id: number
-  user_id: number
-  email: string
-  name?: string
-  role: string
 }
 
 interface GitHubSettings {
@@ -65,7 +57,7 @@ export default function ProjectSettings({ embedded, projectIdOverride }: Project
     [members, user]
   )
   const [invitations, setInvitations] = useState<ProjectInvitation[]>([])
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([])
   const [selectedUserId, setSelectedUserId] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('member')
   const [memberError, setMemberError] = useState('')
@@ -132,7 +124,7 @@ export default function ProjectSettings({ embedded, projectIdOverride }: Project
     loadProject()
     loadMembers()
     loadInvitations()
-    loadTeamMembers()
+    loadCollaborators()
     loadGitHubSettings()
     loadSyncLogs()
     loadSwimLanes()
@@ -190,10 +182,10 @@ export default function ProjectSettings({ embedded, projectIdOverride }: Project
     }
   }
 
-  const loadTeamMembers = async () => {
+  const loadCollaborators = async () => {
     try {
-      const data = await apiClient.getTeamMembers()
-      setTeamMembers(data)
+      const data = await apiClient.getCollaborators()
+      setCollaborators(data)
     } catch (error: unknown) {
       console.error('Failed to load data:', error)
     }
@@ -559,10 +551,10 @@ export default function ProjectSettings({ embedded, projectIdOverride }: Project
     }
   }
 
-  // Filter team members that aren't already project members and don't have a pending invitation
-  const availableTeamMembers = teamMembers.filter(
-    tm => !members.some(pm => pm.user_id === tm.user_id) &&
-          !invitations.some(inv => inv.invitee_user_id === tm.user_id && inv.status === 'pending')
+  // Filter collaborators that aren't already project members and don't have a pending invitation
+  const availableCollaborators = collaborators.filter(
+    c => !members.some(pm => pm.user_id === c.user_id) &&
+         !invitations.some(inv => inv.invitee_user_id === c.user_id && inv.status === 'pending')
   )
 
   const handleUpdateMemberRole = async (memberId: number, role: string) => {
@@ -713,11 +705,11 @@ export default function ProjectSettings({ embedded, projectIdOverride }: Project
                     <SearchSelect
                       value={selectedUserId}
                       onChange={setSelectedUserId}
-                      placeholder="Select a team member..."
-                      options={availableTeamMembers.map(member => ({
-                        value: String(member.user_id),
-                        label: member.name || member.email,
-                        description: member.name ? member.email : undefined,
+                      placeholder="Select a collaborator..."
+                      options={availableCollaborators.map(c => ({
+                        value: String(c.user_id),
+                        label: c.user_name || c.email,
+                        description: c.user_name ? c.email : undefined,
                       }))}
                     />
                   </div>
@@ -738,11 +730,11 @@ export default function ProjectSettings({ embedded, projectIdOverride }: Project
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Button type="submit" disabled={isAddingMember || availableTeamMembers.length === 0} size="sm">
+                  <Button type="submit" disabled={isAddingMember || availableCollaborators.length === 0} size="sm">
                     {isAddingMember ? 'Sending...' : 'Send Invite'}
                   </Button>
-                  {availableTeamMembers.length === 0 && (
-                    <p className="text-sm text-dark-text-tertiary mt-2">All team members already have access or a pending invitation</p>
+                  {availableCollaborators.length === 0 && (
+                    <p className="text-sm text-dark-text-tertiary mt-2">No eligible collaborators — invite someone to one of your teams first, or all current collaborators already have access.</p>
                   )}
                 </div>
               </form>

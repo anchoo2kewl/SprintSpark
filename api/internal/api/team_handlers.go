@@ -1238,3 +1238,96 @@ func isValidEmail(email string) bool {
 
 	return true
 }
+
+// Collaborator represents a user who shares at least one active team with the
+// current user and is therefore eligible to be added to the user's projects.
+type Collaborator struct {
+	UserID   int64   `json:"user_id"`
+	Email    string  `json:"email"`
+	UserName *string `json:"user_name,omitempty"`
+}
+
+// HandleGetCollaborators returns the deduplicated set of users who share at
+// least one active team with the current user. This is the candidate list for
+// adding members to a project: collaboration is allowed across any shared team,
+// not just the team that owns the project.
+func (s *Server) HandleGetCollaborators(w http.ResponseWriter, r *http.Request) {
+	userID, ok := GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT u.id, u.email, u.name, u.first_name, u.last_name
+		FROM users u
+		WHERE u.id != $1
+		  AND u.id IN (
+		    SELECT tm_other.user_id
+		    FROM team_members tm_other
+		    JOIN team_members tm_self ON tm_other.team_id = tm_self.team_id
+		    WHERE tm_self.user_id = $1
+		      AND tm_self.status  = 'active'
+		      AND tm_other.status = 'active'
+		  )
+		ORDER BY LOWER(u.email)
+	`, userID)
+	if err != nil {
+		s.logger.Error("Failed to query collaborators", zap.Error(err), zap.Int64("user_id", userID))
+		http.Error(w, "Failed to fetch collaborators", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	collaborators := make([]Collaborator, 0)
+	for rows.Next() {
+		var (
+			id        int64
+			email     string
+			name      *string
+			firstName *string
+			lastName  *string
+		)
+		if err := rows.Scan(&id, &email, &name, &firstName, &lastName); err != nil {
+			s.logger.Error("Failed to scan collaborator row", zap.Error(err))
+			http.Error(w, "Failed to fetch collaborators", http.StatusInternalServerError)
+			return
+		}
+		display := composeDisplayName(name, firstName, lastName)
+		collaborators = append(collaborators, Collaborator{
+			UserID:   id,
+			Email:    email,
+			UserName: display,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Failed to iterate collaborator rows", zap.Error(err))
+		http.Error(w, "Failed to fetch collaborators", http.StatusInternalServerError)
+		return
+	}
+
+	respondJSON(w, http.StatusOK, collaborators)
+}
+
+// composeDisplayName mirrors userDisplayNamePtr but operates on raw nullable
+// columns rather than an ent.User, so it can be used with raw SQL scans.
+func composeDisplayName(name, firstName, lastName *string) *string {
+	full := ""
+	if firstName != nil {
+		full = strings.TrimSpace(*firstName)
+	}
+	if lastName != nil {
+		full = strings.TrimSpace(full + " " + *lastName)
+	}
+	if full != "" {
+		return &full
+	}
+	if name != nil && strings.TrimSpace(*name) != "" {
+		trimmed := strings.TrimSpace(*name)
+		return &trimmed
+	}
+	return nil
+}
