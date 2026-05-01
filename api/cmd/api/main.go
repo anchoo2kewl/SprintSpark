@@ -614,6 +614,9 @@ func main() {
 			r.Delete("/team/members/{memberId}", server.HandleRemoveTeamMember)
 			r.Get("/team/users/search", server.HandleSearchUsers)
 
+			// Cross-team collaborators (users sharing any active team with the current user)
+			r.Get("/me/collaborators", server.HandleGetCollaborators)
+
 			// Team invitations
 			r.Get("/team/invitations", server.HandleGetMyInvitations)
 			r.Get("/team/invitations/sent", server.HandleGetTeamSentInvitations)

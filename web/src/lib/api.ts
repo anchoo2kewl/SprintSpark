@@ -512,6 +512,12 @@ export interface TeamMember {
   role: string
 }
 
+export interface Collaborator {
+  user_id: number
+  email: string
+  user_name?: string
+}
+
 export interface TeamInvitation {
   id: number
   team_name: string
@@ -1561,6 +1567,10 @@ class ApiClient {
 
   async getTeamMembers(): Promise<TeamMember[]> {
     return this.request<TeamMember[]>('/api/team/members')
+  }
+
+  async getCollaborators(): Promise<Collaborator[]> {
+    return this.request<Collaborator[]>('/api/me/collaborators')
   }
 
   async inviteTeamMember(email: string): Promise<void> {
