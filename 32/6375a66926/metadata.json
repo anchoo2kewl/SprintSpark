@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.3",
+  "checkpoint_id": "326375a66926",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "web/src/components/board/BoardFilterBar.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/32/6375a66926/0/metadata.json",
+      "transcript": "/32/6375a66926/0/full.jsonl",
+      "content_hash": "/32/6375a66926/0/content_hash.txt",
+      "prompt": "/32/6375a66926/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 28966,
+    "cache_read_tokens": 6555849,
+    "output_tokens": 10946,
+    "api_call_count": 31
+  }
+}
