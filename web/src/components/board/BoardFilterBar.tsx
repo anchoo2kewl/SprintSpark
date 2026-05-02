@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Task, Sprint, Tag } from '../../lib/api'
 
 // ── Board filter bar (GitHub-style) ──────────────────────────────────────────
-type BoardFilterKey = 'sprint' | 'assignee' | 'priority' | 'label' | 'task_id'
+type BoardFilterKey = 'sprint' | 'assignee' | 'priority' | 'tag' | 'task_id'
 
 export interface BoardFilterState {
   sprintId: number | null
@@ -81,7 +81,7 @@ export default function BoardFilterBar({ sprints, assignees, tags, sprintId, ass
     { id: 'sprint',   label: 'Sprint',   icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
     { id: 'assignee', label: 'Assignee', icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg> },
     { id: 'priority', label: 'Priority', icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg> },
-    { id: 'label',    label: 'Label',    icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg> },
+    { id: 'tag',      label: 'Tag',      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg> },
     { id: 'task_id',  label: 'Task ID',  icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg> },
   ]
 
@@ -90,14 +90,14 @@ export default function BoardFilterBar({ sprints, assignees, tags, sprintId, ass
   if (sprintId)         chips.push({ key: 'sprint',   label: `sprint:"${sprints.find(s => s.id === sprintId)?.name ?? sprintId}"` })
   if (assigneeId)       chips.push({ key: 'assignee', label: `assignee:"${assignees.find(a => a.id === assigneeId)?.name ?? assigneeId}"` })
   if (priority)         chips.push({ key: 'priority', label: `priority:${priority}` })
-  if (tagId)            chips.push({ key: 'label',    label: `label:"${tags.find(t => t.id === tagId)?.name ?? tagId}"` })
+  if (tagId)            chips.push({ key: 'tag',      label: `tag:"${tags.find(t => t.id === tagId)?.name ?? tagId}"` })
   if (taskIds.length)   chips.push({ key: 'task_id',  label: `id:${taskIds.join(',')}` })
 
   const removeChip = (key: BoardFilterKey) => {
     if (key === 'sprint')   onChange({ sprintId: null })
     if (key === 'assignee') onChange({ assigneeId: null })
     if (key === 'priority') onChange({ priority: '' })
-    if (key === 'label')    onChange({ tagId: null })
+    if (key === 'tag')      onChange({ tagId: null })
     if (key === 'task_id')  onChange({ taskIds: [] })
   }
 
@@ -117,7 +117,7 @@ export default function BoardFilterBar({ sprints, assignees, tags, sprintId, ass
     ]
   } else if (category === 'priority') {
     options = PRIORITY_OPTIONS.map(p => ({ value: p.value, label: p.label, color: p.color }))
-  } else if (category === 'label') {
+  } else if (category === 'tag') {
     options = tags
       .filter(t => !q || t.name.toLowerCase().includes(q))
       .map(t => ({ value: String(t.id), label: t.name, color: t.color }))
@@ -127,7 +127,7 @@ export default function BoardFilterBar({ sprints, assignees, tags, sprintId, ass
     if (key === 'sprint')   return sprintId ? sprints.find(s => s.id === sprintId)?.name : undefined
     if (key === 'assignee') return assigneeId ? assignees.find(a => a.id === assigneeId)?.name : undefined
     if (key === 'priority') return priority || undefined
-    if (key === 'label')    return tagId ? tags.find(t => t.id === tagId)?.name : undefined
+    if (key === 'tag')      return tagId ? tags.find(t => t.id === tagId)?.name : undefined
     if (key === 'task_id')  return taskIds.length ? `${taskIds.length} selected` : undefined
   }
 
@@ -135,7 +135,7 @@ export default function BoardFilterBar({ sprints, assignees, tags, sprintId, ass
     if (cat === 'sprint')   onChange({ sprintId: value && value !== 'none' ? Number(value) : null })
     if (cat === 'assignee') onChange({ assigneeId: value && value !== 'none' ? Number(value) : null })
     if (cat === 'priority') onChange({ priority: value })
-    if (cat === 'label')    onChange({ tagId: value ? Number(value) : null })
+    if (cat === 'tag')      onChange({ tagId: value ? Number(value) : null })
     setOpen(false); setCategory(null); setSearch('')
   }
 
@@ -295,7 +295,7 @@ export default function BoardFilterBar({ sprints, assignees, tags, sprintId, ass
                     (category === 'sprint'   && sprintId   === Number(opt.value)) ||
                     (category === 'assignee' && assigneeId === Number(opt.value)) ||
                     (category === 'priority' && priority   === opt.value) ||
-                    (category === 'label'    && tagId      === Number(opt.value))
+                    (category === 'tag'      && tagId      === Number(opt.value))
                   return (
                     <button
                       key={opt.value}
