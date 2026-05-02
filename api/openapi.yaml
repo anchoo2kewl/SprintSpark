@@ -824,6 +824,35 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/tasks/{taskId}/activity:
+    get:
+      summary: List Task Activity
+      description: Returns the audit trail for a single task (status changes, edits, assignee changes, etc.) ordered newest-first.
+      tags: [Tasks]
+      operationId: listTaskActivity
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TaskIdPath"
+      responses:
+        "200":
+          description: List of activity entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   # ── Sprints ─────────────────────────────────────────────────────────
 
   /api/sprints:
@@ -2523,6 +2552,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Tag"
+        created_by_id:
+          type: ["integer", "null"]
+          format: int64
+          description: "User ID of the task creator"
+        created_by_name:
+          type: ["string", "null"]
+          example: "Anshuman Biswas"
+        updated_by_id:
+          type: ["integer", "null"]
+          format: int64
+          description: "User ID of the last person to update this task"
+        updated_by_name:
+          type: ["string", "null"]
+          example: "Anshuman Biswas"
         created_at:
           type: string
           format: date-time
@@ -2587,6 +2630,40 @@ components:
           type: string
           format: date-time
         updated_at:
+          type: string
+          format: date-time
+
+    ActivityEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        project_id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        user_name:
+          type: ["string", "null"]
+          example: "Anshuman Biswas"
+        action:
+          type: string
+          example: "task_status_changed"
+        entity_type:
+          type: string
+          example: "task"
+        entity_id:
+          type: integer
+          format: int64
+        entity_title:
+          type: ["string", "null"]
+        details:
+          type: object
+          additionalProperties: true
+          description: "Action-specific change details (e.g. before/after values)"
+        created_at:
           type: string
           format: date-time
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -65,8 +66,76 @@ type Task struct {
 	MilestoneID         *int64             `json:"milestone_id,omitempty"`
 	MilestoneName       *string            `json:"milestone_name,omitempty"`
 	AgentName           *string            `json:"agent_name,omitempty"`
+	CreatedByID         *int64             `json:"created_by_id,omitempty"`
+	CreatedByName       *string            `json:"created_by_name,omitempty"`
+	UpdatedByID         *int64             `json:"updated_by_id,omitempty"`
+	UpdatedByName       *string            `json:"updated_by_name,omitempty"`
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
+}
+
+type taskAuthorship struct {
+	CreatedByID   *int64
+	CreatedByName *string
+	UpdatedByID   *int64
+	UpdatedByName *string
+}
+
+// loadTaskAuthorshipMap fetches created_by + updated_by ids and joined user
+// display names for the given task IDs.
+func (s *Server) loadTaskAuthorshipMap(ctx context.Context, taskIDs []int64) map[int64]taskAuthorship {
+	out := make(map[int64]taskAuthorship)
+	if len(taskIDs) == 0 {
+		return out
+	}
+	args := make([]interface{}, len(taskIDs))
+	placeholders := make([]string, len(taskIDs))
+	for i, id := range taskIDs {
+		args[i] = id
+		placeholders[i] = "$" + strconv.Itoa(i+1)
+	}
+	query := `
+		SELECT t.id, t.created_by, t.updated_by,
+		       COALESCE(uc.first_name || ' ' || uc.last_name, uc.name, uc.email) AS created_by_name,
+		       COALESCE(uu.first_name || ' ' || uu.last_name, uu.name, uu.email) AS updated_by_name
+		FROM tasks t
+		LEFT JOIN users uc ON uc.id = t.created_by
+		LEFT JOIN users uu ON uu.id = t.updated_by
+		WHERE t.id IN (` + strings.Join(placeholders, ",") + `)
+	`
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		s.logger.Warn("Failed to load task authorship", zap.Error(err))
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var createdBy, updatedBy sql.NullInt64
+		var createdName, updatedName sql.NullString
+		if err := rows.Scan(&id, &createdBy, &updatedBy, &createdName, &updatedName); err != nil {
+			continue
+		}
+		var r taskAuthorship
+		if createdBy.Valid {
+			v := createdBy.Int64
+			r.CreatedByID = &v
+		}
+		if createdName.Valid && createdName.String != "" {
+			v := createdName.String
+			r.CreatedByName = &v
+		}
+		if updatedBy.Valid {
+			v := updatedBy.Int64
+			r.UpdatedByID = &v
+		}
+		if updatedName.Valid && updatedName.String != "" {
+			v := updatedName.String
+			r.UpdatedByName = &v
+		}
+		out[id] = r
+	}
+	return out
 }
 
 type CreateTaskRequest struct {
@@ -353,6 +422,23 @@ func (s *Server) HandleListTasks(w http.ResponseWriter, r *http.Request) {
 					tasks[i].GithubIssueNumber = &info.issueNum
 					tasks[i].GithubRepo = info.repo
 				}
+			}
+		}
+	}
+
+	// Bulk-fetch creator/updater for all tasks
+	if len(tasks) > 0 {
+		taskIDs := make([]int64, len(tasks))
+		for i := range tasks {
+			taskIDs[i] = tasks[i].ID
+		}
+		authorship := s.loadTaskAuthorshipMap(ctx, taskIDs)
+		for i := range tasks {
+			if a, ok := authorship[tasks[i].ID]; ok {
+				tasks[i].CreatedByID = a.CreatedByID
+				tasks[i].CreatedByName = a.CreatedByName
+				tasks[i].UpdatedByID = a.UpdatedByID
+				tasks[i].UpdatedByName = a.UpdatedByName
 			}
 		}
 	}
@@ -693,6 +779,12 @@ func (s *Server) HandleCreateTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Populate creator info from the authenticated user
+	if a, ok := s.loadTaskAuthorshipMap(ctx, []int64{createdTask.ID})[createdTask.ID]; ok {
+		t.CreatedByID = a.CreatedByID
+		t.CreatedByName = a.CreatedByName
+	}
+
 	respondJSON(w, http.StatusCreated, t)
 
 	// Activity log + auto-watch
@@ -894,6 +986,12 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track who last updated this task. Best-effort — if the column hasn't been
+	// migrated yet, log and continue.
+	if _, err := s.db.ExecContext(ctx, `UPDATE tasks SET updated_by = $1 WHERE id = $2`, userID, taskID); err != nil {
+		s.logger.Warn("Failed to set updated_by on task", zap.Error(err), zap.Int64("task_id", taskID))
+	}
+
 	// Best-effort push swim lane change to GitHub Projects V2
 	if finalSwimLaneID != nil {
 		go s.tryPushSwimLaneToGitHub(context.Background(), taskID, finalSwimLaneID)
@@ -1060,6 +1158,14 @@ func (s *Server) HandleUpdateTask(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 		}
+	}
+
+	// Authorship (creator + last updater)
+	if a, ok := s.loadTaskAuthorshipMap(ctx, []int64{taskID})[taskID]; ok {
+		t.CreatedByID = a.CreatedByID
+		t.CreatedByName = a.CreatedByName
+		t.UpdatedByID = a.UpdatedByID
+		t.UpdatedByName = a.UpdatedByName
 	}
 
 	respondJSON(w, http.StatusOK, t)
@@ -1315,6 +1421,14 @@ func (s *Server) HandleGetTaskByNumber(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 		}
+	}
+
+	// Load creator/updater authorship
+	if a, ok := s.loadTaskAuthorshipMap(ctx, []int64{taskEntity.ID})[taskEntity.ID]; ok {
+		t.CreatedByID = a.CreatedByID
+		t.CreatedByName = a.CreatedByName
+		t.UpdatedByID = a.UpdatedByID
+		t.UpdatedByName = a.UpdatedByName
 	}
 
 	// Load github_issue_number and github_repo (not in ent schema, raw SQL)

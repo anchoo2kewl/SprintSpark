@@ -87,6 +87,8 @@ func buildTestRouter(server *Server) chi.Router {
 			r.Get("/tasks/{taskId}/comments", server.HandleListTaskComments)
 			r.Post("/tasks/{taskId}/comments", server.HandleCreateTaskComment)
 
+			r.Get("/tasks/{taskId}/activity", server.HandleListTaskActivity)
+
 			r.Get("/sprints", server.HandleListSprints)
 			r.Post("/sprints", server.HandleCreateSprint)
 			r.Patch("/sprints/{id}", server.HandleUpdateSprint)
