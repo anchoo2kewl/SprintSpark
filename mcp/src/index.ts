@@ -210,6 +210,25 @@ function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds
     }
   );
 
+  // --- update_swim_lane ---
+  server.tool(
+    "update_swim_lane",
+    "Update an existing swim lane (rename, recolor, reorder, or change status category). Note: (project_id, position) is unique — to swap two lanes, first move one to an unused position.",
+    {
+      swim_lane_id: z.number().describe("Swim lane ID"),
+      name: z.string().optional().describe("New name (max 50 chars)"),
+      color: z.string().optional().describe("New hex color, e.g. #f59e0b"),
+      position: z.number().optional().describe("New position (must be unique within the project)"),
+      status_category: z.enum(["todo", "in_progress", "done"]).optional().describe("New status category"),
+      verbose: z.boolean().optional().describe("Return full details (default: false)"),
+    },
+    async ({ swim_lane_id, name, color, position, status_category, verbose }) => {
+      const lane = await client.updateSwimLane(swim_lane_id, { name, color, position, status_category });
+      const data = verbose ? lane : minimizeSwimLane(lane);
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
   // --- list_tasks ---
   server.tool(
     "list_tasks",

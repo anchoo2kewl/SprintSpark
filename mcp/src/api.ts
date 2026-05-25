@@ -215,6 +215,16 @@ export class TaskAIClient {
     });
   }
 
+  async updateSwimLane(
+    swimLaneId: number,
+    data: { name?: string; color?: string; position?: number; status_category?: string }
+  ): Promise<SwimLane> {
+    return this.request<SwimLane>(`/api/swim-lanes/${swimLaneId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   async createTask(
     projectId: string,
     data: { title: string; description?: string; status?: string; priority?: string; assigned_to?: string; swim_lane_id?: number }
