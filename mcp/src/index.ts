@@ -191,6 +191,25 @@ function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds
     }
   );
 
+  // --- create_swim_lane ---
+  server.tool(
+    "create_swim_lane",
+    "Create a new swim lane (column) in a project. Max 6 lanes per project.",
+    {
+      project_id: z.string().describe("Project ID"),
+      name: z.string().describe("Lane name (max 50 chars)"),
+      status_category: z.enum(["todo", "in_progress", "done"]).describe("Status category — controls task status when moved into this lane"),
+      color: z.string().optional().describe("Hex color, e.g. #5e6ad2 (default: #6B7280 gray)"),
+      position: z.number().optional().describe("Position (column order). Defaults to 0."),
+      verbose: z.boolean().optional().describe("Return full details (default: false)"),
+    },
+    async ({ project_id, name, status_category, color, position, verbose }) => {
+      const lane = await client.createSwimLane(project_id, { name, status_category, color, position });
+      const data = verbose ? lane : minimizeSwimLane(lane);
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
   // --- list_tasks ---
   server.tool(
     "list_tasks",
