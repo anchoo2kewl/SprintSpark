@@ -205,6 +205,16 @@ export class TaskAIClient {
     return this.request<SwimLane[]>(`/api/projects/${encodeURIComponent(projectId)}/swim-lanes`);
   }
 
+  async createSwimLane(
+    projectId: string,
+    data: { name: string; status_category: string; color?: string; position?: number }
+  ): Promise<SwimLane> {
+    return this.request<SwimLane>(`/api/projects/${encodeURIComponent(projectId)}/swim-lanes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   async createTask(
     projectId: string,
     data: { title: string; description?: string; status?: string; priority?: string; assigned_to?: string; swim_lane_id?: number }
