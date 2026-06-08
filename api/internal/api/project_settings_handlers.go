@@ -183,27 +183,27 @@ func (s *Server) HandleAddProjectMember(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Check if user is in the same team
-	var teamID int
-	err = s.db.QueryRow("SELECT team_id FROM projects WHERE id = $1", projectID).Scan(&teamID)
-	if err != nil {
-		http.Error(w, "Failed to get project team", http.StatusInternalServerError)
-		return
-	}
-
-	var memberInTeam bool
+	// Inviter (project owner/admin) and invitee must share at least one active team.
+	// This lets cross-team collaborators add each other to projects without forcing
+	// the invitee into the project's team.
+	var sharesTeam bool
 	err = s.db.QueryRow(`
 		SELECT EXISTS(
-			SELECT 1 FROM team_members
-			WHERE team_id = $1 AND user_id = $2 AND status = 'active'
+			SELECT 1
+			FROM team_members tm_a
+			JOIN team_members tm_b ON tm_a.team_id = tm_b.team_id
+			WHERE tm_a.user_id = $1
+			  AND tm_b.user_id = $2
+			  AND tm_a.status = 'active'
+			  AND tm_b.status = 'active'
 		)
-	`, teamID, memberUserID).Scan(&memberInTeam)
+	`, userID, memberUserID).Scan(&sharesTeam)
 	if err != nil {
 		http.Error(w, "Failed to check team membership", http.StatusInternalServerError)
 		return
 	}
-	if !memberInTeam {
-		http.Error(w, "User must be a member of the team to access this project", http.StatusBadRequest)
+	if !sharesTeam {
+		http.Error(w, "User must share an active team with you to be added to this project", http.StatusBadRequest)
 		return
 	}
 
@@ -650,8 +650,7 @@ func (s *Server) HandleInviteProjectMember(w http.ResponseWriter, r *http.Reques
 
 	// Get project info
 	var projectName string
-	var teamID int
-	err = s.db.QueryRow("SELECT name, team_id FROM projects WHERE id = $1", projectID).Scan(&projectName, &teamID)
+	err = s.db.QueryRow("SELECT name FROM projects WHERE id = $1", projectID).Scan(&projectName)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Project not found", http.StatusNotFound)
 		return
@@ -672,16 +671,25 @@ func (s *Server) HandleInviteProjectMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Invitee must be an active team member
-	var inTeam bool
+	// Inviter and invitee must share at least one active team (any team, not just
+	// the project's team) so cross-team collaborators can invite each other.
+	var sharesTeam bool
 	if err := s.db.QueryRow(`
-		SELECT EXISTS(SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 AND status = 'active')
-	`, teamID, req.UserID).Scan(&inTeam); err != nil {
+		SELECT EXISTS(
+			SELECT 1
+			FROM team_members tm_a
+			JOIN team_members tm_b ON tm_a.team_id = tm_b.team_id
+			WHERE tm_a.user_id = $1
+			  AND tm_b.user_id = $2
+			  AND tm_a.status = 'active'
+			  AND tm_b.status = 'active'
+		)
+	`, userID, req.UserID).Scan(&sharesTeam); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if !inTeam {
-		http.Error(w, "User must be an active team member to be invited to this project", http.StatusBadRequest)
+	if !sharesTeam {
+		http.Error(w, "User must share an active team with you to be invited to this project", http.StatusBadRequest)
 		return
 	}
 

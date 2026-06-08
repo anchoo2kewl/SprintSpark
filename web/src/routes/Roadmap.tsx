@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
-import { api, type Task, type Milestone, type Sprint, type MilestoneProgress } from '../lib/api'
+import { api, type Task, type Milestone, type Sprint, type MilestoneProgress, type Tag } from '../lib/api'
 import MilestoneModal from '../components/roadmap/MilestoneModal'
 import TimelineView from '../components/roadmap/TimelineView'
 import MilestoneBoard from '../components/roadmap/MilestoneBoard'
 import RoadmapList from '../components/roadmap/RoadmapList'
+import BoardFilterBar, { applyBoardFilters } from '../components/board/BoardFilterBar'
 
 type RoadmapView = 'timeline' | 'board' | 'list'
 
@@ -18,6 +19,7 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
   })
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [sprints, setSprints] = useState<Sprint[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
   const [progressMap, setProgressMap] = useState<Record<number, MilestoneProgress>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,14 +28,54 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
   const [showMilestoneModal, setShowMilestoneModal] = useState(false)
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null)
 
+  // Roadmap filters — kept on a separate localStorage key from the board filters
+  // so toggling filters in the roadmap doesn't stomp the board's saved state.
+  const [filterSprint, setFilterSprint] = useState<number | null>(null)
+  const [filterAssignee, setFilterAssignee] = useState<number | null>(null)
+  const [filterPriority, setFilterPriority] = useState('')
+  const [filterTag, setFilterTag] = useState<number | null>(null)
+  const [filterTaskIds, setFilterTaskIds] = useState<number[]>([])
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`taskai_roadmap_filters_${projectId}`)
+      if (raw) {
+        const s = JSON.parse(raw)
+        setFilterSprint(s.sprint ?? null)
+        setFilterAssignee(s.assignee ?? null)
+        setFilterPriority(s.priority ?? '')
+        setFilterTag(s.tag ?? null)
+        setFilterTaskIds(Array.isArray(s.taskIds) ? s.taskIds : [])
+      } else {
+        setFilterSprint(null)
+        setFilterAssignee(null)
+        setFilterPriority('')
+        setFilterTag(null)
+        setFilterTaskIds([])
+      }
+    } catch { /* ignore */ }
+  }, [projectId])
+
+  useEffect(() => {
+    localStorage.setItem(`taskai_roadmap_filters_${projectId}`, JSON.stringify({
+      sprint: filterSprint,
+      assignee: filterAssignee,
+      priority: filterPriority,
+      tag: filterTag,
+      taskIds: filterTaskIds,
+    }))
+  }, [projectId, filterSprint, filterAssignee, filterPriority, filterTag, filterTaskIds])
+
   const fetchMilestones = useCallback(async () => {
     try {
-      const [ms, sp] = await Promise.all([
+      const [ms, sp, tg] = await Promise.all([
         api.getMilestones(projectId),
         api.getSprints(projectId),
+        api.getTags(projectId).catch(() => [] as Tag[]),
       ])
       setMilestones(ms)
       setSprints(sp)
+      setTags(tg)
 
       // Fetch progress for each milestone
       const progressEntries = await Promise.all(
@@ -86,6 +128,32 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
   // Active milestones for display
   const activeMilestones = useMemo(() => milestones.filter(m => m.status !== 'cancelled'), [milestones])
   const completedCount = useMemo(() => milestones.filter(m => m.status === 'completed').length, [milestones])
+
+  // Unique assignees derived from the loaded tasks (mirrors ProjectDetail).
+  const uniqueAssignees = useMemo(() => {
+    const map = new Map<number, string>()
+    tasks.forEach(t => {
+      if (t.assignees?.length) {
+        t.assignees.forEach(a => {
+          if (a.user_id != null && !map.has(a.user_id)) map.set(a.user_id, a.user_name ?? `User ${a.user_id}`)
+        })
+      } else if (t.assignee_id && !map.has(t.assignee_id)) {
+        map.set(t.assignee_id, t.assignee_name || `User ${t.assignee_id}`)
+      }
+    })
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [tasks])
+
+  const filteredTasks = useMemo(
+    () => applyBoardFilters(tasks, {
+      sprintId: filterSprint,
+      assigneeId: filterAssignee,
+      priority: filterPriority,
+      tagId: filterTag,
+      taskIds: filterTaskIds,
+    }),
+    [tasks, filterSprint, filterAssignee, filterPriority, filterTag, filterTaskIds]
+  )
 
   if (loading) {
     return (
@@ -158,6 +226,24 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
               </button>
             ))}
           </div>
+
+          <BoardFilterBar
+            sprints={sprints}
+            assignees={uniqueAssignees}
+            tags={tags}
+            sprintId={filterSprint}
+            assigneeId={filterAssignee}
+            priority={filterPriority}
+            tagId={filterTag}
+            taskIds={filterTaskIds}
+            onChange={patch => {
+              if ('sprintId'   in patch) setFilterSprint(patch.sprintId ?? null)
+              if ('assigneeId' in patch) setFilterAssignee(patch.assigneeId ?? null)
+              if ('priority'   in patch) setFilterPriority(patch.priority ?? '')
+              if ('tagId'      in patch) setFilterTag(patch.tagId ?? null)
+              if ('taskIds'    in patch) setFilterTaskIds(patch.taskIds ?? [])
+            }}
+          />
         </div>
 
         <div className="flex items-center gap-3">
@@ -209,7 +295,7 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
           {view === 'timeline' && (
             <TimelineView
               milestones={activeMilestones}
-              tasks={tasks}
+              tasks={filteredTasks}
               sprints={sprints}
               projectId={projectId}
             />
@@ -217,7 +303,7 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
           {view === 'board' && (
             <MilestoneBoard
               milestones={activeMilestones}
-              tasks={tasks}
+              tasks={filteredTasks}
               projectId={projectId}
               progressMap={progressMap}
               onMilestoneEdit={handleMilestoneEdit}
@@ -226,7 +312,7 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
           {view === 'list' && (
             <RoadmapList
               milestones={activeMilestones}
-              tasks={tasks}
+              tasks={filteredTasks}
               sprints={sprints}
               projectId={projectId}
             />

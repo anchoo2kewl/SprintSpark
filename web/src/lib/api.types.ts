@@ -360,6 +360,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tasks/{taskId}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Task Activity
+         * @description Returns the audit trail for a single task (status changes, edits, assignee changes, etc.) ordered newest-first.
+         */
+        get: operations["listTaskActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sprints": {
         parameters: {
             query?: never;
@@ -1229,6 +1249,20 @@ export interface components {
             /** Format: float */
             actual_hours?: number | null;
             tags?: components["schemas"]["Tag"][];
+            /**
+             * Format: int64
+             * @description User ID of the task creator
+             */
+            created_by_id?: number | null;
+            /** @example Anshuman Biswas */
+            created_by_name?: string | null;
+            /**
+             * Format: int64
+             * @description User ID of the last person to update this task
+             */
+            updated_by_id?: number | null;
+            /** @example Anshuman Biswas */
+            updated_by_name?: string | null;
             /** Format: date-time */
             created_at?: string;
             /** Format: date-time */
@@ -1286,6 +1320,29 @@ export interface components {
             created_at?: string;
             /** Format: date-time */
             updated_at?: string;
+        };
+        ActivityEntry: {
+            /** Format: int64 */
+            id?: number;
+            /** Format: int64 */
+            project_id?: number;
+            /** Format: int64 */
+            user_id?: number;
+            /** @example Anshuman Biswas */
+            user_name?: string | null;
+            /** @example task_status_changed */
+            action?: string;
+            /** @example task */
+            entity_type?: string;
+            /** Format: int64 */
+            entity_id?: number;
+            entity_title?: string | null;
+            /** @description Action-specific change details (e.g. before/after values) */
+            details?: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at?: string;
         };
         Sprint: {
             /**
@@ -2496,6 +2553,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTaskActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Task ID */
+                taskId: components["parameters"]["TaskIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of activity entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityEntry"][];
                 };
             };
             401: components["responses"]["Unauthorized"];

@@ -398,14 +398,14 @@ func TestHandleAddProjectMember(t *testing.T) {
 		}
 	})
 
-	t.Run("user not in team returns 400", func(t *testing.T) {
+	t.Run("user with no shared team returns 400", func(t *testing.T) {
 		ts := NewTestServer(t)
 		defer ts.Close()
 
 		ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
 		_, projectID := createTestTeamAndProject(t, ts, ownerID, "Team Required Project")
 
-		// Create user but do NOT add to team
+		// Create user but do NOT add to any team the owner belongs to
 		_ = ts.CreateTestUser(t, "outsider@example.com", "password123")
 
 		body := AddMemberRequest{
@@ -420,9 +420,50 @@ func TestHandleAddProjectMember(t *testing.T) {
 		ts.HandleAddProjectMember(rec, req)
 
 		AssertStatusCode(t, rec.Code, http.StatusBadRequest)
-		if !strings.Contains(rec.Body.String(), "must be a member of the team") {
-			t.Errorf("Expected team membership error, got %q", rec.Body.String())
+		if !strings.Contains(rec.Body.String(), "must share an active team") {
+			t.Errorf("Expected shared-team error, got %q", rec.Body.String())
 		}
+	})
+
+	t.Run("user from a different shared team can be added", func(t *testing.T) {
+		// Setup mirrors the real-world case: project owner is in their own team
+		// (which owns the project) AND is a member of someone else's team. They
+		// should be able to add a member of that other team to their project,
+		// even though that user is not in the project's team.
+		ts := NewTestServer(t)
+		defer ts.Close()
+
+		ownerID := ts.CreateTestUser(t, "owner@example.com", "password123")
+		_, projectID := createTestTeamAndProject(t, ts, ownerID, "Cross-team Project")
+
+		// Create a second team owned by someone else, with the project owner as
+		// a member and the candidate invitee as the team owner.
+		otherOwnerID := ts.CreateTestUser(t, "adhiraj@example.com", "password123")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		res, err := ts.DB.ExecContext(ctx,
+			`INSERT INTO teams (name, owner_id, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+			"Other Team", otherOwnerID,
+		)
+		if err != nil {
+			t.Fatalf("Failed to create other team: %v", err)
+		}
+		otherTeamID, _ := res.LastInsertId()
+		addUserToTeam(t, ts, otherTeamID, otherOwnerID, "owner")
+		addUserToTeam(t, ts, otherTeamID, ownerID, "member")
+
+		body := AddMemberRequest{
+			Email: "adhiraj@example.com",
+			Role:  "editor",
+		}
+
+		rec, req := ts.MakeAuthRequest(t, http.MethodPost,
+			fmt.Sprintf("/api/projects/%d/members", projectID), body, ownerID,
+			map[string]string{"id": fmt.Sprintf("%d", projectID)})
+
+		ts.HandleAddProjectMember(rec, req)
+
+		AssertStatusCode(t, rec.Code, http.StatusCreated)
 	})
 
 	t.Run("duplicate member fails on second add", func(t *testing.T) {

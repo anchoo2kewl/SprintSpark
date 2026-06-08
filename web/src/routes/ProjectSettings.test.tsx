@@ -16,7 +16,7 @@ vi.mock('../components/ui/FormError', () => ({
 const mocks = vi.hoisted(() => ({
   getProject: vi.fn(),
   getProjectMembers: vi.fn(),
-  getTeamMembers: vi.fn(),
+  getCollaborators: vi.fn(),
   addProjectMember: vi.fn(),
   updateProjectMember: vi.fn(),
   removeProjectMember: vi.fn(),
@@ -51,9 +51,8 @@ const members = [
   },
 ]
 
-const teamMembers = [
-  { id: 1, user_id: 10, email: 'alice@test.com', role: 'admin' },
-  { id: 2, user_id: 20, email: 'bob@test.com', role: 'member' },
+const collaborators = [
+  { user_id: 20, email: 'bob@test.com' },
 ]
 
 const swimLanes = [
@@ -75,7 +74,7 @@ describe('ProjectSettings', () => {
       updated_at: '2024-01-01T00:00:00Z',
     })
     mocks.getProjectMembers.mockResolvedValue(members)
-    mocks.getTeamMembers.mockResolvedValue(teamMembers)
+    mocks.getCollaborators.mockResolvedValue(collaborators)
     mocks.getProjectGitHub.mockResolvedValue({
       github_repo_url: '',
       github_owner: '',

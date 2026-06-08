@@ -80,6 +80,36 @@ export interface WikiPageContent {
   updated_at: string;
 }
 
+export type AnnotationColor = "yellow" | "blue" | "green" | "red";
+
+export interface WikiAnnotationComment {
+  id: number;
+  annotation_id: number;
+  content: string;
+  author_id: number;
+  author_name?: string;
+  parent_comment_id?: number | null;
+  created_at: string;
+  updated_at: string;
+  [key: string]: unknown;
+}
+
+export interface WikiAnnotation {
+  id: number;
+  page_id: number;
+  start_offset: number;
+  end_offset: number;
+  selected_text: string;
+  color: AnnotationColor;
+  resolved: boolean;
+  created_by: number;
+  creator_name?: string;
+  created_at: string;
+  updated_at: string;
+  comments?: WikiAnnotationComment[];
+  [key: string]: unknown;
+}
+
 export interface Drawing {
   id: string;
   title: string;
@@ -203,6 +233,26 @@ export class TaskAIClient {
 
   async listSwimLanes(projectId: string): Promise<SwimLane[]> {
     return this.request<SwimLane[]>(`/api/projects/${encodeURIComponent(projectId)}/swim-lanes`);
+  }
+
+  async createSwimLane(
+    projectId: string,
+    data: { name: string; status_category: string; color?: string; position?: number }
+  ): Promise<SwimLane> {
+    return this.request<SwimLane>(`/api/projects/${encodeURIComponent(projectId)}/swim-lanes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSwimLane(
+    swimLaneId: number,
+    data: { name?: string; color?: string; position?: number; status_category?: string }
+  ): Promise<SwimLane> {
+    return this.request<SwimLane>(`/api/swim-lanes/${swimLaneId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
   }
 
   async createTask(
@@ -346,6 +396,65 @@ export class TaskAIClient {
 
   async getWikiPageContent(pageId: string): Promise<WikiPageContent> {
     return this.request<WikiPageContent>(`/api/wiki/pages/${encodeURIComponent(pageId)}/content`);
+  }
+
+  async listWikiAnnotations(pageId: string): Promise<WikiAnnotation[]> {
+    return this.request<WikiAnnotation[]>(`/api/wiki/pages/${encodeURIComponent(pageId)}/annotations`);
+  }
+
+  async createWikiAnnotation(
+    pageId: string,
+    data: {
+      start_offset: number;
+      end_offset: number;
+      selected_text: string;
+      color: AnnotationColor;
+      comment?: string;
+    }
+  ): Promise<WikiAnnotation> {
+    return this.request<WikiAnnotation>(`/api/wiki/pages/${encodeURIComponent(pageId)}/annotations`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWikiAnnotation(
+    annotationId: string,
+    data: { color?: AnnotationColor; resolved?: boolean }
+  ): Promise<WikiAnnotation> {
+    return this.request<WikiAnnotation>(`/api/wiki/annotations/${encodeURIComponent(annotationId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteWikiAnnotation(annotationId: string): Promise<void> {
+    await this.request(`/api/wiki/annotations/${encodeURIComponent(annotationId)}`, {
+      method: "DELETE",
+    });
+  }
+
+  async createWikiAnnotationComment(
+    annotationId: string,
+    data: { content: string; parent_comment_id?: number }
+  ): Promise<WikiAnnotationComment> {
+    return this.request<WikiAnnotationComment>(`/api/wiki/annotations/${encodeURIComponent(annotationId)}/comments`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateWikiAnnotationComment(commentId: string, content: string): Promise<WikiAnnotationComment> {
+    return this.request<WikiAnnotationComment>(`/api/wiki/annotation-comments/${encodeURIComponent(commentId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async deleteWikiAnnotationComment(commentId: string): Promise<void> {
+    await this.request(`/api/wiki/annotation-comments/${encodeURIComponent(commentId)}`, {
+      method: "DELETE",
+    });
   }
 
   async getWikiPagePdf(pageId: string): Promise<{ data: string; filename: string }> {

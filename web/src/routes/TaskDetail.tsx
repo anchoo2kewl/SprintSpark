@@ -1480,13 +1480,45 @@ export default function TaskDetail({ isModal, onClose }: TaskDetailProps) {
             {/* Timestamps */}
             <div className="mt-4 space-y-2 text-xs text-dark-text-tertiary px-1">
               {task.created_at && (
-                <div>
-                  Created <span className="text-dark-text-secondary">{new Date(task.created_at).toLocaleDateString()}</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span>Created</span>
+                  {task.created_by_id && task.created_by_name ? (
+                    <>
+                      <span>by</span>
+                      <Link
+                        to={`/app/users/${task.created_by_id}`}
+                        className="inline-flex items-center gap-1 text-dark-text-secondary hover:text-primary-400 transition-colors"
+                      >
+                        <span className="w-4 h-4 rounded-full bg-primary-500/10 text-primary-400 text-[9px] font-medium flex items-center justify-center">
+                          {task.created_by_name.charAt(0).toUpperCase()}
+                        </span>
+                        <span>{task.created_by_name}</span>
+                      </Link>
+                      <span>on</span>
+                    </>
+                  ) : null}
+                  <span className="text-dark-text-secondary">{new Date(task.created_at).toLocaleDateString()}</span>
                 </div>
               )}
-              {task.updated_at && (
-                <div>
-                  Updated <span className="text-dark-text-secondary">{new Date(task.updated_at).toLocaleDateString()}</span>
+              {task.updated_at && task.updated_at !== task.created_at && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span>Updated</span>
+                  {task.updated_by_id && task.updated_by_name ? (
+                    <>
+                      <span>by</span>
+                      <Link
+                        to={`/app/users/${task.updated_by_id}`}
+                        className="inline-flex items-center gap-1 text-dark-text-secondary hover:text-primary-400 transition-colors"
+                      >
+                        <span className="w-4 h-4 rounded-full bg-primary-500/10 text-primary-400 text-[9px] font-medium flex items-center justify-center">
+                          {task.updated_by_name.charAt(0).toUpperCase()}
+                        </span>
+                        <span>{task.updated_by_name}</span>
+                      </Link>
+                      <span>on</span>
+                    </>
+                  ) : null}
+                  <span className="text-dark-text-secondary">{new Date(task.updated_at).toLocaleDateString()}</span>
                 </div>
               )}
             </div>

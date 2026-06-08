@@ -2,7 +2,7 @@ import express from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-import { TaskAIClient, Task, Project, SwimLane, Comment, WikiPage, WikiBlock, User, Milestone } from "./api.js";
+import { TaskAIClient, Task, Project, SwimLane, Comment, WikiPage, WikiBlock, User, Milestone, WikiAnnotation } from "./api.js";
 
 const TASKAI_API_URL = process.env.TASKAI_API_URL || "https://taskai.cc";
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -125,6 +125,20 @@ function minimizeWikiBlock(block: WikiBlock) {
 }
 
 /**
+ * Extract minimal fields from a wiki annotation.
+ */
+function minimizeWikiAnnotation(annotation: WikiAnnotation) {
+  return {
+    id: annotation.id,
+    page_id: annotation.page_id,
+    selected_text: annotation.selected_text,
+    color: annotation.color,
+    resolved: annotation.resolved,
+    comments_count: annotation.comments?.length ?? 0,
+  };
+}
+
+/**
  * Create and configure the MCP server with all TaskAI tools.
  */
 function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds?: string[]): McpServer {
@@ -187,6 +201,44 @@ function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds
     async ({ project_id, verbose }) => {
       const lanes = await client.listSwimLanes(project_id);
       const data = verbose ? lanes : lanes.map(minimizeSwimLane);
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
+  // --- create_swim_lane ---
+  server.tool(
+    "create_swim_lane",
+    "Create a new swim lane (column) in a project. Max 6 lanes per project.",
+    {
+      project_id: z.string().describe("Project ID"),
+      name: z.string().describe("Lane name (max 50 chars)"),
+      status_category: z.enum(["todo", "in_progress", "done"]).describe("Status category — controls task status when moved into this lane"),
+      color: z.string().optional().describe("Hex color, e.g. #5e6ad2 (default: #6B7280 gray)"),
+      position: z.number().optional().describe("Position (column order). Defaults to 0."),
+      verbose: z.boolean().optional().describe("Return full details (default: false)"),
+    },
+    async ({ project_id, name, status_category, color, position, verbose }) => {
+      const lane = await client.createSwimLane(project_id, { name, status_category, color, position });
+      const data = verbose ? lane : minimizeSwimLane(lane);
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
+  // --- update_swim_lane ---
+  server.tool(
+    "update_swim_lane",
+    "Update an existing swim lane (rename, recolor, reorder, or change status category). Note: (project_id, position) is unique — to swap two lanes, first move one to an unused position.",
+    {
+      swim_lane_id: z.number().describe("Swim lane ID"),
+      name: z.string().optional().describe("New name (max 50 chars)"),
+      color: z.string().optional().describe("New hex color, e.g. #f59e0b"),
+      position: z.number().optional().describe("New position (must be unique within the project)"),
+      status_category: z.enum(["todo", "in_progress", "done"]).optional().describe("New status category"),
+      verbose: z.boolean().optional().describe("Return full details (default: false)"),
+    },
+    async ({ swim_lane_id, name, color, position, status_category, verbose }) => {
+      const lane = await client.updateSwimLane(swim_lane_id, { name, color, position, status_category });
+      const data = verbose ? lane : minimizeSwimLane(lane);
       return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
     }
   );
@@ -483,6 +535,125 @@ function createServer(client: TaskAIClient, cachedUser?: User, defaultProjectIds
     async ({ page_id, verbose }) => {
       const result = await client.getWikiPageContent(page_id);
       return { content: [{ type: "text", text: formatResponse(result, verbose) }] };
+    }
+  );
+
+  // --- list_wiki_annotations ---
+  server.tool(
+    "list_wiki_annotations",
+    "List inline highlights and comments for a wiki page. Returns minimal fields by default; use verbose=true for offsets and full comment threads.",
+    {
+      page_id: z.string().describe("Wiki page ID"),
+      include_resolved: z.boolean().optional().describe("Include resolved annotations (default: true)"),
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ page_id, include_resolved, verbose }) => {
+      const annotations = await client.listWikiAnnotations(page_id);
+      const filtered = include_resolved === false
+        ? annotations.filter((annotation) => !annotation.resolved)
+        : annotations;
+      const data = verbose ? filtered : filtered.map(minimizeWikiAnnotation);
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
+  // --- create_wiki_annotation ---
+  server.tool(
+    "create_wiki_annotation",
+    "Create an inline wiki highlight, optionally with an initial comment. Offsets are zero-based character offsets in the rendered wiki text.",
+    {
+      page_id: z.string().describe("Wiki page ID"),
+      start_offset: z.number().int().min(0).describe("Start character offset in rendered wiki text"),
+      end_offset: z.number().int().min(1).describe("End character offset in rendered wiki text; must be greater than start_offset"),
+      selected_text: z.string().min(1).describe("Exact highlighted text"),
+      color: z.enum(["yellow", "blue", "green", "red"]).optional().describe("Highlight color (default: yellow)"),
+      comment: z.string().max(5000).optional().describe("Optional initial comment"),
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ page_id, start_offset, end_offset, selected_text, color, comment, verbose }) => {
+      const annotation = await client.createWikiAnnotation(page_id, {
+        start_offset,
+        end_offset,
+        selected_text,
+        color: color ?? "yellow",
+        comment,
+      });
+      const data = verbose ? annotation : minimizeWikiAnnotation(annotation);
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
+  // --- update_wiki_annotation ---
+  server.tool(
+    "update_wiki_annotation",
+    "Update a wiki annotation's color or resolved state.",
+    {
+      annotation_id: z.string().describe("Wiki annotation ID"),
+      color: z.enum(["yellow", "blue", "green", "red"]).optional().describe("New highlight color"),
+      resolved: z.boolean().optional().describe("Set resolved/unresolved state"),
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ annotation_id, color, resolved, verbose }) => {
+      const annotation = await client.updateWikiAnnotation(annotation_id, { color, resolved });
+      const data = verbose ? annotation : minimizeWikiAnnotation(annotation);
+      return { content: [{ type: "text", text: formatResponse(data, verbose) }] };
+    }
+  );
+
+  // --- delete_wiki_annotation ---
+  server.tool(
+    "delete_wiki_annotation",
+    "Delete a wiki annotation and its comment thread.",
+    {
+      annotation_id: z.string().describe("Wiki annotation ID"),
+    },
+    async ({ annotation_id }) => {
+      await client.deleteWikiAnnotation(annotation_id);
+      return { content: [{ type: "text", text: "Wiki annotation deleted successfully" }] };
+    }
+  );
+
+  // --- create_wiki_annotation_comment ---
+  server.tool(
+    "create_wiki_annotation_comment",
+    "Add a comment to an existing wiki annotation.",
+    {
+      annotation_id: z.string().describe("Wiki annotation ID"),
+      content: z.string().min(1).max(5000).describe("Comment body"),
+      parent_comment_id: z.number().int().optional().describe("Parent comment ID for threaded replies"),
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ annotation_id, content, parent_comment_id, verbose }) => {
+      const comment = await client.createWikiAnnotationComment(annotation_id, { content, parent_comment_id });
+      return { content: [{ type: "text", text: formatResponse(comment, verbose) }] };
+    }
+  );
+
+  // --- update_wiki_annotation_comment ---
+  server.tool(
+    "update_wiki_annotation_comment",
+    "Update the body of a wiki annotation comment.",
+    {
+      comment_id: z.string().describe("Wiki annotation comment ID"),
+      content: z.string().min(1).max(5000).describe("New comment body"),
+      verbose: z.boolean().optional().describe("Pretty print JSON (default: false)"),
+    },
+    async ({ comment_id, content, verbose }) => {
+      const comment = await client.updateWikiAnnotationComment(comment_id, content);
+      return { content: [{ type: "text", text: formatResponse(comment, verbose) }] };
+    }
+  );
+
+  // --- delete_wiki_annotation_comment ---
+  server.tool(
+    "delete_wiki_annotation_comment",
+    "Delete a wiki annotation comment.",
+    {
+      comment_id: z.string().describe("Wiki annotation comment ID"),
+    },
+    async ({ comment_id }) => {
+      await client.deleteWikiAnnotationComment(comment_id);
+      return { content: [{ type: "text", text: "Wiki annotation comment deleted successfully" }] };
     }
   );
 
