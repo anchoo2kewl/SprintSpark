@@ -7,18 +7,18 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
-	"os/signal"
 	"syscall"
 	"time"
 
-	blog "github.com/anchoo2kewl/go-blog"
-	godraw "github.com/anchoo2kewl/go-draw"
-	godrawstore "github.com/anchoo2kewl/go-draw/store"
 	backup "github.com/anchoo2kewl/go-backup"
 	backupgdrive "github.com/anchoo2kewl/go-backup/gdrive"
 	backuppgstore "github.com/anchoo2kewl/go-backup/pgstore"
+	blog "github.com/anchoo2kewl/go-blog"
+	godraw "github.com/anchoo2kewl/go-draw"
+	godrawstore "github.com/anchoo2kewl/go-draw/store"
 	gologin "github.com/anchoo2kewl/go-login"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -194,7 +194,7 @@ func main() {
 			if strings.HasSuffix(r.URL.Path, "/github/sync") ||
 				strings.HasSuffix(r.URL.Path, "/github/push-all") ||
 				strings.HasSuffix(r.URL.Path, "/admin/backup/trigger") ||
-			strings.HasSuffix(r.URL.Path, "/admin/backup/copy-from-env") ||
+				strings.HasSuffix(r.URL.Path, "/admin/backup/copy-from-env") ||
 				strings.HasSuffix(r.URL.Path, "/download") {
 				next.ServeHTTP(w, r)
 				return
@@ -719,6 +719,7 @@ func main() {
 	// Start background workers
 	server.StartBrevoHealthCheck(bgCtx)
 	go server.StartSnapshotWorker(bgCtx)
+	go server.OptimizeWikiPageVersionStorage(bgCtx)
 	go server.StartIndexingWorker(bgCtx)
 	go server.StartGitHubSyncWorker(bgCtx)
 
