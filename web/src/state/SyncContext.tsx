@@ -1,11 +1,11 @@
 /**
  * Sync Context
  * React context for managing sync state
- * Note: RxDB local-first support was removed. This context now only provides
- * server-only sync state for downstream consumers.
+ * Note: RxDB local-first support was removed. This context provides a
+ * lightweight server refresh bus for views that need Google Docs-style freshness.
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 
 interface SyncState {
@@ -15,6 +15,8 @@ interface SyncState {
   pendingOperations: number
 }
 
+type SyncTask = () => Promise<void> | void
+
 interface SyncContextValue {
   db: null
   syncService: null
@@ -23,12 +25,17 @@ interface SyncContextValue {
   initializeSync: () => Promise<void>
   destroySync: () => Promise<void>
   triggerSync: () => Promise<void>
+  registerSyncTask: (id: string, task: SyncTask) => () => void
 }
+
+const SYNC_INTERVAL_MS = 15_000
 
 const SyncContext = createContext<SyncContextValue | undefined>(undefined)
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const syncTasksRef = useRef<Map<string, SyncTask>>(new Map())
+  const isSyncingRef = useRef(false)
   const [syncState, setSyncState] = useState<SyncState>({
     status: 'idle',
     lastSyncTime: null,
@@ -37,7 +44,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   })
   const [isInitialized, setIsInitialized] = useState(false)
 
-  const initializeSync = async () => {
+  const initializeSync = useCallback(async () => {
     if (!user?.id || isInitialized) return
     setIsInitialized(true)
     setSyncState({
@@ -46,9 +53,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       error: null,
       pendingOperations: 0,
     })
-  }
+  }, [isInitialized, user?.id])
 
-  const destroySync = async () => {
+  const destroySync = useCallback(async () => {
+    syncTasksRef.current.clear()
     setIsInitialized(false)
     setSyncState({
       status: 'idle',
@@ -56,11 +64,62 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       error: null,
       pendingOperations: 0,
     })
-  }
+  }, [])
 
-  const triggerSync = async () => {
-    // No-op in server-only mode
-  }
+  const registerSyncTask = useCallback((id: string, task: SyncTask) => {
+    syncTasksRef.current.set(id, task)
+    return () => {
+      syncTasksRef.current.delete(id)
+    }
+  }, [])
+
+  const triggerSync = useCallback(async () => {
+    if (!user?.id) return
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setSyncState(prev => ({
+        ...prev,
+        status: 'offline',
+        error: 'You are offline. Changes will refresh when the connection returns.',
+        pendingOperations: 0,
+      }))
+      return
+    }
+
+    if (isSyncingRef.current) return
+    isSyncingRef.current = true
+
+    const tasks = Array.from(syncTasksRef.current.values())
+    setSyncState(prev => ({
+      ...prev,
+      status: 'syncing',
+      error: null,
+      pendingOperations: tasks.length,
+    }))
+
+    try {
+      const results = await Promise.allSettled(tasks.map(task => task()))
+      const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+      if (rejected) {
+        throw rejected.reason
+      }
+      setSyncState({
+        status: 'synced',
+        lastSyncTime: Date.now(),
+        error: null,
+        pendingOperations: 0,
+      })
+    } catch (err) {
+      setSyncState(prev => ({
+        ...prev,
+        status: 'error',
+        error: err instanceof Error ? err.message : 'Failed to refresh latest changes',
+        pendingOperations: 0,
+      }))
+    } finally {
+      isSyncingRef.current = false
+    }
+  }, [user?.id])
 
   useEffect(() => {
     if (user && !isInitialized) {
@@ -68,7 +127,30 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } else if (!user && isInitialized) {
       destroySync()
     }
-  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [destroySync, initializeSync, isInitialized, user])
+
+  useEffect(() => {
+    if (!user?.id || !isInitialized) return
+
+    const refreshIfActive = () => {
+      if (typeof document !== 'undefined' && document.hidden) return
+      void triggerSync()
+    }
+
+    const interval = window.setInterval(refreshIfActive, SYNC_INTERVAL_MS)
+    window.addEventListener('focus', refreshIfActive)
+    window.addEventListener('online', refreshIfActive)
+    window.addEventListener('offline', refreshIfActive)
+    document.addEventListener('visibilitychange', refreshIfActive)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('focus', refreshIfActive)
+      window.removeEventListener('online', refreshIfActive)
+      window.removeEventListener('offline', refreshIfActive)
+      document.removeEventListener('visibilitychange', refreshIfActive)
+    }
+  }, [isInitialized, triggerSync, user?.id])
 
   const value: SyncContextValue = {
     db: null,
@@ -78,6 +160,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     initializeSync,
     destroySync,
     triggerSync,
+    registerSyncTask,
   }
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>
