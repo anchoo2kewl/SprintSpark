@@ -5,6 +5,7 @@ import TimelineView from '../components/roadmap/TimelineView'
 import MilestoneBoard from '../components/roadmap/MilestoneBoard'
 import RoadmapList from '../components/roadmap/RoadmapList'
 import BoardFilterBar, { applyBoardFilters } from '../components/board/BoardFilterBar'
+import { useSync } from '../state/SyncContext'
 
 type RoadmapView = 'timeline' | 'board' | 'list'
 
@@ -14,6 +15,7 @@ interface RoadmapProps {
 }
 
 export default function Roadmap({ projectId, tasks }: RoadmapProps) {
+  const { registerSyncTask } = useSync()
   const [view, setView] = useState<RoadmapView>(() => {
     return (localStorage.getItem(`roadmap_view_${projectId}`) as RoadmapView) || 'timeline'
   })
@@ -66,8 +68,10 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
     }))
   }, [projectId, filterSprint, filterAssignee, filterPriority, filterTag, filterTaskIds])
 
-  const fetchMilestones = useCallback(async () => {
+  const fetchMilestones = useCallback(async (silent = false) => {
     try {
+      if (!silent) setLoading(true)
+      setError(null)
       const [ms, sp, tg] = await Promise.all([
         api.getMilestones(projectId),
         api.getSprints(projectId),
@@ -94,15 +98,20 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
       })
       setProgressMap(map)
     } catch (err) {
+      if (silent) throw err
       setError(err instanceof Error ? err.message : 'Failed to load roadmap data')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [projectId])
 
   useEffect(() => {
-    fetchMilestones()
+    void fetchMilestones()
   }, [fetchMilestones])
+
+  useEffect(() => {
+    return registerSyncTask(`project:${projectId}:roadmap`, () => fetchMilestones(true))
+  }, [fetchMilestones, projectId, registerSyncTask])
 
   const setViewPersisted = (v: RoadmapView) => {
     setView(v)
@@ -117,7 +126,7 @@ export default function Roadmap({ projectId, tasks }: RoadmapProps) {
     })
     setEditingMilestone(null)
     // Refresh progress
-    fetchMilestones()
+    void fetchMilestones()
   }
 
   const handleMilestoneEdit = (milestone: Milestone) => {

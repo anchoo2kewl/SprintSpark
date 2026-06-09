@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useEffect } from 'react'
 import { SyncProvider, useSync } from './SyncContext'
 
 let mockUser: { id: number; email: string } | null = null
@@ -32,10 +33,37 @@ function renderWithProvider() {
   )
 }
 
+const mockRefreshTask = vi.fn()
+
+function RegisteredTaskConsumer() {
+  const { syncState, registerSyncTask, triggerSync } = useSync()
+
+  useEffect(() => {
+    return registerSyncTask('test-refresh', mockRefreshTask)
+  }, [registerSyncTask])
+
+  return (
+    <div>
+      <span data-testid="status">{syncState.status}</span>
+      <span data-testid="pending">{syncState.pendingOperations}</span>
+      <button onClick={triggerSync}>Sync</button>
+    </div>
+  )
+}
+
+function renderRegisteredTaskProvider() {
+  return render(
+    <SyncProvider>
+      <RegisteredTaskConsumer />
+    </SyncProvider>
+  )
+}
+
 describe('SyncProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUser = null
+    mockRefreshTask.mockResolvedValue(undefined)
   })
 
   it('provides context to children', () => {
@@ -73,7 +101,7 @@ describe('SyncProvider', () => {
     expect(screen.getByTestId('lastSync')).toHaveTextContent('has-time')
   })
 
-  it('triggerSync is a no-op when no syncService is available', async () => {
+  it('triggerSync stays safe when no refresh tasks are registered', async () => {
     const user = userEvent.setup()
     mockUser = { id: 1, email: 'test@example.com' }
     renderWithProvider()
@@ -82,11 +110,27 @@ describe('SyncProvider', () => {
       expect(screen.getByTestId('initialized')).toHaveTextContent('true')
     })
 
-    // Click sync - should not throw since syncService is null (RxDB disabled)
     await user.click(screen.getByText('Sync'))
 
-    // State should remain unchanged (still synced from init)
     expect(screen.getByTestId('status')).toHaveTextContent('synced')
+  })
+
+  it('runs registered refresh tasks when triggered', async () => {
+    const user = userEvent.setup()
+    mockUser = { id: 1, email: 'test@example.com' }
+    renderRegisteredTaskProvider()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status')).toHaveTextContent('synced')
+    })
+
+    await user.click(screen.getByText('Sync'))
+
+    await waitFor(() => {
+      expect(mockRefreshTask).toHaveBeenCalledTimes(1)
+      expect(screen.getByTestId('status')).toHaveTextContent('synced')
+      expect(screen.getByTestId('pending')).toHaveTextContent('0')
+    })
   })
 })
 

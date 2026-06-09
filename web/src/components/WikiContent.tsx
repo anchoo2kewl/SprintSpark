@@ -3,12 +3,14 @@ import { useSearchParams } from 'react-router-dom'
 import { api, WikiPage, WikiAnnotation, AnnotationColor, AnnotationComment } from '../lib/api'
 import WikiEditor from './WikiEditor'
 import WikiAnnotationSidebar from './WikiAnnotationSidebar'
+import { useSync } from '../state/SyncContext'
 
 interface WikiContentProps {
   projectId: string
 }
 
 export default function WikiContent({ projectId }: WikiContentProps) {
+  const { registerSyncTask } = useSync()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedPageId = searchParams.get('page')
   const annotationParam = searchParams.get('annotation')
@@ -27,21 +29,6 @@ export default function WikiContent({ projectId }: WikiContentProps) {
   const [showAnnotationSidebar, setShowAnnotationSidebar] = useState(false)
   const [pinnedAnnotations, setPinnedAnnotations] = useState(false)
   const [showResolved, setShowResolved] = useState(false)
-
-  useEffect(() => {
-    if (projectId) loadPages()
-  }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (selectedPageId) {
-      api.listWikiAnnotations(Number(selectedPageId))
-        .then(data => setAnnotations(data))
-        .catch(() => setAnnotations([]))
-      setSelectedAnnotationId(null)
-    } else {
-      setAnnotations([])
-    }
-  }, [selectedPageId])
 
   // Deep-link to annotation from ?annotation=X (e.g. notification clicks)
   useEffect(() => {
@@ -102,18 +89,50 @@ export default function WikiContent({ projectId }: WikiContentProps) {
     return () => clearTimeout(timer)
   }, [highlightTerm, selectedPageId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadPages = async () => {
+  const loadPages = useCallback(async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError(null)
       const pagesData = await api.getWikiPages(Number(projectId))
       setPages(pagesData.sort((a, b) => b.updated_at.localeCompare(a.updated_at)))
     } catch (err) {
+      if (silent) throw err
       setError(err instanceof Error ? err.message : 'Failed to load wiki pages')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [projectId])
+
+  const loadAnnotations = useCallback(async (silent = false) => {
+    if (!selectedPageId) {
+      setAnnotations([])
+      return
+    }
+
+    try {
+      const data = await api.listWikiAnnotations(Number(selectedPageId))
+      setAnnotations(data)
+    } catch (err) {
+      if (silent) throw err
+      setAnnotations([])
+    }
+  }, [selectedPageId])
+
+  useEffect(() => {
+    if (projectId) void loadPages()
+  }, [loadPages, projectId])
+
+  useEffect(() => {
+    void loadAnnotations()
+    setSelectedAnnotationId(null)
+  }, [loadAnnotations])
+
+  useEffect(() => {
+    return registerSyncTask(`project:${projectId}:wiki`, async () => {
+      await loadPages(true)
+      await loadAnnotations(true)
+    })
+  }, [loadAnnotations, loadPages, projectId, registerSyncTask])
 
   const handleCreatePage = async () => {
     if (!newPageTitle.trim() || !projectId) return

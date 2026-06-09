@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo, lazy, Suspense } from 'react'
+import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom'
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { api, Project, Task, type SwimLane, type Sprint, type Tag } from '../lib/api'
 import { useLocalTasks } from '../hooks/useLocalTasks'
+import { useSync } from '../state/SyncContext'
 import { REACTION_EMOJI, REACTION_ORDER } from '../lib/reactionUtils'
 import BoardFilterBar, { applyBoardFilters } from '../components/board/BoardFilterBar'
 
@@ -15,6 +16,7 @@ export default function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'board'
+  const { registerSyncTask } = useSync()
   const [project, setProject] = useState<Project | null>(null)
   const [loadingProject, setLoadingProject] = useState(true)
   const [projectError, setProjectError] = useState<string | null>(null)
@@ -59,17 +61,6 @@ export default function ProjectDetail() {
       },
     })
   )
-
-  // Load project metadata, swim lanes, sprints and tags
-  useEffect(() => {
-    if (projectId) {
-      setMobileLane(null)
-      loadProject()
-      loadSwimLanes()
-      api.getSprints(Number(projectId)).then(setSprints).catch(() => {})
-      api.getTags(Number(projectId)).then(setTags).catch(() => {})
-    }
-  }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Default mobile lane to first swim lane once loaded
   useEffect(() => {
@@ -139,26 +130,29 @@ export default function ProjectDetail() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const loadProject = async () => {
+  const loadProject = useCallback(async (silent = false) => {
+    if (!projectId) return
     try {
-      setLoadingProject(true)
+      if (!silent) setLoadingProject(true)
       setProjectError(null)
       const projectData = await api.getProject(Number(projectId))
       setProject(projectData)
     } catch (err) {
+      if (silent) throw err
       setProjectError(err instanceof Error ? err.message : 'Failed to load project')
     } finally {
-      setLoadingProject(false)
+      if (!silent) setLoadingProject(false)
     }
-  }
+  }, [projectId])
 
-  const loadSwimLanes = async () => {
+  const loadSwimLanes = useCallback(async (silent = false) => {
+    if (!projectId) return
     try {
-      setLoadingSwimLanes(true)
+      if (!silent) setLoadingSwimLanes(true)
       const lanes = await api.getSwimLanes(Number(projectId))
       setSwimLanes(lanes.sort((a, b) => a.position - b.position))
     } catch (err) {
-      console.error('Failed to load swim lanes:', err)
+      if (silent) throw err
       // Fallback to default swim lanes if fetch fails
       setSwimLanes([
         { id: 0, project_id: Number(projectId), name: 'To Do', color: '#6B7280', position: 0, status_category: 'todo', created_at: '', updated_at: '' },
@@ -166,9 +160,34 @@ export default function ProjectDetail() {
         { id: 2, project_id: Number(projectId), name: 'Done', color: '#10B981', position: 2, status_category: 'done', created_at: '', updated_at: '' },
       ])
     } finally {
-      setLoadingSwimLanes(false)
+      if (!silent) setLoadingSwimLanes(false)
     }
-  }
+  }, [projectId])
+
+  const refreshProjectData = useCallback(async (silent = false) => {
+    if (!projectId) return
+    const projectNumber = Number(projectId)
+    const [sprintData, tagData] = await Promise.all([
+      api.getSprints(projectNumber).catch(() => [] as Sprint[]),
+      api.getTags(projectNumber).catch(() => [] as Tag[]),
+      loadProject(silent),
+      loadSwimLanes(silent),
+    ])
+    setSprints(sprintData)
+    setTags(tagData)
+  }, [loadProject, loadSwimLanes, projectId])
+
+  // Load project metadata, swim lanes, sprints and tags
+  useEffect(() => {
+    if (!projectId) return
+    setMobileLane(null)
+    void refreshProjectData()
+  }, [projectId, refreshProjectData])
+
+  useEffect(() => {
+    if (!projectId) return
+    return registerSyncTask(`project:${projectId}:metadata`, () => refreshProjectData(true))
+  }, [projectId, refreshProjectData, registerSyncTask])
 
   const handleCreateTask = async () => {
     if (!newTaskTitle.trim() || !projectId) return

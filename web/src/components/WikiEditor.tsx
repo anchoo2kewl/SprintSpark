@@ -5,6 +5,7 @@ import { WikiPage, WikiPageVersion, WikiPageVersionWithContent, WikiAnnotation, 
 import WikiAnnotationSidebar from './WikiAnnotationSidebar'
 import FigmaEmbed from './FigmaEmbed'
 import { useAuth } from '../state/AuthContext'
+import { useSync } from '../state/SyncContext'
 import SearchSelect from './ui/SearchSelect'
 import ImagePickerModal from './ImagePickerModal'
 import * as Y from 'yjs'
@@ -977,6 +978,7 @@ function PreviewContent({ previewHTML, content, previewRef }: Readonly<{
 export default function WikiEditor({ page, annotations, selectedAnnotationId, showAnnotationHighlights = true, onAnnotationCreate, onAnnotationClick, onAnnotationUpdate, onAnnotationDelete, onCommentCreate, onCommentUpdate, onCommentDelete, showResolved = false, onToggleShowResolved, onPageUpdate }: Readonly<WikiEditorProps>) {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { registerSyncTask } = useSync()
   const [content, setContent] = useState('')
   const [isPreview, setIsPreview] = useState(true)
   const [previewHTML, setPreviewHTML] = useState('')
@@ -1015,6 +1017,11 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
     page.updater_name ?? page.creator_name ?? null,
   )
   const [lastEditedAt, setLastEditedAt] = useState<string>(page.updated_at)
+
+  useEffect(() => {
+    setLastEditedBy(page.updater_name ?? page.creator_name ?? null)
+    setLastEditedAt(page.updated_at)
+  }, [page.creator_name, page.updated_at, page.updater_name])
 
   // ── Title rename ──────────────────────────────────────────────
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -1117,8 +1124,9 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
     let cancelled = false
     apiClient.getWikiPageContent(page.id).then(res => {
       if (cancelled) return
-      if (res.content) {
+      if (typeof res.content === 'string') {
         setContent(res.content)
+        contentRef.current = res.content
         lastSavedContentRef.current = res.content
       }
     }).catch(() => {
@@ -1126,6 +1134,25 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
     })
     return () => { cancelled = true }
   }, [page.id])
+
+  const refreshPageContent = useCallback(async () => {
+    if (isDirtyRef.current || isSavingRef.current) return
+
+    const res = await apiClient.getWikiPageContent(page.id)
+    const nextContent = typeof res.content === 'string' ? res.content : ''
+    if (nextContent === lastSavedContentRef.current) return
+
+    setContent(nextContent)
+    contentRef.current = nextContent
+    lastSavedContentRef.current = nextContent
+    isDirtyRef.current = false
+    setSaveStatus('saved')
+    setTimeout(() => setSaveStatus(clearSavedStatus), 3000)
+  }, [page.id])
+
+  useEffect(() => {
+    return registerSyncTask(`wiki:${page.id}:content`, refreshPageContent)
+  }, [page.id, refreshPageContent, registerSyncTask])
 
   // ── Manual save function ─────────────────────────────────────
   const saveNow = useCallback(async (manualSave = false) => {

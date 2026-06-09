@@ -3,28 +3,42 @@
  * React hook for managing tasks with server-side fetching
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api, type Task, type UpdateTaskRequest } from '../lib/api'
+import { useSync } from '../state/SyncContext'
 
 export function useLocalTasks(projectId: number) {
+  const { registerSyncTask } = useSync()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setLoading(true)
-        const serverTasks = await api.getTasks(projectId)
-        setTasks(serverTasks)
-        setLoading(false)
-      } catch (err) {
+  const fetchTasks = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true)
+      const serverTasks = await api.getTasks(projectId)
+      setTasks(serverTasks)
+      setError(null)
+    } catch (err) {
+      if (!silent) {
         setError(err instanceof Error ? err.message : 'Failed to load tasks')
+      } else {
+        throw err
+      }
+    } finally {
+      if (!silent) {
         setLoading(false)
       }
     }
-    fetchTasks()
   }, [projectId])
+
+  useEffect(() => {
+    void fetchTasks()
+  }, [fetchTasks])
+
+  useEffect(() => {
+    return registerSyncTask(`project:${projectId}:tasks`, () => fetchTasks(true))
+  }, [fetchTasks, projectId, registerSyncTask])
 
   // Real-time task updates via WebSocket events
   useEffect(() => {

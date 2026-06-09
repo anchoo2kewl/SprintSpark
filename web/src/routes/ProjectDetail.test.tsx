@@ -44,6 +44,12 @@ vi.mock('../hooks/useLocalTasks', () => ({
   useLocalTasks: () => hookState,
 }))
 
+vi.mock('../state/SyncContext', () => ({
+  useSync: () => ({
+    registerSyncTask: vi.fn(() => vi.fn()),
+  }),
+}))
+
 const apiMocks = vi.hoisted(() => ({
   getProject: vi.fn(),
   getSwimLanes: vi.fn(),
