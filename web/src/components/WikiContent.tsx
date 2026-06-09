@@ -210,6 +210,9 @@ export default function WikiContent({ projectId }: WikiContentProps) {
   }, [])
 
   const selectedPage = pages.find(p => p.id === Number(selectedPageId))
+  const annotationTotal = annotations.length
+  const unresolvedAnnotationTotal = annotations.filter(a => !a.resolved).length
+  const hasAnnotationComments = annotations.some(a => a.comments.length > 0)
   const filteredPages = searchQuery
     ? pages.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
     : pages
@@ -224,7 +227,7 @@ export default function WikiContent({ projectId }: WikiContentProps) {
             placeholder="Search pages..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-dark-accent-primary"
+            className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-primary-500"
           />
         </div>
 
@@ -232,7 +235,7 @@ export default function WikiContent({ projectId }: WikiContentProps) {
           {!showNewPageInput ? (
             <button
               onClick={() => setShowNewPageInput(true)}
-              className="w-full px-3 py-2 bg-dark-accent-primary text-white rounded hover:bg-dark-accent-primary/90 transition-colors text-sm font-medium"
+              className="w-full px-3 py-2 bg-primary-600 text-white rounded hover:bg-primary-500 transition-colors text-sm font-medium shadow-sm"
             >
               + New Page
             </button>
@@ -245,13 +248,13 @@ export default function WikiContent({ projectId }: WikiContentProps) {
                 onChange={(e) => setNewPageTitle(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreatePage()}
                 autoFocus
-                className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-dark-accent-primary"
+                className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-primary-500"
               />
               <div className="flex gap-2">
                 <button
                   onClick={handleCreatePage}
                   disabled={creating || !newPageTitle.trim()}
-                  className="flex-1 px-3 py-1.5 bg-dark-accent-primary text-white rounded hover:bg-dark-accent-primary/90 transition-colors text-sm disabled:opacity-50"
+                  className="flex-1 px-3 py-1.5 bg-primary-600 text-white rounded hover:bg-primary-500 transition-colors text-sm disabled:opacity-50"
                 >
                   {creating ? 'Creating...' : 'Create'}
                 </button>
@@ -284,7 +287,7 @@ export default function WikiContent({ projectId }: WikiContentProps) {
                 <div
                   key={page.id}
                   className={`px-4 py-2 cursor-pointer hover:bg-dark-bg-tertiary transition-colors group ${
-                    selectedPageId === String(page.id) ? 'bg-dark-bg-tertiary border-l-2 border-dark-accent-primary' : ''
+                    selectedPageId === String(page.id) ? 'bg-dark-bg-tertiary border-l-2 border-primary-500' : ''
                   }`}
                   onClick={() => setSearchParams(prev => {
                     const next = new URLSearchParams(prev)
@@ -354,12 +357,19 @@ export default function WikiContent({ projectId }: WikiContentProps) {
         {selectedPage && !pinnedAnnotations && !showAnnotationSidebar && (
           <button
             onClick={() => setShowAnnotationSidebar(true)}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1.5 bg-dark-bg-secondary border border-r-0 border-dark-border-subtle rounded-l-lg text-dark-text-tertiary hover:text-primary-400 hover:bg-primary-500/10 transition-colors"
+            className={`absolute right-3 top-1/2 -translate-y-1/2 z-10 flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold shadow-linear-lg transition-all ${
+              unresolvedAnnotationTotal > 0
+                ? 'border-red-500/35 bg-red-500/10 text-red-500 shadow-[0_0_26px_rgba(239,68,68,0.32)] hover:bg-red-500/15'
+                : annotationTotal > 0
+                  ? 'border-amber-500/35 bg-amber-500/10 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.22)] hover:bg-amber-500/15'
+                  : 'border-dark-border-subtle bg-dark-bg-elevated text-dark-text-tertiary hover:text-primary-400 hover:bg-primary-500/10'
+            }`}
             title="Show annotations"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            <svg className="w-4 h-4" fill={hasAnnotationComments ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={unresolvedAnnotationTotal > 0 ? 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z' : 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z'} />
             </svg>
+            {annotationTotal > 0 && <span>{unresolvedAnnotationTotal}/{annotationTotal}</span>}
           </button>
         )}
 
@@ -367,7 +377,16 @@ export default function WikiContent({ projectId }: WikiContentProps) {
         {selectedPage && (pinnedAnnotations || showAnnotationSidebar) && (
           <div className="flex flex-col border-l border-dark-border-subtle w-80 flex-shrink-0">
             <div className="flex items-center justify-between px-3 py-2 border-b border-dark-border-subtle bg-dark-bg-secondary">
-              <span className="text-xs font-semibold text-dark-text-secondary uppercase tracking-wide">Annotations</span>
+              <span className="text-xs font-semibold text-dark-text-secondary uppercase tracking-wide">
+                Annotations
+                {annotationTotal > 0 && (
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    unresolvedAnnotationTotal > 0 ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'
+                  }`}>
+                    {unresolvedAnnotationTotal}/{annotationTotal}
+                  </span>
+                )}
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setPinnedAnnotations(v => !v)}

@@ -175,6 +175,9 @@ export default function Wiki() {
   }, [])
 
   const selectedPage = pages.find(p => p.id === Number(selectedPageId))
+  const annotationTotal = annotations.length
+  const unresolvedAnnotationTotal = annotations.filter(a => !a.resolved).length
+  const hasAnnotationComments = annotations.some(a => a.comments.length > 0)
 
   const filteredPages = searchQuery
     ? pages.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -223,20 +226,26 @@ export default function Wiki() {
             <div className="py-3 flex items-center gap-2">
               <button
                 onClick={() => setShowAnnotationSidebar(prev => !prev)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   showAnnotationSidebar
                     ? 'bg-primary-500/20 text-primary-400 hover:bg-primary-500/30'
-                    : 'bg-dark-bg-tertiary text-dark-text-secondary hover:text-dark-text-primary'
+                    : unresolvedAnnotationTotal > 0
+                      ? 'bg-red-500/10 text-red-500 shadow-[0_0_18px_rgba(239,68,68,0.28)] hover:bg-red-500/15'
+                      : annotationTotal > 0
+                        ? 'bg-amber-500/10 text-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.18)] hover:bg-amber-500/15'
+                        : 'bg-dark-bg-tertiary text-dark-text-secondary hover:text-dark-text-primary'
                 }`}
                 title="Toggle annotations sidebar"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                <svg className="w-3.5 h-3.5" fill={hasAnnotationComments ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={unresolvedAnnotationTotal > 0 ? 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z' : 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z'} />
                 </svg>
                 Annotations
-                {annotations.filter(a => !a.resolved).length > 0 && (
-                  <span className="bg-primary-500 text-white rounded-full text-[10px] px-1.5 py-0.5 font-semibold">
-                    {annotations.filter(a => !a.resolved).length}
+                {annotationTotal > 0 && (
+                  <span className={`rounded-full text-[10px] px-1.5 py-0.5 font-semibold ${
+                    unresolvedAnnotationTotal > 0 ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+                  }`}>
+                    {unresolvedAnnotationTotal}/{annotationTotal}
                   </span>
                 )}
               </button>
@@ -254,16 +263,16 @@ export default function Wiki() {
               placeholder="Search pages..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-dark-accent-primary"
+              className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-primary-500"
             />
           </div>
 
           <div className="p-4 border-b border-dark-border-subtle">
             {!showNewPageInput ? (
-              <button
-                onClick={() => setShowNewPageInput(true)}
-                className="w-full px-3 py-2 bg-dark-accent-primary text-white rounded hover:bg-dark-accent-primary/90 transition-colors text-sm font-medium"
-              >
+            <button
+              onClick={() => setShowNewPageInput(true)}
+              className="w-full px-3 py-2 bg-primary-600 text-white rounded hover:bg-primary-500 transition-colors text-sm font-medium shadow-sm"
+            >
                 + New Page
               </button>
             ) : (
@@ -275,13 +284,13 @@ export default function Wiki() {
                   onChange={(e) => setNewPageTitle(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreatePage()}
                   autoFocus
-                  className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-dark-accent-primary"
+                  className="w-full px-3 py-2 bg-dark-bg-primary border border-dark-border-subtle rounded text-sm text-dark-text-primary placeholder-dark-text-tertiary focus:outline-none focus:border-primary-500"
                 />
                 <div className="flex gap-2">
                   <button
-                    onClick={handleCreatePage}
-                    disabled={creating || !newPageTitle.trim()}
-                    className="flex-1 px-3 py-1.5 bg-dark-accent-primary text-white rounded hover:bg-dark-accent-primary/90 transition-colors text-sm disabled:opacity-50"
+                  onClick={handleCreatePage}
+                  disabled={creating || !newPageTitle.trim()}
+                    className="flex-1 px-3 py-1.5 bg-primary-600 text-white rounded hover:bg-primary-500 transition-colors text-sm disabled:opacity-50"
                   >
                     {creating ? 'Creating...' : 'Create'}
                   </button>
@@ -314,7 +323,7 @@ export default function Wiki() {
                   <div
                     key={page.id}
                     className={`px-4 py-2 cursor-pointer hover:bg-dark-bg-tertiary transition-colors group ${
-                      selectedPageId === String(page.id) ? 'bg-dark-bg-tertiary border-l-2 border-dark-accent-primary' : ''
+                      selectedPageId === String(page.id) ? 'bg-dark-bg-tertiary border-l-2 border-primary-500' : ''
                     }`}
                     onClick={() => setSearchParams({ page: String(page.id) })}
                   >
