@@ -55,16 +55,19 @@ export default function WikiAnnotationSidebar({
   const { user } = useAuth()
 
   const visible = showResolved ? annotations : annotations.filter(a => !a.resolved)
+  const unresolvedTotal = annotations.filter(a => !a.resolved).length
 
   return (
     <div className="w-72 border-l border-dark-border-subtle bg-dark-bg-secondary flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-dark-border-subtle flex items-center justify-between flex-shrink-0">
-        <h3 className="text-sm font-semibold text-dark-text-primary">
-          Annotations
+      <div className="px-4 py-3 border-b border-dark-border-subtle flex items-start justify-between gap-3 flex-shrink-0">
+        <h3 className="text-sm font-semibold text-dark-text-primary flex flex-col gap-1">
+          <span>Annotations</span>
           {annotations.length > 0 && (
-            <span className="ml-2 text-xs font-normal text-dark-text-tertiary">
-              ({visible.length}{showResolved ? '' : ` of ${annotations.length}`})
+            <span className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              unresolvedTotal > 0 ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'
+            }`}>
+              {unresolvedTotal}/{annotations.length}
             </span>
           )}
         </h3>
@@ -189,11 +192,11 @@ function AnnotationCard({
 
   return (
     <div
-      className={`mx-2 mb-2 rounded-lg border transition-colors cursor-pointer ${
+      className={`mx-2 mb-2 rounded-lg border transition-all cursor-pointer ${
         isSelected
-          ? `border-l-2 ${COLOR_CLASSES[annotation.color]} shadow-sm`
+          ? `border-l-2 ${COLOR_CLASSES[annotation.color]} shadow-linear`
           : 'border-dark-border-subtle hover:border-dark-border-subtle/80 bg-dark-bg-primary/30'
-      } ${annotation.resolved ? 'opacity-60' : ''}`}
+      } ${annotation.resolved ? 'opacity-60' : 'shadow-[0_0_18px_rgba(94,106,210,0.08)]'}`}
       onClick={onSelect}
     >
       {/* Annotation header */}

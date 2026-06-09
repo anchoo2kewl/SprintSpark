@@ -994,6 +994,9 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [fsPreviewHTML, setFsPreviewHTML] = useState('')
   const [fsAnnotationsVisible, setFsAnnotationsVisible] = useState(false)
+  const annotationTotal = annotations?.length ?? 0
+  const unresolvedAnnotationTotal = annotations?.filter(a => !a.resolved).length ?? 0
+  const hasAnnotationComments = annotations?.some(a => a.comments.length > 0) ?? false
 
   const ydocRef = useRef<Y.Doc | null>(null)
   const providerRef = useRef<WebsocketProvider | null>(null)
@@ -1636,20 +1639,26 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
           {onAnnotationUpdate && (
             <button
               onClick={() => setFsAnnotationsVisible(v => !v)}
-              className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 fsAnnotationsVisible
                   ? 'bg-primary-500/20 text-primary-400 hover:bg-primary-500/30'
-                  : 'bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-tertiary/80'
+                  : unresolvedAnnotationTotal > 0
+                    ? 'bg-red-500/10 text-red-500 shadow-[0_0_18px_rgba(239,68,68,0.26)] hover:bg-red-500/15'
+                    : annotationTotal > 0
+                      ? 'bg-amber-500/10 text-amber-500 shadow-[0_0_14px_rgba(245,158,11,0.18)] hover:bg-amber-500/15'
+                      : 'bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-tertiary/80'
               }`}
               title="Toggle annotations"
             >
-              <svg className="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              <svg className="w-3.5 h-3.5 inline mr-1" fill={hasAnnotationComments ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={unresolvedAnnotationTotal > 0 ? 'M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z' : 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z'} />
               </svg>
               Annotations
-              {(annotations ?? []).filter(a => !a.resolved).length > 0 && (
-                <span className="ml-1 px-1 py-0.5 bg-primary-500/30 text-primary-300 rounded-full text-xs">
-                  {(annotations ?? []).filter(a => !a.resolved).length}
+              {annotationTotal > 0 && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  unresolvedAnnotationTotal > 0 ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+                }`}>
+                  {unresolvedAnnotationTotal}/{annotationTotal}
                 </span>
               )}
             </button>
@@ -1713,7 +1722,7 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
           type="button"
           ref={dividerRef}
           onMouseDown={handleDividerMouseDown}
-          className="w-1.5 bg-dark-border-subtle hover:bg-dark-accent-primary/50 cursor-col-resize transition-colors flex-shrink-0 border-0 p-0"
+          className="w-1.5 bg-dark-border-subtle hover:bg-primary-500/50 cursor-col-resize transition-colors flex-shrink-0 border-0 p-0"
           aria-label="Resize panels"
         />
 
@@ -1774,7 +1783,7 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
                         setIsEditingTitle(false)
                       }
                     }}
-                    className="text-2xl font-semibold bg-dark-bg-primary border border-dark-border-subtle rounded px-2 py-0.5 text-dark-text-primary focus:outline-none focus:border-dark-accent-primary w-full max-w-2xl"
+                    className="text-2xl font-semibold bg-dark-bg-primary border border-dark-border-subtle rounded px-2 py-0.5 text-dark-text-primary focus:outline-none focus:border-primary-500 w-full max-w-2xl"
                     aria-label="Wiki page title"
                   />
                 ) : (
@@ -1850,7 +1859,7 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
                   onClick={() => setIsPreview(false)}
                   className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                     !isPreview
-                      ? 'bg-dark-accent-primary text-white'
+                      ? 'bg-primary-600 text-white shadow-sm'
                       : 'bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-tertiary/80'
                   }`}
                 >
@@ -1860,7 +1869,7 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
                   onClick={() => setIsPreview(true)}
                   className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                     isPreview
-                      ? 'bg-dark-accent-primary text-white'
+                      ? 'bg-primary-600 text-white shadow-sm'
                       : 'bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-tertiary/80'
                   }`}
                 >
@@ -2094,21 +2103,24 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
 
       {/* Version History Panel */}
       {showVersionHistory && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end p-3 sm:p-5">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
             onClick={() => { setShowVersionHistory(false); setViewingVersion(null) }}
             aria-hidden="true"
           />
           {/* Panel */}
-          <div className="relative ml-auto w-full max-w-2xl bg-dark-bg-secondary border-l border-dark-border-subtle flex flex-col h-full shadow-2xl">
+          <div className="relative ml-auto flex h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-dark-border-subtle bg-dark-bg-elevated shadow-linear-xl ring-1 ring-white/5">
             {/* Panel header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-dark-border-subtle">
-              <h2 className="text-base font-semibold text-dark-text-primary">Version History</h2>
+            <div className="flex items-center justify-between gap-4 border-b border-dark-border-subtle bg-dark-bg-secondary/80 px-5 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-dark-text-primary">Version History</h2>
+                <p className="mt-0.5 text-xs text-dark-text-tertiary">{page.title}</p>
+              </div>
               <button
                 onClick={() => { setShowVersionHistory(false); setViewingVersion(null) }}
-                className="text-dark-text-tertiary hover:text-dark-text-primary transition-colors"
+                className="rounded-full p-2 text-dark-text-tertiary transition-colors hover:bg-dark-bg-tertiary hover:text-dark-text-primary"
                 aria-label="Close version history"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2120,12 +2132,12 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
             {viewingVersion ? (
               /* Version diff view */
               <div className="flex flex-col flex-1 overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-3 border-b border-dark-border-subtle">
+                <div className="flex items-center gap-3 border-b border-dark-border-subtle bg-dark-bg-primary/40 px-5 py-3">
                   <button
                     onClick={() => setViewingVersion(null)}
-                    className="text-xs text-primary-400 hover:underline"
+                    className="rounded-full bg-dark-bg-tertiary px-3 py-1.5 text-xs font-semibold text-dark-text-secondary transition-colors hover:text-dark-text-primary"
                   >
-                    ← Back to list
+                    Back
                   </button>
                   <span className="text-xs text-dark-text-tertiary">
                     Version {viewingVersion.version_number} — {new Date(viewingVersion.created_at).toLocaleString()}
@@ -2137,16 +2149,16 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
                     Restore this version
                   </button>
                 </div>
-                <div className="flex flex-1 overflow-hidden divide-x divide-dark-border-subtle">
+                <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-2 md:divide-x md:divide-dark-border-subtle">
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="px-3 py-2 text-xs font-medium text-dark-text-tertiary bg-dark-bg-tertiary/30">This version</div>
-                    <pre className="flex-1 overflow-auto px-3 py-2 text-xs text-dark-text-secondary font-mono whitespace-pre-wrap break-words">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase text-dark-text-tertiary bg-dark-bg-tertiary/30">This version</div>
+                    <pre className="flex-1 overflow-auto px-4 py-3 text-xs text-dark-text-secondary font-mono whitespace-pre-wrap break-words">
                       {viewingVersion.content || <span className="text-dark-text-tertiary italic">Empty</span>}
                     </pre>
                   </div>
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="px-3 py-2 text-xs font-medium text-dark-text-tertiary bg-dark-bg-tertiary/30">Current</div>
-                    <pre className="flex-1 overflow-auto px-3 py-2 text-xs text-dark-text-secondary font-mono whitespace-pre-wrap break-words">
+                    <div className="px-4 py-2 text-xs font-semibold uppercase text-dark-text-tertiary bg-dark-bg-tertiary/30">Current</div>
+                    <pre className="flex-1 overflow-auto px-4 py-3 text-xs text-dark-text-secondary font-mono whitespace-pre-wrap break-words">
                       {content || <span className="text-dark-text-tertiary italic">Empty</span>}
                     </pre>
                   </div>
@@ -2154,7 +2166,7 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
               </div>
             ) : (
               /* Version list */
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto p-4">
                 {versionsLoading ? (
                   <div className="flex items-center justify-center py-12 text-dark-text-tertiary text-sm">
                     Loading versions…
@@ -2167,9 +2179,14 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
                     <span>No versions yet. Save the page to create a version.</span>
                   </div>
                 ) : (
-                  <ul className="divide-y divide-dark-border-subtle">
+                  <ul className="space-y-2">
                     {versions.map((v) => (
-                      <li key={v.id} className="flex items-center gap-3 px-5 py-3 hover:bg-dark-bg-tertiary/30 transition-colors">
+                      <li key={v.id} className="group flex items-center gap-3 rounded-xl border border-dark-border-subtle bg-dark-bg-secondary/80 px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-primary-500/40 hover:shadow-linear">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary-500/10 text-primary-400">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-dark-text-primary">Version {v.version_number}</div>
                           <div className="text-xs text-dark-text-tertiary">
@@ -2179,13 +2196,13 @@ export default function WikiEditor({ page, annotations, selectedAnnotationId, sh
                         </div>
                         <button
                           onClick={() => viewVersion(v.version_number)}
-                          className="px-2.5 py-1 rounded text-xs font-medium bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-primary/50 transition-colors"
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-dark-bg-tertiary text-dark-text-secondary hover:bg-dark-bg-primary/50 transition-colors"
                         >
                           View
                         </button>
                         <button
                           onClick={() => restoreVersion(v.version_number)}
-                          className="px-2.5 py-1 rounded text-xs font-medium bg-primary-600/20 text-primary-400 hover:bg-primary-600/30 transition-colors"
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold bg-primary-600/15 text-primary-400 hover:bg-primary-600/25 transition-colors"
                         >
                           Restore
                         </button>
