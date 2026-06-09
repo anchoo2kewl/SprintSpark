@@ -1227,6 +1227,123 @@ func TestWikiContentRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWikiVersionHistoryCompressedAndRetained(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "versions@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Version Project")
+	pageID := ts.createTestWikiPage(t, projectID, userID, "Versioned Page")
+
+	for i := 1; i <= 55; i++ {
+		body := UpdateWikiPageContentRequest{
+			Content:    fmt.Sprintf("# Version %02d\n\n%s", i, strings.Repeat("substantial content ", 40)),
+			ManualSave: true,
+		}
+		rec, req := ts.MakeAuthRequest(t, http.MethodPut,
+			fmt.Sprintf("/api/wiki/pages/%d/content", pageID), body, userID,
+			map[string]string{"pageId": fmt.Sprintf("%d", pageID)})
+
+		ts.HandleUpdateWikiPageContent(rec, req)
+		AssertStatusCode(t, rec.Code, http.StatusOK)
+	}
+
+	listRec, listReq := ts.MakeAuthRequest(t, http.MethodGet,
+		fmt.Sprintf("/api/wiki/pages/%d/versions", pageID), nil, userID,
+		map[string]string{"pageId": fmt.Sprintf("%d", pageID)})
+	ts.HandleListWikiPageVersions(listRec, listReq)
+	AssertStatusCode(t, listRec.Code, http.StatusOK)
+
+	var versions []WikiPageVersionResponse
+	DecodeJSON(t, listRec, &versions)
+	if len(versions) != wikiPageVersionRetentionLimit {
+		t.Fatalf("expected %d retained versions, got %d", wikiPageVersionRetentionLimit, len(versions))
+	}
+	if versions[0].VersionNumber != 55 {
+		t.Fatalf("expected newest retained version 55, got %d", versions[0].VersionNumber)
+	}
+	if versions[len(versions)-1].VersionNumber != 6 {
+		t.Fatalf("expected oldest retained version 6, got %d", versions[len(versions)-1].VersionNumber)
+	}
+
+	var plaintextRows int
+	if err := ts.DB.QueryRow(`SELECT COUNT(*) FROM wiki_page_versions WHERE wiki_page_id = ? AND content <> ''`, pageID).Scan(&plaintextRows); err != nil {
+		t.Fatalf("failed to count plaintext version rows: %v", err)
+	}
+	if plaintextRows != 0 {
+		t.Fatalf("expected all retained versions to store compressed content only, got %d plaintext rows", plaintextRows)
+	}
+
+	getRec, getReq := ts.MakeAuthRequest(t, http.MethodGet,
+		fmt.Sprintf("/api/wiki/pages/%d/versions/6", pageID), nil, userID,
+		map[string]string{"pageId": fmt.Sprintf("%d", pageID), "versionNumber": "6"})
+	ts.HandleGetWikiPageVersion(getRec, getReq)
+	AssertStatusCode(t, getRec.Code, http.StatusOK)
+
+	var version WikiPageVersionWithContentResponse
+	DecodeJSON(t, getRec, &version)
+	if !strings.Contains(version.Content, "# Version 06") {
+		t.Fatalf("expected decompressed version 6 content, got %q", version.Content)
+	}
+}
+
+func TestOptimizeWikiPageVersionStoragePrunesAndCompressesLegacyRows(t *testing.T) {
+	ts := NewTestServer(t)
+	defer ts.Close()
+
+	userID := ts.CreateTestUser(t, "legacy-versions@example.com", "password123")
+	projectID := ts.CreateTestProject(t, userID, "Legacy Version Project")
+	pageID := ts.createTestWikiPage(t, projectID, userID, "Legacy Versioned Page")
+
+	for i := 1; i <= 60; i++ {
+		content := fmt.Sprintf("# Legacy Version %02d\n\n%s", i, strings.Repeat("legacy content ", 30))
+		if _, err := ts.DB.Exec(
+			`INSERT INTO wiki_page_versions (wiki_page_id, version_number, content, content_hash, created_by) VALUES (?, ?, ?, ?, ?)`,
+			pageID, i, content, fmt.Sprintf("hash-%02d", i), userID,
+		); err != nil {
+			t.Fatalf("failed to insert legacy version %d: %v", i, err)
+		}
+	}
+
+	ts.OptimizeWikiPageVersionStorage(context.Background())
+
+	var retained int
+	if err := ts.DB.QueryRow(`SELECT COUNT(*) FROM wiki_page_versions WHERE wiki_page_id = ?`, pageID).Scan(&retained); err != nil {
+		t.Fatalf("failed to count retained versions: %v", err)
+	}
+	if retained != wikiPageVersionRetentionLimit {
+		t.Fatalf("expected %d retained versions, got %d", wikiPageVersionRetentionLimit, retained)
+	}
+
+	var oldest int
+	if err := ts.DB.QueryRow(`SELECT MIN(version_number) FROM wiki_page_versions WHERE wiki_page_id = ?`, pageID).Scan(&oldest); err != nil {
+		t.Fatalf("failed to get oldest retained version: %v", err)
+	}
+	if oldest != 11 {
+		t.Fatalf("expected oldest retained version 11, got %d", oldest)
+	}
+
+	var plaintextRows int
+	if err := ts.DB.QueryRow(`SELECT COUNT(*) FROM wiki_page_versions WHERE wiki_page_id = ? AND content <> ''`, pageID).Scan(&plaintextRows); err != nil {
+		t.Fatalf("failed to count plaintext version rows: %v", err)
+	}
+	if plaintextRows != 0 {
+		t.Fatalf("expected optimizer to compress all retained legacy versions, got %d plaintext rows", plaintextRows)
+	}
+
+	getRec, getReq := ts.MakeAuthRequest(t, http.MethodGet,
+		fmt.Sprintf("/api/wiki/pages/%d/versions/60", pageID), nil, userID,
+		map[string]string{"pageId": fmt.Sprintf("%d", pageID), "versionNumber": "60"})
+	ts.HandleGetWikiPageVersion(getRec, getReq)
+	AssertStatusCode(t, getRec.Code, http.StatusOK)
+
+	var version WikiPageVersionWithContentResponse
+	DecodeJSON(t, getRec, &version)
+	if !strings.Contains(version.Content, "# Legacy Version 60") {
+		t.Fatalf("expected decompressed legacy version content, got %q", version.Content)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Integration: Create then Delete, then verify gone
 // ---------------------------------------------------------------------------
