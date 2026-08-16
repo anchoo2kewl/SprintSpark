@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AuthProvider, useAuth } from './state/AuthContext'
 import { SyncProvider } from './state/SyncContext'
@@ -60,6 +60,31 @@ function SettingsRedirect() {
   return <Navigate to={target} replace />
 }
 
+// Renders for unknown paths with a robots noindex so crawlers treat them as
+// intentionally unindexed rather than as soft 404s (GSC 2026-08-16 report).
+function NotFoundRoute() {
+  useEffect(() => {
+    const meta = document.createElement('meta')
+    meta.name = 'robots'
+    meta.content = 'noindex'
+    document.head.appendChild(meta)
+    return () => {
+      document.head.removeChild(meta)
+    }
+  }, [])
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 text-center p-8">
+      <h1 className="text-3xl font-semibold">Page not found</h1>
+      <p className="text-neutral-500">
+        That page does not exist.{' '}
+        <a href="/" className="underline">
+          Back to TaskAI
+        </a>
+      </p>
+    </div>
+  )
+}
+
 function AppRoutes() {
   const location = useLocation()
   const bgLocation = (location.state as { backgroundLocation?: Location })?.backgroundLocation
@@ -99,8 +124,11 @@ function AppRoutes() {
           <Route path="settings" element={<Settings />} />
         </Route>
 
-        {/* Catch-all redirect to landing */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Catch-all: a real 404, not a redirect. Redirecting unknown URLs
+            to the landing page made every phantom URL render homepage
+            content, which Google flags as a soft 404; the injected robots
+            noindex marks these as intentionally unindexed instead. */}
+        <Route path="*" element={<NotFoundRoute />} />
       </Routes>
 
       {/* Task detail modal overlay when opened from project board */}
